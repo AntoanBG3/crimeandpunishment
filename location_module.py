@@ -1,15 +1,11 @@
 # location_module.py
-from game_config import DEFAULT_ITEMS # To reference item properties if needed
+from game_config import DEFAULT_ITEMS
 
-# LOCATIONS_DATA now includes 'items_present' as a list of item names.
-# The actual item objects/details will be managed by the game state,
-# referencing DEFAULT_ITEMS from game_config.
 LOCATIONS_DATA = {
     "Tavern": {
         "description": "The air in this St. Petersburg tavern is thick with the acrid smell of cheap makhorka tobacco, stale beer, and unwashed bodies. Grimy wooden tables are scarred with countless rings from wet glasses. Low, guttural laughter and hushed, desperate whispers mingle, creating a cacophony of the city's underbelly. Shadows cling to the corners, and the flickering gaslight casts a jaundiced glow on the faces of the patrons, each seemingly lost in their own private miseries or fleeting revelries.",
         "exits": {"Haymarket Square": "Push through the heavy, creaking door back into the sensory assault of Haymarket Square."},
-        # npc_names_present is now dynamic based on NPC schedules
-        "items_present": [{"name": "dusty bottle", "quantity": 2}, {"name": "worn coin", "quantity": 1}], # Item name and quantity
+        "items_present": [{"name": "dusty bottle", "quantity": 2}, {"name": "worn coin", "quantity": 1}, {"name": "cheap vodka", "quantity": 1}],
         "time_effects": {
             "Night": " The tavern is rowdier now, filled with more drunken shouts and the desperate gaiety of those trying to forget the coming dawn."
         }
@@ -17,7 +13,7 @@ LOCATIONS_DATA = {
     "Raskolnikov's Garret": {
         "description": "This 'coffin' of a room, tucked away under the very eaves of a towering, five-storied house, is suffocating. The ceiling presses down, so low you feel you could touch it without standing. Yellowed, peeling wallpaper, adorned with a barely discernible floral pattern, seems to absorb what little light filters through the grimy window. The air is perpetually stuffy, heavy with the scent of dust, poverty, and unspoken thoughts. A rickety table, a chair, and a wretched sofa covered in tattered chintz are the sole furnishings.",
         "exits": {"Stairwell (Outside Raskolnikov's Garret)": "Open the flimsy door and step out into the dim, echoing stairwell."},
-        "items_present": [{"name": "old newspaper", "quantity": 1}], # Raskolnikov might have the axe hidden
+        "items_present": [{"name": "old newspaper", "quantity": 1}],
         "time_effects": {
             "Night": " The room is even more oppressive in the darkness, shadows deepening the sense of confinement. The city's distant noises seem louder here."
         }
@@ -31,9 +27,12 @@ LOCATIONS_DATA = {
         "items_present": []
     },
     "Sonya's Room": {
-        "description": "Sonya Marmeladova's room at the Kapernaumovs' is surprisingly large, though the ceiling is oppressively low. It is irregularly shaped, with a sharp angle cutting into one wall, making it feel like a barn. Furnishings are meager: a plain wooden bed with a thin blanket, a simple table, a few mismatched chairs, and a small, battered chest of drawers. A worn copy of the New Testament lies on the table. Despite its bareness, there's a sense of desperate tidiness, a quiet battle against encroaching squalor. The room is filled with a palpable atmosphere of sorrow, faith, and profound suffering.",
-        "exits": {"Haymarket Square": "Leave the quiet sorrow of the room and return to the jarring noise of Haymarket Square."},
-        "items_present": [], # Sonya carries her New Testament
+        "description": "Sonya Marmeladova's room at the Kapernaumovs' is surprisingly large, though the ceiling is oppressively low. It is irregularly shaped, with a sharp angle cutting into one wall, making it feel like a barn. Furnishings are meager: a plain wooden bed with a thin blanket, a simple table, a few mismatched chairs, and a small, battered chest of drawers. Despite its bareness, there's a sense of desperate tidiness, a quiet battle against encroaching squalor. The room is filled with a palpable atmosphere of sorrow, faith, and profound suffering.",
+        "exits": {
+            "Haymarket Square": "Leave the quiet sorrow of the room and return to the jarring noise of Haymarket Square.",
+            "Katerina Ivanovna's Apartment": "A short, grim walk takes you to the even more chaotic dwelling of Katerina Ivanovna." # New Exit
+            },
+        "items_present": [],
          "time_effects": {
             "Evening": " A single candle often burns, casting long, flickering shadows that dance with Sonya's quiet movements."
         }
@@ -60,7 +59,8 @@ LOCATIONS_DATA = {
             "Police Station (General Area)": "Make your way towards the imposing, grey facade of the local police station.",
             "Voznesensky Bridge": "Head towards the wide expanse of the Voznesensky Bridge, seeking a moment's respite.",
             "Pulcheria's Lodgings": "Find the quieter side street leading to the modest rooms where Raskolnikov's mother and sister are staying.",
-            "Pawnbroker's Apartment Building": "Turn down a familiar, grim street towards the building where Alyona Ivanovna, the old pawnbroker, met her end."
+            "Pawnbroker's Apartment Building": "Turn down a familiar, grim street towards the building where Alyona Ivanovna, the old pawnbroker, met her end.",
+            "Katerina Ivanovna's Apartment": "Follow a narrow, squalid alley towards the Marmeladovs' chaotic dwelling." # New Exit
         },
         "items_present": [{"name": "tattered handkerchief", "quantity": 1}, {"name": "worn coin", "quantity": 2}],
         "time_effects": {
@@ -79,7 +79,7 @@ LOCATIONS_DATA = {
     "Pawnbroker's Apartment": {
         "description": "The air inside Alyona Ivanovna's small apartment is stale and heavy with an almost tangible silence. Dust motes dance in the weak shafts of light that penetrate the grimy windows. The sparse furniture – a few chairs, a chest, a bed – is draped in ghostly stillness. Every object seems to hold a memory, a silent testament to the violent events that transpired here. The place feels cold, violated, and haunted by an unspeakable dread.",
         "exits": {"Pawnbroker's Apartment Building": "Turn your back on the scene and leave the apartment, returning to the stairwell."},
-        "items_present": [] # Perhaps evidence could be found here later.
+        "items_present": [{"name": "Lizaveta's bundle", "quantity": 1}] # Lizaveta's bundle might be found here.
     },
     "Voznesensky Bridge": {
         "description": "Standing on the Voznesensky Bridge, you feel the city's pulse around you, yet also a strange sense of detachment. The wide expanse of the murky canal flows beneath, its dark waters reflecting the grey St. Petersburg sky. Horse-drawn carts rattle across the cobblestones, and pedestrians hurry past, wrapped in their own concerns. It's a place of transit, but also one for contemplation, where the vastness of the city and the weight of one's thoughts can feel overwhelming.",
@@ -93,11 +93,17 @@ LOCATIONS_DATA = {
         "description": "The rented rooms where Pulcheria Alexandrovna and Dunya are staying are modest but kept meticulously clean, a stark contrast to Raskolnikov's garret. There's a smell of lavender and old linen. Simple furniture is arranged neatly, and a samovar might be hissing quietly in a corner. Despite the attempt at creating a homely atmosphere, an undercurrent of anxiety and hopeful, almost painful expectation for Rodya pervades the rooms.",
         "exits": {"Haymarket Square": "Take your leave from the lodgings and head back towards the bustling activity of Haymarket Square."},
         "items_present": []
+    },
+    "Katerina Ivanovna's Apartment": {
+        "description": "A cramped, squalid room, overflowing with the detritus of poverty and shattered pride. Three young children – Polenka, Kolya, and Lida – often huddle in a corner, their eyes wide with fear or hunger. Katerina Ivanovna herself, flushed with fever and consumption, dominates the space with her shrill voice, lamentations, and fits of coughing. The air is stale, thick with the smell of illness, unwashed linen, and cheap tobacco (from Semyon's past presence). It's a scene of utter destitution and unbearable tension.",
+        "exits": {
+            "Haymarket Square": "Escape the suffocating misery and noise, returning to the relative chaos of Haymarket Square.",
+            "Sonya's Room": "A short walk takes you to Sonya's slightly less chaotic, but equally sorrowful, room." # New Exit
+            },
+        "items_present": [{"name": "tattered handkerchief", "quantity": 2}], # Katerina always needs them
+        "time_effects": {
+            "Afternoon": " The children might be playing listlessly or crying, while Katerina Ivanovna is often in a state of high agitation.",
+            "Evening": " Katerina might be trying to put the children to bed, her voice softer but filled with despair, or she could be loudly berating Sonya if she's present."
+        }
     }
 }
-
-# This dictionary will store the *current* state of items in locations (dynamic)
-# It will be initialized from LOCATIONS_DATA but can change during gameplay.
-# Key: location_name, Value: list of item dicts [{"name": "item_name", "quantity": x}, ...]
-# This is managed by the Game class now.
-# dynamic_location_items = {}
