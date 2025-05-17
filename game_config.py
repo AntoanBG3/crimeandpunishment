@@ -11,9 +11,12 @@ class Colors:
     CYAN = '\033[96m'
     WHITE = '\033[97m'
     BOLD = '\033[1m'
+    DIM = '\033[2m' # For less prominent text like timestamps
+    UNDERLINE = '\033[4m'
 
-# --- Configuration File for API Key ---
-API_CONFIG_FILE = "gemini_config.json"
+# --- API Key Configuration ---
+API_CONFIG_FILE = "gemini_config.json" # Fallback if environment variable not set
+GEMINI_API_KEY_ENV_VAR = "GEMINI_API_KEY" # Preferred method for API key
 # Use the latest available model for higher quality generation
 GEMINI_MODEL_NAME = 'gemini-1.5-pro-latest' 
 
@@ -87,7 +90,7 @@ COMMAND_SYNONYMS = {
     "inventory": ["inv", "i", "possessions", "belongings"],
     "take": ["get", "pick up", "acquire"],
     "drop": ["leave", "discard"],
-    "use": ["apply"], # Added "use" command
+    "use": ["apply"], 
     "help": ["commands", "actions"],
     "save": ["save game"],
     "load": ["load game"],
@@ -95,6 +98,8 @@ COMMAND_SYNONYMS = {
 }
 
 # --- Player States (for NPC reactions) ---
-# These are examples; can be set dynamically in the game
-PLAYER_APPARENT_STATES = ["normal", "agitated", "feverish", "suspiciously calm", "despondent", "injured"]
+PLAYER_APPARENT_STATES = ["normal", "agitated", "feverish", "suspiciously calm", "despondent", "injured", "contemplative", "thoughtful", "burdened", "dangerously agitated", "less feverish"]
 
+# --- UI Elements ---
+PROMPT_ARROW = f"{Colors.GREEN}> {Colors.RESET}"
+SEPARATOR_LINE = Colors.DIM + ("-" * 60) + Colors.RESET

@@ -2,7 +2,7 @@
 import google.generativeai as genai
 import os
 import json
-from game_config import API_CONFIG_FILE, GEMINI_MODEL_NAME, Colors 
+from game_config import API_CONFIG_FILE, GEMINI_MODEL_NAME, Colors, GEMINI_API_KEY_ENV_VAR
 
 class GeminiAPI:
     def __init__(self):
@@ -17,7 +17,8 @@ class GeminiAPI:
         else: 
             print(f"{color}{text}{Colors.RESET}", end=end)
 
-    def load_api_key(self):
+    def load_api_key_from_file(self):
+        """Loads API key from the JSON config file."""
         try:
             if os.path.exists(API_CONFIG_FILE):
                 with open(API_CONFIG_FILE, 'r') as f:
@@ -27,11 +28,12 @@ class GeminiAPI:
             self._log_message(f"Could not load API key from {API_CONFIG_FILE}: {e}", Colors.RED)
         return None
 
-    def save_api_key(self, api_key):
+    def save_api_key_to_file(self, api_key):
+        """Saves API key to the JSON config file."""
         try:
             with open(API_CONFIG_FILE, 'w') as f:
                 json.dump({"gemini_api_key": api_key}, f)
-            self._log_message(f"API key saved to {API_CONFIG_FILE}", Colors.MAGENTA)
+            self._log_message(f"API key saved to {API_CONFIG_FILE} for future use (less secure).", Colors.MAGENTA)
         except Exception as e:
             self._log_message(f"Could not save API key to {API_CONFIG_FILE}: {e}", Colors.RED)
 
@@ -40,10 +42,22 @@ class GeminiAPI:
         self._input_color_func = input_func
 
         self._print_color_func("\n--- Gemini API Key Configuration ---", Colors.MAGENTA)
-        api_key = self.load_api_key()
         
+        api_key = os.getenv(GEMINI_API_KEY_ENV_VAR)
+        source = "environment variable"
+
         if not api_key:
-            api_key = self._input_color_func("Please enter your Gemini API key: ", Colors.MAGENTA).strip()
+            self._log_message(f"API key not found in environment variable '{GEMINI_API_KEY_ENV_VAR}'. Trying {API_CONFIG_FILE}...", Colors.YELLOW)
+            api_key = self.load_api_key_from_file()
+            source = API_CONFIG_FILE
+            if api_key:
+                 self._log_message(f"Loaded API key from {API_CONFIG_FILE}.", Colors.YELLOW)
+
+
+        if not api_key:
+            self._log_message(f"API key not found in {API_CONFIG_FILE} either.", Colors.YELLOW)
+            api_key = self._input_color_func(f"Please enter your Gemini API key (or set the '{GEMINI_API_KEY_ENV_VAR}' environment variable): ", Colors.MAGENTA).strip()
+            source = "user input"
                                            
         if not api_key:
             self._print_color_func("\nNo API key provided.", Colors.RED)
@@ -53,23 +67,31 @@ class GeminiAPI:
 
         try:
             genai.configure(api_key=api_key)
-            # Ensure the model name from game_config is used
             current_model_name = GEMINI_MODEL_NAME 
             self.model = genai.GenerativeModel(current_model_name) 
             self.api_key_configured = True
-            self._print_color_func(f"\nGemini API configured successfully with model '{current_model_name}'.", Colors.GREEN)
-            self.save_api_key(api_key) 
+            self._print_color_func(f"\nGemini API configured successfully using key from {source} with model '{current_model_name}'.", Colors.GREEN)
+            
+            # If key came from user input and they want to save it to file (less secure, but convenient for them)
+            if source == "user input":
+                save_choice = self._input_color_func(f"Do you want to save this API key to {API_CONFIG_FILE} for easier startup next time? (y/n) (Not recommended if sharing this project): ", Colors.YELLOW).strip().lower()
+                if save_choice == 'y':
+                    self.save_api_key_to_file(api_key)
+                else:
+                    self._print_color_func(f"API key not saved to file. Consider setting the '{GEMINI_API_KEY_ENV_VAR}' environment variable.", Colors.YELLOW)
+
         except Exception as e:
             self._print_color_func(f"Error configuring Gemini API with model '{GEMINI_MODEL_NAME}': {e}", Colors.RED)
-            self._print_color_func("Please ensure your API key is correct and the model name is valid.", Colors.YELLOW)
+            self._print_color_func(f"Please ensure your API key (from {source}) is correct and the model name is valid.", Colors.YELLOW)
             self._print_color_func("The game will run with placeholder NPC responses.", Colors.YELLOW)
             self.api_key_configured = False
-            if os.path.exists(API_CONFIG_FILE): 
+            # If key from file was bad, maybe offer to remove/rename file
+            if source == API_CONFIG_FILE and os.path.exists(API_CONFIG_FILE): 
                 try: 
-                    os.remove(API_CONFIG_FILE)
-                    self._print_color_func(f"Removed potentially invalid API key from {API_CONFIG_FILE}.", Colors.YELLOW)
+                    os.rename(API_CONFIG_FILE, API_CONFIG_FILE + ".invalid")
+                    self._print_color_func(f"Renamed potentially invalid {API_CONFIG_FILE} to {API_CONFIG_FILE}.invalid.", Colors.YELLOW)
                 except OSError as ose:
-                    self._print_color_func(f"Could not remove {API_CONFIG_FILE}: {ose}", Colors.YELLOW)
+                    self._print_color_func(f"Could not rename {API_CONFIG_FILE}: {ose}", Colors.YELLOW)
 
     def get_npc_dialogue(self, npc_character, player_character, player_dialogue, 
                          current_location_name, relationship_status, npc_memory_summary, 
@@ -79,12 +101,10 @@ class GeminiAPI:
         
         conversation_context = npc_character.get_formatted_history(player_character.name)
         
-        # Constructing the current situation for the NPC
         situation_summary = f"You, {npc_character.name}, are in {current_location_name}. "
         situation_summary += f"The player, {player_character.name}, currently appears to be in a '{player_apparent_state}' state and {player_notable_items_summary} "
         situation_summary += f"Your relationship with {player_character.name} is {relationship_status}. "
         situation_summary += f"{npc_memory_summary}"
-
 
         prompt = f"""
         You are {npc_character.name}, a character from Dostoevsky's "Crime and Punishment".
@@ -151,9 +171,8 @@ class GeminiAPI:
 
     def get_atmospheric_details(self, player_character, location_name, time_period, recent_event_summary=None):
         if not self.api_key_configured or not self.model:
-            return None # Return None if API not configured, so game can skip printing it
+            return None 
 
-        # Build a context string
         context = f"{player_character.name} ({player_character.apparent_state}) is in {location_name} during the {time_period}. "
         if recent_event_summary:
             context += f"Recently, {recent_event_summary}. "
@@ -179,10 +198,9 @@ class GeminiAPI:
         try:
             response = self.model.generate_content(prompt)
             description = response.text.strip()
-            # Ensure it's not an empty string or a refusal.
             if description and len(description) > 10 and "cannot" not in description.lower() and "unable" not in description.lower():
                 return description
-            return None # Return None if the response is too short or seems like a refusal
+            return None 
         except Exception as e:
             self._print_color_func(f"Error calling Gemini API for atmospheric details: {e}", Colors.RED)
             return None
@@ -251,4 +269,3 @@ class GeminiAPI:
         except Exception as e:
             self._print_color_func(f"Error calling Gemini API for item interaction: {e}", Colors.RED)
             return f"(OOC: Your thoughts on the {item_name} are unclear.)"
-
