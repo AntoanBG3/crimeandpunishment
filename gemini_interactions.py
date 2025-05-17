@@ -34,71 +34,195 @@ class GeminiAPI:
         except Exception as e:
             self._log_message(f"Could not save API key to {API_CONFIG_FILE}: {e}", Colors.RED if hasattr(Colors, 'RED') else "")
 
+    def _rename_invalid_config_file(self, config_file_path, suffix="invalid_key"):
+        if os.path.exists(config_file_path):
+            try:
+                invalid_file_name = config_file_path + f".{suffix}"
+                os.rename(config_file_path, invalid_file_name)
+                self._print_color_func(f"Renamed potentially problematic {config_file_path} to {invalid_file_name}.", Colors.YELLOW)
+            except OSError as ose:
+                self._print_color_func(f"Could not rename {config_file_path}: {ose}", Colors.YELLOW)
+
+    def _attempt_api_setup(self, api_key, source):
+        """
+        Tries to configure genai, instantiate the model, and validate with a test call.
+        Returns True if successful, False otherwise.
+        Sets self.model to the generative model if successful, or None if failed.
+        """
+        if not api_key: # Should not happen if called correctly, but as a safeguard.
+            self._log_message(f"Internal: _attempt_api_setup called with no API key from {source}.", Colors.RED)
+            self.model = None
+            return False
+            
+        try:
+            genai.configure(api_key=api_key)
+        except Exception as e_config:
+            self._print_color_func(f"Error configuring Gemini API (initial setup with genai.configure using key from {source}): {e_config}", Colors.RED)
+            self.model = None
+            return False
+
+        try:
+            model_instance = genai.GenerativeModel(GEMINI_MODEL_NAME)
+        except Exception as model_e:
+            self._print_color_func(f"Error instantiating Gemini model '{GEMINI_MODEL_NAME}' using key from {source}: {model_e}", Colors.RED)
+            self._print_color_func(f"The API key might be valid, but there could be an issue with the model name or access permissions.", Colors.YELLOW)
+            self.model = None
+            return False
+
+        self._print_color_func(f"Verifying API key functionality from {source} with model '{GEMINI_MODEL_NAME}'...", Colors.MAGENTA)
+        try:
+            safety_settings = [
+                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+            ]
+            test_response = model_instance.generate_content(
+                "Respond with only the word 'test' if this works.",
+                generation_config=genai.types.GenerationConfig(candidate_count=1, max_output_tokens=5),
+                safety_settings=safety_settings
+            )
+
+            if hasattr(test_response, 'text') and 'test' in test_response.text.lower():
+                self._print_color_func(f"API key from {source} verified successfully for model '{GEMINI_MODEL_NAME}'.", Colors.GREEN)
+                self.model = model_instance
+                return True
+            else:
+                feedback_text = "Unknown issue during verification."
+                if hasattr(test_response, 'prompt_feedback') and hasattr(test_response.prompt_feedback, 'block_reason') and test_response.prompt_feedback.block_reason:
+                    feedback_text = f"Blocked due to: {test_response.prompt_feedback.block_reason}. The key may be valid but content generation for the test prompt was restricted."
+                elif not hasattr(test_response, 'text') or not test_response.text:
+                    feedback_text = "API key test call returned an empty or non-text response."
+                else:
+                    feedback_text = f"API key test call returned unexpected text: '{test_response.text[:50]}...'"
+                self._print_color_func(f"API key verification failed using key from {source}: {feedback_text}", Colors.RED)
+                self.model = None
+                return False
+
+        except Exception as e_test:
+            self._print_color_func(f"Error during API key verification call (from {source}) with model '{GEMINI_MODEL_NAME}': {e_test}", Colors.RED)
+            error_str = str(e_test).lower()
+            auth_keywords = [
+                "api key not valid", "permission_denied", "authentication_failed", 
+                "invalid api key", "credential is invalid", "unauthenticated", 
+                "api_key_invalid", "user_location_invalid" 
+            ]
+            grpc_permission_denied = hasattr(e_test, 'grpc_status_code') and e_test.grpc_status_code == 7
+            is_auth_error = grpc_permission_denied or any(keyword in error_str for keyword in auth_keywords)
+            
+            if is_auth_error:
+                self._print_color_func(f"The provided API key from '{source}' appears to be invalid or lacks necessary permissions for the model/region.", Colors.RED)
+            else:
+                self._print_color_func(f"An unexpected error occurred during verification (e.g., network issue, API service problem, or strict safety filters blocking the test prompt).", Colors.YELLOW)
+            self.model = None
+            return False
+
     def configure(self, print_func, input_func):
         self._print_color_func = print_func
         self._input_color_func = input_func
         self._print_color_func("\n--- Gemini API Key Configuration ---", Colors.MAGENTA)
-        api_key = os.getenv(GEMINI_API_KEY_ENV_VAR)
-        source = f"environment variable '{GEMINI_API_KEY_ENV_VAR}'"
 
-        if not api_key:
-            self._log_message(f"API key not found in {source}. Trying {API_CONFIG_FILE}...", Colors.YELLOW)
-            api_key = self.load_api_key_from_file()
-            source = API_CONFIG_FILE
-            if api_key: self._log_message(f"Loaded API key from {API_CONFIG_FILE}.", Colors.GREEN)
+        # Attempt 1: Environment Variable
+        env_api_key = os.getenv(GEMINI_API_KEY_ENV_VAR)
+        if env_api_key:
+            self._log_message(f"Attempting to use API key from environment variable '{GEMINI_API_KEY_ENV_VAR}'.", Colors.YELLOW)
+            if self._attempt_api_setup(env_api_key, f"environment variable '{GEMINI_API_KEY_ENV_VAR}'"):
+                return 
 
-        if not api_key:
-            self._log_message(f"API key not found in {API_CONFIG_FILE} either.", Colors.YELLOW)
-            api_key_input = self._input_color_func(f"Please enter your Gemini API key (or set the '{GEMINI_API_KEY_ENV_VAR}' environment variable, or place in {API_CONFIG_FILE}): ", Colors.MAGENTA)
-            api_key = api_key_input.strip() if api_key_input else None
-            source = "user input"
+        # Attempt 2: Config File
+        # Check if the file was renamed due to a prior failure in the same session (unlikely but good to be robust)
+        if not os.path.exists(API_CONFIG_FILE) and (os.path.exists(API_CONFIG_FILE + ".validation_failed") or os.path.exists(API_CONFIG_FILE + ".initial_config_failed")):
+             self._log_message(f"Config file {API_CONFIG_FILE} seems to have failed in a previous attempt. Skipping.", Colors.YELLOW)
+        elif os.path.exists(API_CONFIG_FILE):
+            file_api_key = self.load_api_key_from_file()
+            if file_api_key:
+                self._log_message(f"Attempting to use API key from config file '{API_CONFIG_FILE}'.", Colors.YELLOW)
+                if self._attempt_api_setup(file_api_key, API_CONFIG_FILE):
+                    return 
+                else: # Key from file failed
+                    self._rename_invalid_config_file(API_CONFIG_FILE, "validation_failed")
+            # If file_api_key is None (e.g. file malformed or empty), it will proceed to manual.
 
-        if not api_key:
-            self._print_color_func("\nNo API key provided. Game will run with placeholder responses.", Colors.RED)
-            self.model = None
-            return
+        # Attempt 3: Loop for Manual Input
+        while True:
+            manual_api_key_input = self._input_color_func(
+                f"Please enter your Gemini API key (or type 'skip' to use placeholder responses): ",
+                Colors.MAGENTA
+            )
+            manual_api_key = manual_api_key_input.strip()
 
-        try:
-            genai.configure(api_key=api_key)
-            self.model = genai.GenerativeModel(GEMINI_MODEL_NAME)
-            self._print_color_func(f"\nGemini API configured successfully using key from {source} with model '{GEMINI_MODEL_NAME}'.", Colors.GREEN)
-            if source == "user input":
-                save_choice = self._input_color_func(f"Save key to {API_CONFIG_FILE}? (y/n) (Not recommended if sharing project): ", Colors.YELLOW).strip().lower()
-                if save_choice == 'y': self.save_api_key_to_file(api_key)
-                else: self._print_color_func(f"API key not saved. Set '{GEMINI_API_KEY_ENV_VAR}' for better security.", Colors.YELLOW)
-        except Exception as e:
-            self._print_color_func(f"Error configuring Gemini API with model '{GEMINI_MODEL_NAME}': {e}", Colors.RED)
-            self._print_color_func(f"Please ensure key (from {source}) is correct and model is valid. Placeholder responses will be used.", Colors.YELLOW)
-            self.model = None
-            if source == API_CONFIG_FILE and os.path.exists(API_CONFIG_FILE):
-                try:
-                    invalid_file_name = API_CONFIG_FILE + ".invalid_key"
-                    os.rename(API_CONFIG_FILE, invalid_file_name)
-                    self._print_color_func(f"Renamed potentially invalid {API_CONFIG_FILE} to {invalid_file_name}.", Colors.YELLOW)
-                except OSError as ose:
-                    self._print_color_func(f"Could not rename {API_CONFIG_FILE}: {ose}", Colors.YELLOW)
+            if not manual_api_key:
+                self._print_color_func("No API key entered. Please provide a key or type 'skip'.", Colors.YELLOW)
+                continue 
+
+            if manual_api_key.lower() == 'skip':
+                self._print_color_func("\nSkipping API key entry. Game will run with placeholder responses.", Colors.RED)
+                self.model = None 
+                return 
+
+            if self._attempt_api_setup(manual_api_key, "user input"):
+                save_choice = self._input_color_func(
+                    f"Save this valid key to {API_CONFIG_FILE}? (y/n) (Not recommended if sharing project): ",
+                    Colors.YELLOW
+                ).strip().lower()
+                if save_choice == 'y':
+                    self.save_api_key_to_file(manual_api_key)
+                else:
+                    self._print_color_func(f"API key not saved. Set '{GEMINI_API_KEY_ENV_VAR}' or use {API_CONFIG_FILE} for persistence.", Colors.YELLOW)
+                return 
+
+            # If _attempt_api_setup returned False for manual key
+            self._print_color_func("The manually entered API key failed validation.", Colors.RED)
+            retry_choice = self._input_color_func("Try entering a different API key? (y/n): ", Colors.YELLOW).strip().lower()
+            if retry_choice != 'y':
+                self._print_color_func("\nProceeding with placeholder responses.", Colors.RED)
+                self.model = None 
+                return 
+            # else: Loop continues for another manual input attempt
 
     def _generate_content_with_fallback(self, prompt, error_message_context="generating content"):
         if not self.model:
-            return f"(OOC: Gemini API not configured. Cannot fulfill request for {error_message_context}.)"
+            return f"(OOC: Gemini API not configured or key invalid. Cannot fulfill request for {error_message_context}.)"
         try:
-            # Safety settings can be adjusted here if needed, e.g.,
-            # safety_settings = {'HARASSMENT': 'BLOCK_NONE'} # Example, use with caution
-            response = self.model.generate_content(prompt) #, safety_settings=safety_settings)
+            safety_settings=[
+                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+                {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+                {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+            ]
+            response = self.model.generate_content(prompt, safety_settings=safety_settings)
             
-            # Check for empty or refusal-like responses more robustly
-            if not hasattr(response, 'text') or not response.text or \
-               any(phrase in response.text.lower() for phrase in ["cannot fulfill", "unable to provide", "cannot generate", "not able to create", "i am unable to"]):
-                self._log_message(f"Warning: Gemini returned an empty or refusal-like response for {error_message_context}. Prompt: {prompt[:200]}...", Colors.YELLOW)
-                return f"(OOC: My thoughts on this are unclear or restricted at the moment.)"
+            if not hasattr(response, 'text') or not response.text: 
+                block_reason_str = ""
+                if hasattr(response, 'prompt_feedback') and hasattr(response.prompt_feedback, 'block_reason') and response.prompt_feedback.block_reason:
+                    block_reason_str = f" (Reason: {response.prompt_feedback.block_reason})"
+                elif hasattr(response, 'candidates') and len(response.candidates) > 0 and hasattr(response.candidates[0], 'finish_reason') and response.candidates[0].finish_reason != 1: # FINISH_REASON_STOP = 1
+                     block_reason_str = f" (Finish Reason: {response.candidates[0].finish_reason})"
+
+                refusal_phrases = ["cannot fulfill", "unable to provide", "cannot generate", "not able to create", "i am unable to"]
+                if hasattr(response, 'text') and response.text and any(phrase in response.text.lower() for phrase in refusal_phrases):
+                     self._log_message(f"Warning: Gemini returned a refusal-like response for {error_message_context}.{block_reason_str} Prompt: {prompt[:200]}...", Colors.YELLOW)
+                     return f"(OOC: My thoughts on this are restricted at the moment.{block_reason_str})"
+
+                self._log_message(f"Warning: Gemini returned an empty or non-text response for {error_message_context}.{block_reason_str} Prompt: {prompt[:200]}...", Colors.YELLOW)
+                return f"(OOC: My thoughts on this are unclear or restricted at the moment.{block_reason_str})"
             return response.text.strip()
         except Exception as e:
             self._log_message(f"Error calling Gemini API for {error_message_context}: {e}", Colors.RED)
-            if hasattr(e, 'response') and hasattr(e.response, 'prompt_feedback') and e.response.prompt_feedback.block_reason:
+            block_reason = None
+            if hasattr(e, 'response') and hasattr(e.response, 'prompt_feedback') and hasattr(e.response.prompt_feedback, 'block_reason'): # Check response attribute first
                 block_reason = e.response.prompt_feedback.block_reason
+            
+            if block_reason: # If block_reason was found in the exception's response
                 self._log_message(f"Blocked due to: {block_reason}", Colors.YELLOW)
                 return f"(OOC: My response was blocked: {block_reason})"
-            return f"(OOC: My thoughts are... muddled due to an error.)"
+            
+            if hasattr(e, 'grpc_status_code') and e.grpc_status_code == 7: 
+                 return f"(OOC: API key error - Permission Denied. My thoughts are muddled.)"
+            return f"(OOC: My thoughts are... muddled due to an error: {str(e)[:100]}...)"
+
+    # --- Other methods like get_npc_dialogue, get_player_reflection, etc. remain unchanged ---
+    # (Assuming they are the same as the last correct version provided)
 
     def get_npc_dialogue(self, npc_character, player_character, player_dialogue,
                          current_location_name, current_time_period, relationship_status_text,
@@ -314,7 +438,7 @@ class GeminiAPI:
         """
         return self._generate_content_with_fallback(prompt, f"item interaction with {item_name} by {character.name}")
 
-    def get_dream_sequence(self, character_obj, recent_events_summary, current_objectives_summary, key_relationships_summary):
+    def get_dream_sequence(self, character_obj, recent_events_summary, current_objectives_summary, key_relationships_summary="No specific key relationships to note for this dream."):
         prompt = f"""
         **Task: Describe a symbolic, surreal, and unsettling Dostoevskian dream experienced by {character_obj.name}.**
 
@@ -340,7 +464,7 @@ class GeminiAPI:
         """
         return self._generate_content_with_fallback(prompt, f"{character_obj.name}'s dream sequence")
 
-    def get_rumor_or_gossip(self, npc_obj, location_name, game_time_period, known_facts_about_crime_summary, player_notoriety_level, npc_relationship_with_player_text, npc_current_concerns):
+    def get_rumor_or_gossip(self, npc_obj, location_name, game_time_period, known_facts_about_crime_summary, player_notoriety_level, npc_relationship_with_player_text="neutral", npc_current_concerns="their usual worries"):
         prompt = f"""
         **Task: Generate a brief, in-character snippet of Dostoevskian gossip or rumor (1-2 sentences) that {npc_obj.name} might share or have overheard.**
 
@@ -410,7 +534,7 @@ class GeminiAPI:
         return self._generate_content_with_fallback(prompt, "newspaper article snippet")
 
     def get_scenery_observation(self, character_obj, scenery_noun_phrase, location_name, time_period,
-                                character_active_objectives_summary):
+                                character_active_objectives_summary="their current thoughts"):
         prompt = f"""
         **Roleplay Mandate: Generate {character_obj.name}'s internal, first-person Dostoevskian observation about a specific piece of scenery.**
 
@@ -478,4 +602,3 @@ class GeminiAPI:
         Generate the text for the '{document_type}' now:
         """
         return self._generate_content_with_fallback(prompt, f"generated text for {document_type}")
-
