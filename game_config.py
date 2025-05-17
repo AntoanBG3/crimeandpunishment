@@ -17,7 +17,7 @@ class Colors:
 # --- API Key Configuration ---
 API_CONFIG_FILE = "gemini_config.json"
 GEMINI_API_KEY_ENV_VAR = "GEMINI_API_KEY"
-GEMINI_MODEL_NAME = 'gemini-2.0-flash'
+GEMINI_MODEL_NAME = 'gemini-2.0-flash' # Default model
 
 # --- Save Game File ---
 SAVE_GAME_FILE = "savegame.json"
@@ -32,7 +32,8 @@ NPC_SHARE_RUMOR_MIN_RELATIONSHIP = -2 # NPC won't share rumors if relationship i
 # --- Phrases that might indicate a natural end to a conversation ---
 CONCLUDING_PHRASES = [
     r"\b(goodbye|farewell|i must be going|i have to go|until next time|that is all|nothing more to say|very well then|i see)\b",
-    r"^(enough|that will be all|we are done here|indeed)\.?$"
+    r"^(enough|that will be all|we are done here|indeed)\.?$",
+    r"\b(i'm done|nothing else|that's it|exit conversation|end dialogue|stop talking|no more questions)\b" # Added more ways
 ]
 
 # --- Simplified keywords for relationship adjustments ---
@@ -138,7 +139,7 @@ DEFAULT_ITEMS = {
 
 # --- Input Parsing ---
 COMMAND_SYNONYMS = {
-    "look": ["examine", "l", "observe"],
+    "look": ["examine", "l", "observe", "look around"], # Added "look around"
     "talk to": ["speak to", "chat with", "ask", "question"],
     "move to": ["go to", "walk to", "travel to", "head to"],
     "objectives": ["goals", "tasks", "obj", "purpose"],
