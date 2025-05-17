@@ -37,8 +37,10 @@ Setup and Installation
 
     Clone the Repository:
 
-    git clone https://github.com/AntoanBG3/crimeandpunishment.git
+    git clone <your-repository-url>
     cd <repository-name>
+
+    (If you don't have the repository URL, you'll need to obtain it from where the game project is hosted.)
 
     Create a Virtual Environment (Recommended):
 
@@ -60,7 +62,7 @@ Setup and Installation
 
         {"gemini_api_key": "YOUR_ACTUAL_API_KEY_HERE"}
 
-        Important: If you use this file, ensure it is listed in your .gitignore file to prevent accidental exposure of your API key.
+        Important: If you use this file, ensure it is listed in your .gitignore file (if using Git) to prevent accidental exposure of your API key.
 
         Manual Input: If no key is found via the methods above, the game will prompt you to enter it when it starts.
 
@@ -104,33 +106,18 @@ How to Play
 
         quit: Exit the game.
 
-Future Enhancements
+Planned Future Features
 
-    Deeper implementation of branching narratives and consequences for all objectives.
+Players can look forward to potential future updates that may include:
 
-    More complex item interactions and environmental puzzles.
+    Deeper implementation of branching narratives and more significant consequences for choices made across all objectives.
 
-    Expanded NPC knowledge bases and reactions.
+    More complex item interactions and environmental puzzles to solve.
+
+    Expanded NPC knowledge bases and even more nuanced reactions to player actions and world events.
 
     Further refinements to the terminal UI for an even more immersive experience.
 
-Contributing
-
-Contributions are welcome! If you have ideas for improvements, bug fixes, or new features, please feel free to:
-
-    Fork the repository.
-
-    Create a new branch (git checkout -b feature/YourAmazingFeature).
-
-    Make your changes.
-
-    Commit your changes (git commit -m 'Add some YourAmazingFeature').
-
-    Push to the branch (git push origin feature/YourAmazingFeature).
-
-    Open a Pull Request.
-
-Please ensure your code adheres to the project's style and that any new features align with the game's thematic and narrative goals.
 License
 
 This project is currently unlicensed.
