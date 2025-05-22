@@ -74,8 +74,8 @@ CHARACTERS_DATA = {
         },
         "skills": {
             "Academia": 2,
-            "Observation": 1,
-            "Persuasion": 0,
+            "Observation": 1, # Base Raskolnikov Observation
+            "Persuasion": 1, # Added Persuasion for Raskolnikov
             "Streetwise": 0
         }
     },
@@ -114,7 +114,7 @@ CHARACTERS_DATA = {
             "Rodion Raskolnikov": 0 
         },
         "skills": {
-            "Observation": 1, 
+            "Observation": 2, # Sonya is observant
             "Persuasion": 0, 
             "Streetwise": 1, 
             "Academia": 0
@@ -157,8 +157,8 @@ CHARACTERS_DATA = {
             "Dmitri Razumikhin": 0 
         },
         "skills": {
-            "Observation": 2, 
-            "Persuasion": 1,  
+            "Observation": 3, # Porfiry is highly observant
+            "Persuasion": 2,  # Updated Porfiry's Persuasion
             "Academia": 1,    
             "Streetwise": 0
         },
@@ -195,6 +195,10 @@ CHARACTERS_DATA = {
             }
         ],
         "inventory_items": [],
+        "skills": { # Added skills for Dunya
+            "Observation": 2,
+            "Persuasion": 1
+        },
         "schedule": {
             "Morning": "Pulcheria's Lodgings",
             "Afternoon": "Haymarket Square", 
@@ -228,7 +232,11 @@ CHARACTERS_DATA = {
                 "stages" : [{"stage_id": "default", "description": "The end approaches."}]
             }
         ],
-        "inventory_items": [{"name": "worn coin", "quantity": 100}], 
+        "inventory_items": [{"name": "worn coin", "quantity": 100}],
+        "skills": { # Added skills for Svidrigailov
+            "Observation": 2,
+            "Persuasion": 2
+        },
         "schedule": {
             "Morning": "Tavern", 
             "Afternoon": "Haymarket Square", 
@@ -261,6 +269,10 @@ CHARACTERS_DATA = {
             "Rodion Raskolnikov": 5,
             "Dunya Raskolnikova": 2,
             "Porfiry Petrovich": -1
+        },
+        "skills": { # Added skills for Razumikhin
+            "Observation": 1,
+            "Persuasion": 0
         },
         "schedule": {
             "Morning": "Raskolnikov's Garret", 
@@ -389,7 +401,7 @@ class Character:
         self.accessible_locations = accessible_locations if accessible_locations is not None else [default_location]
         self.is_player = is_player
         self.conversation_histories = {}
-        self.memory_about_player = [] 
+        self.memory_about_player = []  # List of dictionaries
         self.journal_entries = [] 
         self.relationship_with_player = 0
         self.npc_relationships = copy.deepcopy(npc_relationships) if npc_relationships is not None else {}
@@ -479,7 +491,7 @@ class Character:
         
         char.current_location = data.get("current_location", char.default_location)
         char.conversation_histories = data.get("conversation_histories", {})
-        char.memory_about_player = data.get("memory_about_player", [])
+        char.memory_about_player = data.get("memory_about_player", []) # Ensures backward compatibility
         char.journal_entries = data.get("journal_entries", []) 
         char.relationship_with_player = data.get("relationship_with_player", 0)
         char.apparent_state = data.get("apparent_state", static_char_data_safe.get("apparent_state", "normal"))
@@ -659,20 +671,119 @@ class Character:
         history = self.conversation_histories.get(other_char_name, [])
         return "\n".join(history[-limit:])
 
-    def add_player_memory(self, memory_fact):
-        if memory_fact not in self.memory_about_player: 
-            self.memory_about_player.append(memory_fact)
-            MAX_MEMORIES = 25 
-            if len(self.memory_about_player) > MAX_MEMORIES:
-                self.memory_about_player.pop(0) 
+    def add_player_memory(self, memory_type: str, turn: int, content: dict, sentiment_impact: int = 0):
+        """
+        Adds a structured memory about the player.
+        memory_type: e.g., "received_item", "dialogue_exchange", "player_action_observed"
+        turn: The game turn number.
+        content: Dictionary with details specific to the type.
+        sentiment_impact: Optional integer indicating sentiment impact.
+        """
+        # Basic validation to ensure content is a dictionary
+        if not isinstance(content, dict):
+            print(f"Error: Memory content for type '{memory_type}' must be a dictionary. Received: {content}")
+            # Potentially add a default error memory or skip adding this memory
+            return
 
-    def get_player_memory_summary(self):
+        memory_entry = {
+            "type": memory_type,
+            "turn": turn,
+            "content": content,
+            "sentiment_impact": sentiment_impact
+        }
+        
+        # Avoid duplicate exact memories if necessary, though turn makes most unique
+        # For now, allow all memories to be added.
+        self.memory_about_player.append(memory_entry)
+        
+        MAX_MEMORIES = 30  # Increased slightly
+        if len(self.memory_about_player) > MAX_MEMORIES:
+            self.memory_about_player.pop(0)
+
+    def get_player_memory_summary(self, current_turn: int, count: int = 7):
         if not self.memory_about_player:
-            return "You don't recall any specific details about them yet."
-        return "Key things you recall about them: " + "; ".join(self.memory_about_player[-7:])
+            return "You don't recall any specific interactions or observations about them yet."
 
+        # Sort memories by turn, most recent first, then by sentiment impact
+        # Lambda takes a memory dict and returns a tuple for sorting.
+        # Sort primarily by recency (descending), then by absolute sentiment impact (descending)
+        sorted_memories = sorted(
+            self.memory_about_player,
+            key=lambda m: (m.get("turn", 0), abs(m.get("sentiment_impact", 0))),
+            reverse=True
+        )
 
-    def update_relationship(self, player_dialogue, positive_keywords, negative_keywords):
+        summary_parts = []
+        for mem in sorted_memories[:count]:
+            turn_ago = current_turn - mem.get("turn", current_turn)
+            recency_prefix = ""
+            if turn_ago == 0:
+                recency_prefix = "Just now, "
+            elif turn_ago == 1:
+                recency_prefix = "A moment ago, "
+            elif turn_ago < 5:
+                recency_prefix = "Recently, "
+            else:
+                recency_prefix = "Some time ago, "
+
+            content_str = "details unclear"
+            mem_type = mem.get("type")
+            content = mem.get("content", {})
+
+            if mem_type == "received_item":
+                item_name = content.get("item_name", "an item")
+                qty = content.get("quantity", 1)
+                content_str = f"player gave me {item_name}{f' (x{qty})' if qty > 1 else ''}"
+            elif mem_type == "gave_item_to_player":
+                item_name = content.get("item_name", "an item")
+                qty = content.get("quantity", 1)
+                content_str = f"I gave {item_name}{f' (x{qty})' if qty > 1 else ''} to the player"
+            elif mem_type == "dialogue_exchange":
+                player_stmt = content.get("player_statement", "something")
+                topic = content.get("topic_hint", "")
+                sentiment = mem.get("sentiment_impact", 0)
+                if topic:
+                    content_str = f"we talked about {topic}"
+                    if player_stmt and player_stmt != "...":
+                         content_str += f", and they said '{player_stmt[:50]}...'"
+                else:
+                    content_str = f"player said '{player_stmt[:50]}...'"
+                if sentiment > 0:
+                    content_str += " (it was a positive exchange)"
+                elif sentiment < 0:
+                    content_str += " (it was a negative exchange)"
+            elif mem_type == "player_action_observed":
+                action = content.get("action", "did something")
+                location = content.get("location")
+                target = content.get("target_item")
+                if target:
+                    action_desc = f"player {action} {target}"
+                else:
+                    action_desc = f"player {action}"
+                if location:
+                    content_str = f"{action_desc} in {location}"
+                else:
+                    content_str = action_desc
+            elif mem_type == "relationship_change": # For direct relationship updates
+                direction = "positively" if content.get("change", 0) > 0 else "negatively"
+                reason = content.get("reason", "something they did or said")
+                content_str = f"my view of them changed {direction} because of {reason}"
+            else: # Fallback for old string memories or unknown types
+                if isinstance(mem, str): # Handle old format
+                    content_str = mem 
+                elif isinstance(content, dict) and "summary" in content: # If new type has a summary
+                    content_str = content["summary"]
+                elif isinstance(content, str): # If content is just a string
+                    content_str = content
+            
+            summary_parts.append(recency_prefix + content_str)
+
+        if not summary_parts:
+            return "You have some fleeting recollections, but nothing stands out clearly."
+        
+        return "Key things you recall about them: " + "; ".join(summary_parts) + "."
+
+    def update_relationship(self, player_dialogue: str, positive_keywords: list[str], negative_keywords: list[str], game_turn: int):
         change = 0
         player_dialogue_lower = player_dialogue.lower()
         for keyword in positive_keywords:
@@ -684,11 +795,18 @@ class Character:
         
         if change != 0: 
             self.relationship_with_player += change
-            self.relationship_with_player = max(-10, min(10, self.relationship_with_player)) 
-            if change > 0:
-                self.add_player_memory(f"They said something positive ('{player_dialogue[:30]}...').")
-            elif change < 0:
-                self.add_player_memory(f"They said something negative ('{player_dialogue[:30]}...').")
+            self.relationship_with_player = max(-10, min(10, self.relationship_with_player))
+            # Add a memory for the relationship change
+            if change != 0:
+                self.add_player_memory(
+                    memory_type="relationship_change",
+                    turn=game_turn,
+                    content={
+                        "reason": f"their statement ('{player_dialogue[:30]}...')",
+                        "change": change
+                    },
+                    sentiment_impact=change
+                )
 
     def get_objective_by_id(self, objective_id):
         if not objective_id: return None
@@ -729,7 +847,9 @@ class Character:
                 new_stage_desc = next_stage_obj_from_template.get('description', 'unnamed stage')
                 
                 if self.is_player:
-                    self.add_player_memory(f"Made progress on '{obj.get('description','Unnamed Objective')}': now at '{new_stage_desc}'.")
+                    # Player memories are simple strings for now, not using the new dict structure.
+                    # This could be enhanced later if player also needs structured memory.
+                    self.memory_about_player.append(f"Made progress on '{obj.get('description','Unnamed Objective')}': now at '{new_stage_desc}'.")
                 
                 if next_stage_obj_from_template.get("is_ending_stage", False):
                     self.complete_objective(objective_id, by_stage=True)
@@ -747,9 +867,11 @@ class Character:
                 stage_desc_for_memory = current_stage_for_memory.get('description', 'final stage') if current_stage_for_memory else 'final stage'
                 
                 if not by_stage:
-                    self.add_player_memory(f"Objective '{obj_desc}' was completed.")
+                    # Player memories are simple strings
+                    self.memory_about_player.append(f"Objective '{obj_desc}' was completed.")
                 else:
-                    self.add_player_memory(f"Objective '{obj_desc}' concluded with stage '{stage_desc_for_memory}'.")
+                    # Player memories are simple strings
+                    self.memory_about_player.append(f"Objective '{obj_desc}' concluded with stage '{stage_desc_for_memory}'.")
                 print(f"[DEBUG] Player {self.name} completed objective: {obj_desc} (Stage: {stage_desc_for_memory if by_stage else 'N/A'})")
 
             link_info = None
@@ -779,13 +901,15 @@ class Character:
                             if specific_next_stage_id and target_objective.get("current_stage_id") != specific_next_stage_id :
                                 print(f"[DEBUG] Linking: Advancing newly activated objective '{target_obj_desc}' to specific stage '{specific_next_stage_id}'.")
                                 self.advance_objective_stage(target_objective_id, specific_next_stage_id)
-                            if self.is_player: self.add_player_memory(f"Completing '{obj_desc}' has opened up new paths regarding '{target_obj_desc}'.")
+                            if self.is_player: # Player memories are simple strings
+                                self.memory_about_player.append(f"Completing '{obj_desc}' has opened up new paths regarding '{target_obj_desc}'.")
                         
                         elif target_objective.get("active", False) and not target_objective.get("completed", False):
                             if specific_next_stage_id:
                                 print(f"[DEBUG] Linking: Advancing active objective '{target_obj_desc}' to specific stage '{specific_next_stage_id}' due to '{obj_desc}'.")
                                 if self.advance_objective_stage(target_objective_id, specific_next_stage_id):
-                                     if self.is_player: self.add_player_memory(f"Progress on '{obj_desc}' has further developed your understanding of '{target_obj_desc}'.")
+                                     if self.is_player: # Player memories are simple strings
+                                        self.memory_about_player.append(f"Progress on '{obj_desc}' has further developed your understanding of '{target_obj_desc}'.")
                                 else: print(f"[DEBUG] Linking: Failed to advance '{target_obj_desc}' to stage '{specific_next_stage_id}'.")
                             else:
                                 current_target_stage = self.get_current_stage_for_objective(target_objective_id)
@@ -795,12 +919,14 @@ class Character:
                                         auto_next_stage_id = next(iter(potential_next_ids.values()))
                                         print(f"[DEBUG] Linking: Attempting generic advance for active objective '{target_obj_desc}' to its next stage '{auto_next_stage_id}' due to '{obj_desc}'.")
                                         if self.advance_objective_stage(target_objective_id, auto_next_stage_id):
-                                            if self.is_player: self.add_player_memory(f"Progress on '{obj_desc}' has influenced your approach to '{target_obj_desc}'.")
+                                            if self.is_player: # Player memories are simple strings
+                                                self.memory_about_player.append(f"Progress on '{obj_desc}' has influenced your approach to '{target_obj_desc}'.")
                                     elif isinstance(potential_next_ids, list) and potential_next_ids:
                                          auto_next_stage_id = potential_next_ids[0]
                                          print(f"[DEBUG] Linking: Attempting generic advance for active objective '{target_obj_desc}' to its next stage '{auto_next_stage_id}' due to '{obj_desc}'.")
                                          if self.advance_objective_stage(target_objective_id, auto_next_stage_id):
-                                            if self.is_player: self.add_player_memory(f"Progress on '{obj_desc}' has influenced your approach to '{target_obj_desc}'.")
+                                            if self.is_player: # Player memories are simple strings
+                                                self.memory_about_player.append(f"Progress on '{obj_desc}' has influenced your approach to '{target_obj_desc}'.")
                                     else:
                                         print(f"[DEBUG] Linking: Objective '{target_obj_desc}' is active, but current stage has no defined 'next_stages' for generic advance.")
                                 else:
@@ -833,8 +959,24 @@ class Character:
                 stage["is_current_stage"] = (stage.get("stage_id") == initial_stage_id_to_set)
             
             current_stage_desc = self.get_current_stage_for_objective(objective_id).get('description', 'initial stage')
-            if self.is_player:
-                self.add_player_memory(f"New objective active or re-activated: '{obj.get('description', 'Unnamed Objective')}' (Current stage: '{current_stage_desc}').")
+            if self.is_player: # Player memories are simple strings
+                self.memory_about_player.append(f"New objective active or re-activated: '{obj.get('description', 'Unnamed Objective')}' (Current stage: '{current_stage_desc}').")
             print(f"[DEBUG] Player {self.name} activated objective: {obj.get('description')} - now at stage '{current_stage_desc}'")
             return True
         return False
+
+    def check_skill(self, skill_name: str, difficulty_threshold: int = 1) -> bool:
+        """
+        Checks if the character succeeds at a skill check.
+        Rolls a d6, adds skill value, compares to (difficulty_threshold + 3).
+        """
+        skill_value = self.skills.get(skill_name, 0)
+        d6_roll = random.randint(1, 6)
+        
+        # Formula from prompt: (skill + roll) >= (threshold + 3)
+        target_number = difficulty_threshold + 3
+        success = (skill_value + d6_roll) >= target_number
+        
+        # Debug message as specified in prompt
+        print(f"[Skill Check] {self.name} attempting {skill_name} (Value: {skill_value}, Roll: {d6_roll}, Threshold: {difficulty_threshold}): {'Success' if success else 'Failure'}")
+        return success

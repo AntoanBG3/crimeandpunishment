@@ -154,7 +154,8 @@ COMMAND_SYNONYMS = {
     "help": ["commands", "actions"],
     "save": ["save game"],
     "load": ["load game"],
-    "quit": ["exit", "q"]
+    "quit": ["exit", "q"],
+    "persuade": ["convince", "argue with"] # New command
 }
 
 # --- Player States (for NPC reactions) ---

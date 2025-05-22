@@ -384,6 +384,17 @@ class Game:
             return matched_command, parsed_arg
 
         parts = action.split(" ", 1)
+        
+        # Persuade command: "persuade [target_npc_name] that/to [statement_text]"
+        # Example: persuade Razumikhin that I need his help
+        # Example: persuade Sonya to give me her cross
+        persuade_match = re.match(r"^(persuade|convince|argue with)\s+(.+?)\s+(?:that|to)\s+(.+)$", action)
+        if persuade_match:
+            command = "persuade" # Normalize command
+            target_npc_name = persuade_match.group(2).strip()
+            statement_text = persuade_match.group(3).strip()
+            return command, (target_npc_name, statement_text)
+
         return parts[0], parts[1] if len(parts) > 1 else None
 
 
@@ -838,6 +849,8 @@ class Game:
             # Time is advanced within _handle_talk_to_command
         elif command == "move to":
             action_taken_this_turn, show_atmospherics_this_turn = self._handle_move_to_command(argument)
+        elif command == "persuade": # New command
+            action_taken_this_turn, show_atmospherics_this_turn = self._handle_persuade_command(argument)
         else:
             self._print_color(f"Unknown command: '{command}'. Type 'help' for a list of actions.", Colors.RED)
             action_taken_this_turn = False
@@ -926,38 +939,120 @@ class Game:
             for item_info in self.dynamic_location_items.get(self.current_location_name, []):
                 if item_info["name"].lower().startswith(target_to_look_at):
                     item_default = DEFAULT_ITEMS.get(item_info["name"])
+                    base_desc_for_skill_check = "An ordinary item." # Default
                     if item_default:
                         self._print_color(f"You examine the {item_info['name']}:", Colors.GREEN)
+                        gen_desc = None
                         if self.gemini_api.model:
                             gen_desc = self.gemini_api.get_item_interaction_description(
                                 self.player_character, item_info['name'], item_default,
                                 "examine closely in environment", self.current_location_name,
                                 self.get_current_time_period())
                             self._print_color(f"\"{gen_desc}\"", Colors.GREEN if not gen_desc.startswith("(OOC:") else Colors.YELLOW)
+                            base_desc_for_skill_check = gen_desc if not gen_desc.startswith("(OOC:") else item_default.get('description', base_desc_for_skill_check)
                         else:
-                            self._print_color(f"({item_default.get('description', 'An ordinary item.')})", Colors.DIM)
+                            base_desc_for_skill_check = item_default.get('description', base_desc_for_skill_check)
+                            self._print_color(f"({base_desc_for_skill_check})", Colors.DIM)
+                        
+                        if self.player_character.check_skill("Observation", 1):
+                            self._print_color("(Your keen eye picks up on finer details...)", Colors.CYAN + Colors.DIM)
+                            observation_context = f"Player ({self.player_character.name}) succeeded an Observation skill check examining the {item_info['name']} in {self.current_location_name}. What subtle detail, past use, hidden inscription, or unusual characteristic do they notice that isn't immediately obvious?"
+                            detailed_observation = self.gemini_api.get_enhanced_observation(
+                                self.player_character,
+                                target_name=item_info['name'],
+                                target_category="item",
+                                base_description=base_desc_for_skill_check,
+                                skill_check_context=observation_context
+                            )
+                            if detailed_observation and not detailed_observation.startswith("(OOC:"):
+                                self._print_color(f"Detail: \"{detailed_observation}\"", Colors.GREEN)
+
+                            # NPC memory for observing player looking at specific items (from location)
+                            sensitive_items_for_observation = {
+                                "Raskolnikov's axe": {"sentiment": -2, "observer_specific": {"Porfiry Petrovich": -3}},
+                                "bloodied rag": {"sentiment": -2, "observer_specific": {"Porfiry Petrovich": -2, "Sonya Marmeladova": -1}},
+                                "Lizaveta's bundle": {"sentiment": -1, "observer_specific": {"Sonya Marmeladova": -2}}
+                            }
+                            if item_info["name"] in sensitive_items_for_observation:
+                                item_sensitivity_data = sensitive_items_for_observation[item_info["name"]]
+                                for npc_observer in self.npcs_in_current_location:
+                                    if npc_observer.name != self.player_character.name:
+                                        base_sentiment = item_sensitivity_data["sentiment"]
+                                        observer_specific_sentiment = item_sensitivity_data.get("observer_specific", {}).get(npc_observer.name)
+                                        final_sentiment = observer_specific_sentiment if observer_specific_sentiment is not None else base_sentiment
+                                        npc_observer.add_player_memory(
+                                            memory_type="player_action_observed",
+                                            turn=self.game_time,
+                                            content={
+                                                "action": f"examined_item_in_location",
+                                                "item_name": item_info["name"],
+                                                "location": self.current_location_name
+                                            },
+                                            sentiment_impact=final_sentiment
+                                        )
                         found_target = True; break
             # Look at item in inventory
             if not found_target and self.player_character:
                 for inv_item_info in self.player_character.inventory:
                     if inv_item_info["name"].lower().startswith(target_to_look_at):
                         item_default = DEFAULT_ITEMS.get(inv_item_info["name"])
+                        base_desc_for_skill_check = "An ordinary item."
                         if item_default:
                             self._print_color(f"You examine your {inv_item_info['name']}:", Colors.GREEN)
+                            gen_desc = None
                             if self.gemini_api.model:
                                 gen_desc = self.gemini_api.get_item_interaction_description(
                                     self.player_character, inv_item_info['name'], item_default,
                                     "examine closely from inventory", self.current_location_name,
                                     self.get_current_time_period())
                                 self._print_color(f"\"{gen_desc}\"", Colors.GREEN if not gen_desc.startswith("(OOC:") else Colors.YELLOW)
+                                base_desc_for_skill_check = gen_desc if not gen_desc.startswith("(OOC:") else item_default.get('description', base_desc_for_skill_check)
                             else:
-                                self._print_color(f"({item_default.get('description', 'An ordinary item.')})", Colors.DIM)
+                                base_desc_for_skill_check = item_default.get('description', base_desc_for_skill_check)
+                                self._print_color(f"({base_desc_for_skill_check})", Colors.DIM)
+
+                            if self.player_character.check_skill("Observation", 1):
+                                self._print_color("(Your keen eye picks up on finer details...)", Colors.CYAN + Colors.DIM)
+                                observation_context = f"Player ({self.player_character.name}) succeeded an Observation skill check examining their {inv_item_info['name']}. What subtle detail, past use, hidden inscription, or unusual characteristic do they notice that isn't immediately obvious?"
+                                detailed_observation = self.gemini_api.get_enhanced_observation(
+                                    self.player_character,
+                                    target_name=inv_item_info['name'],
+                                    target_category="item",
+                                    base_description=base_desc_for_skill_check,
+                                    skill_check_context=observation_context
+                                )
+                                if detailed_observation and not detailed_observation.startswith("(OOC:"):
+                                    self._print_color(f"Detail: \"{detailed_observation}\"", Colors.GREEN)
+                            
+                            sensitive_items_for_observation = {
+                                "Raskolnikov's axe": {"sentiment": -2, "observer_specific": {"Porfiry Petrovich": -3}},
+                                "bloodied rag": {"sentiment": -2, "observer_specific": {"Porfiry Petrovich": -2, "Sonya Marmeladova": -1}},
+                                "Lizaveta's bundle": {"sentiment": -1, "observer_specific": {"Sonya Marmeladova": -2}}
+                            }
+                            if inv_item_info["name"] in sensitive_items_for_observation:
+                                item_sensitivity_data = sensitive_items_for_observation[inv_item_info["name"]]
+                                for npc_observer in self.npcs_in_current_location:
+                                    if npc_observer.name != self.player_character.name:
+                                        base_sentiment = item_sensitivity_data["sentiment"]
+                                        observer_specific_sentiment = item_sensitivity_data.get("observer_specific", {}).get(npc_observer.name)
+                                        final_sentiment = observer_specific_sentiment if observer_specific_sentiment is not None else base_sentiment
+                                        npc_observer.add_player_memory(
+                                            memory_type="player_action_observed",
+                                            turn=self.game_time,
+                                            content={
+                                                "action": f"examined_item_from_inventory",
+                                                "item_name": inv_item_info["name"],
+                                                "location": self.current_location_name
+                                            },
+                                            sentiment_impact=final_sentiment
+                                        )
                             found_target = True; break
             # Look at NPC
             if not found_target:
                 for npc in self.npcs_in_current_location:
                     if npc.name.lower().startswith(target_to_look_at):
                         self._print_color(f"You look closely at {Colors.YELLOW}{npc.name}{Colors.RESET} (appears {npc.apparent_state}):", Colors.WHITE)
+                        base_desc_for_skill_check = f"{npc.name} appears {npc.apparent_state}." # Default
                         if self.gemini_api.model:
                             observation = self.gemini_api.get_player_reflection(
                                 self.player_character, self.current_location_name, self.get_current_time_period(),
@@ -965,31 +1060,58 @@ class Game:
                                 self.player_character.get_inventory_description(),
                                 self._get_objectives_summary(self.player_character))
                             self._print_color(f"\"{observation}\"", Colors.GREEN if not observation.startswith("(OOC:") else Colors.YELLOW)
-                            
-                            # --- Placeholder Skill Check for Observation ---
-                            if self.player_character and self.player_character.skills.get("Observation", 0) > 0:
-                                self._print_color(f"(Your Observation skill ({self.player_character.skills.get('Observation', 0)}) makes you notice subtle details about {npc.name}'s demeanor or appearance...)", Colors.CYAN + Colors.DIM)
-                            # --- End Placeholder Skill Check ---
+                            base_desc_for_skill_check = observation if not observation.startswith("(OOC:") else npc.persona[:100]
                         else:
-                            self._print_color(f"({npc.persona[:100]}...)", Colors.DIM)
+                            base_desc_for_skill_check = npc.persona[:100]
+                            self._print_color(f"({base_desc_for_skill_check})", Colors.DIM)
+                        
+                        if self.player_character.check_skill("Observation", 1): 
+                            self._print_color("(Your keen observation notices something more...)", Colors.CYAN + Colors.DIM)
+                            observation_context = f"Player ({self.player_character.name}) succeeded an Observation skill check while looking at {npc.name} (appears {npc.apparent_state}). What subtle, non-obvious detail does {self.player_character.name} notice about {npc.name}'s demeanor, clothing, a hidden object, or a subtle emotional cue? This should be something beyond the obvious, a deeper insight."
+                            detailed_observation = self.gemini_api.get_enhanced_observation(
+                                self.player_character, 
+                                target_name=npc.name, 
+                                target_category="person", 
+                                base_description=base_desc_for_skill_check,
+                                skill_check_context=observation_context
+                            )
+                            if detailed_observation and not detailed_observation.startswith("(OOC:"):
+                                self._print_color(f"Insight: \"{detailed_observation}\"", Colors.GREEN)
                         found_target = True; break
             # Look at scenery
             if not found_target:
-                loc_desc_lower = LOCATIONS_DATA.get(self.current_location_name, {}).get("description", "").lower()
+                loc_data = LOCATIONS_DATA.get(self.current_location_name, {})
+                loc_desc_lower = loc_data.get("description", "").lower()
                 is_scenery = any(keyword in target_to_look_at for keyword in GENERIC_SCENERY_KEYWORDS) or \
                              target_to_look_at in loc_desc_lower
+                
                 if is_scenery:
                     self._print_color(f"You focus on the {target_to_look_at}...", Colors.WHITE)
+                    base_desc_for_skill_check = f"The general scenery of {self.current_location_name}, focusing on {target_to_look_at}."
                     if self.gemini_api.model:
                         observation = self.gemini_api.get_scenery_observation(
                             self.player_character, target_to_look_at, self.current_location_name,
                             self.get_current_time_period(), self._get_objectives_summary(self.player_character))
                         if observation and not observation.startswith("(OOC:"):
                             self._print_color(f"\"{observation}\"", Colors.CYAN)
+                            base_desc_for_skill_check = observation # Use AI generated base for better context
                         else:
                             self._print_color(f"The {target_to_look_at} offers no particular insight beyond its mundane presence.", Colors.DIM)
                     else:
                         self._print_color(f"The {target_to_look_at} is just as it seems.", Colors.DIM)
+
+                    if self.player_character.check_skill("Observation", 0): 
+                        self._print_color("(You scan the area more intently...)", Colors.CYAN + Colors.DIM)
+                        observation_context = f"Player ({self.player_character.name}) passed an Observation check while looking at '{target_to_look_at}' in {self.current_location_name}. What specific, easily missed detail about '{target_to_look_at}' or its immediate surroundings catches their eye, perhaps hinting at a past event, a hidden element, or the general atmosphere in a more profound way?"
+                        detailed_observation = self.gemini_api.get_enhanced_observation(
+                            self.player_character,
+                            target_name=target_to_look_at, 
+                            target_category="scenery",
+                            base_description=base_desc_for_skill_check,
+                            skill_check_context=observation_context
+                        )
+                        if detailed_observation and not detailed_observation.startswith("(OOC:"):
+                            self._print_color(f"You also notice: \"{detailed_observation}\"", Colors.GREEN)
                     found_target = True
             
             if not found_target:
@@ -1023,10 +1145,6 @@ class Game:
                 has_accessible_exits = True
         if not has_accessible_exits:
             print(f"{Colors.BLUE}There are no obvious exits from here.{Colors.RESET}")
-        # 'look' command always takes a turn and shows atmospherics
-        # These are returned to _process_command which then passes them up
-        # However, _process_command doesn't explicitly return these, so we'll let the main _process_command return values dictate.
-        # This function primarily handles the printing for 'look'.
 
 
     def _handle_inventory_command(self):
@@ -1084,8 +1202,24 @@ class Game:
                     if self.player_character.name == "Rodion Raskolnikov" and item_found_in_loc["name"] == "Raskolnikov's axe":
                         self.player_notoriety_level = min(3, max(0, self.player_notoriety_level + 0.5))
                         self._print_color("(Reclaiming the axe sends a shiver down your spine, a feeling of being marked.)", Colors.RED + Colors.DIM)
-                        print(f"[DEBUG] Notoriety changed to: {self.player_notoriety_level}")
+                        # print(f"[DEBUG] Notoriety changed to: {self.player_notoriety_level}") # Keep debug for now
                     # --- End Notoriety Change ---
+
+                    # Add memory for NPCs in the same location
+                    for npc in self.npcs_in_current_location:
+                        if npc.name != self.player_character.name: # Don't record memory for self
+                            npc.add_player_memory(
+                                memory_type="player_action_observed",
+                                turn=self.game_time,
+                                content={
+                                    "action": "took_item",
+                                    "item_name": item_found_in_loc["name"],
+                                    "quantity": actual_taken_qty,
+                                    "location": self.current_location_name
+                                },
+                                sentiment_impact= -1 if item_default_props.get("is_notable") else 0 # Taking notable items might be seen negatively
+                            )
+                            # self._print_color(f"[DEBUG] {npc.name} remembers player taking {item_found_in_loc['name']}", Colors.DIM)
                     return True, True
                 else:
                     self._print_color(f"Failed to add {item_found_in_loc['name']} to inventory.", Colors.RED)
@@ -1135,6 +1269,22 @@ class Game:
                 
                 self._print_color(f"You drop the {item_name_to_drop}.", Colors.GREEN)
                 self.last_significant_event_summary = f"dropped the {item_name_to_drop}."
+
+                # Add memory for NPCs in the same location
+                for npc in self.npcs_in_current_location:
+                    if npc.name != self.player_character.name: # Don't record memory for self
+                        npc.add_player_memory(
+                            memory_type="player_action_observed",
+                            turn=self.game_time,
+                            content={
+                                "action": "dropped_item",
+                                "item_name": item_name_to_drop,
+                                "quantity": drop_quantity, # This is usually 1
+                                "location": self.current_location_name
+                            },
+                            sentiment_impact=0 # Dropping items is generally neutral unless it's something offensive/weird
+                        )
+                        # self._print_color(f"[DEBUG] {npc.name} remembers player dropping {item_name_to_drop}", Colors.DIM)
                 return True, True
             else:
                 self._print_color(f"You try to drop {item_name_to_drop}, but something is wrong.", Colors.RED)
@@ -1233,7 +1383,21 @@ class Game:
                     ])
                     self._print_color(f"{Colors.DIM}(Using placeholder dialogue){Colors.RESET}", Colors.DIM)
 
-                target_npc.update_relationship(player_dialogue, POSITIVE_KEYWORDS, NEGATIVE_KEYWORDS)
+                target_npc.update_relationship(player_dialogue, POSITIVE_KEYWORDS, NEGATIVE_KEYWORDS, self.game_time)
+                # The update_relationship method in Character class now handles adding a "relationship_change" memory.
+                # We can also add a more general "dialogue_exchange" memory here if needed,
+                # but let's rely on update_relationship for now to avoid too much redundancy.
+                # Example of adding a direct dialogue memory if desired:
+                # target_npc.add_player_memory(
+                # memory_type="dialogue_exchange",
+                # turn=self.game_time,
+                # content={
+                # "player_statement": player_dialogue[:100], # Truncate for brevity
+                # "npc_response": ai_response[:100], # Truncate
+                # "topic_hint": "general conversation" # This could be improved with topic detection
+                # },
+                #     sentiment_impact=0 # Or derive from keyword match if not using update_relationship's impact
+                # )
                 self._print_color(f"{target_npc.name}: ", Colors.YELLOW, end=""); print(f"\"{ai_response}\"")
                 self.last_significant_event_summary = f"spoke with {target_npc.name} who said: \"{ai_response[:50]}...\""
                 
@@ -1488,6 +1652,119 @@ class Game:
             
         return used_successfully
 
+
+    def _handle_persuade_command(self, argument):
+        """Handles the 'persuade [npc] that/to [statement]' command."""
+        if not argument or not isinstance(argument, tuple) or len(argument) != 2:
+            self._print_color("How do you want to persuade them? Use: persuade [person] that/to [your argument]", Colors.RED)
+            return False, False # action_taken, show_atmospherics
+
+        target_npc_name, statement_text = argument
+
+        if not self.player_character:
+            self._print_color("Cannot persuade: Player character not available.", Colors.RED)
+            return False, False
+
+        target_npc = next((npc for npc in self.npcs_in_current_location if npc.name.lower().startswith(target_npc_name.lower())), None)
+
+        if not target_npc:
+            self._print_color(f"You don't see anyone named '{target_npc_name}' here to persuade.", Colors.RED)
+            return False, False
+
+        self._print_color(f"\nYou attempt to persuade {Colors.YELLOW}{target_npc.name}{Colors.RESET} that \"{statement_text}\"...", Colors.WHITE)
+
+        # Determine difficulty - can be more dynamic later
+        difficulty = 2 # Base difficulty for persuasion
+        
+        # Consider NPC's current state or relationship for difficulty? (Future enhancement)
+        # Example: if target_npc.apparent_state == "agitated": difficulty += 1
+        # Example: if target_npc.relationship_with_player < 0: difficulty +=1
+
+        success = self.player_character.check_skill("Persuasion", difficulty)
+        
+        persuasion_skill_check_result_text = ""
+        if success:
+            persuasion_skill_check_result_text = "SUCCESS due to their skillful argument"
+            # Could add critical success later based on roll margin
+        else:
+            persuasion_skill_check_result_text = "FAILURE despite their efforts"
+            # Could add critical failure later
+
+        # Construct context for AI
+        # This will be passed to the new Gemini method
+        # For now, we'll call the existing get_npc_dialogue but append the persuasion result.
+        # Later, replace with get_npc_dialogue_persuasion_attempt
+        
+        # Placeholder for the new method call structure:
+        # ai_response = self.gemini_api.get_npc_dialogue_persuasion_attempt(
+        #     npc_character=target_npc,
+        #     player_character=self.player_character,
+        #     player_persuasive_statement=statement_text,
+        #     current_location_name=self.current_location_name,
+        #     current_time_period=self.get_current_time_period(),
+        #     relationship_status_text=self.get_relationship_text(target_npc.relationship_with_player),
+        #     npc_memory_summary=target_npc.get_player_memory_summary(self.game_time),
+        #     player_apparent_state=self.player_character.apparent_state,
+        #     player_notable_items_summary=self.player_character.get_notable_carried_items_summary(),
+        #     recent_game_events_summary=self._get_recent_events_summary(),
+        #     npc_objectives_summary=self._get_objectives_summary(target_npc),
+        #     player_objectives_summary=self._get_objectives_summary(self.player_character),
+        #     persuasion_skill_check_result_text=persuasion_skill_check_result_text
+        # )
+        
+        # Using existing dialogue function for now, and just appending skill check result to player statement for context
+        # This will be replaced by the call to the specialized persuasion method in gemini_interactions.py later
+        # modified_player_statement_for_ai = f"{statement_text} (Attempting Persuasion: {persuasion_skill_check_result_text})"
+
+        if self.gemini_api.model:
+            self._print_color("Thinking...", Colors.DIM + Colors.MAGENTA)
+            ai_response = self.gemini_api.get_npc_dialogue_persuasion_attempt(
+                npc_character=target_npc,
+                player_character=self.player_character,
+                player_persuasive_statement=statement_text,
+                current_location_name=self.current_location_name,
+                current_time_period=self.get_current_time_period(),
+                relationship_status_text=self.get_relationship_text(target_npc.relationship_with_player),
+                npc_memory_summary=target_npc.get_player_memory_summary(self.game_time), # Pass current_turn
+                player_apparent_state=self.player_character.apparent_state,
+                player_notable_items_summary=self.player_character.get_notable_carried_items_summary(),
+                recent_game_events_summary=self._get_recent_events_summary(),
+                npc_objectives_summary=self._get_objectives_summary(target_npc),
+                player_objectives_summary=self._get_objectives_summary(self.player_character),
+                persuasion_skill_check_result_text=persuasion_skill_check_result_text
+            )
+        else:
+            ai_response = f"Hmm, '{statement_text}', you say? That's... something to consider. (Skill: {persuasion_skill_check_result_text})"
+            self._print_color(f"{Colors.DIM}(Using placeholder dialogue for persuasion){Colors.RESET}", Colors.DIM)
+
+        self._print_color(f"{target_npc.name}: ", Colors.YELLOW, end=""); print(f"\"{ai_response}\"")
+        
+        sentiment_impact_base = 0
+        if success:
+            self._print_color(f"Your argument seems to have had an effect!", Colors.GREEN)
+            sentiment_impact_base = 1 # Persuasion success is positive
+            target_npc.relationship_with_player += 1 # Small bonus for successful persuasion
+        else:
+            self._print_color(f"Your words don't seem to convince {target_npc.name}.", Colors.RED)
+            sentiment_impact_base = -1 # Persuasion failure can be negative
+            target_npc.relationship_with_player -= 1 # Small penalty
+
+        # Add memory to NPC
+        target_npc.add_player_memory(
+            memory_type="persuasion_attempt",
+            turn=self.game_time,
+            content={
+                "statement": statement_text[:100], # Truncate for brevity
+                "outcome": "success" if success else "failure",
+                "npc_response_snippet": ai_response[:70]
+            },
+            sentiment_impact=sentiment_impact_base 
+        )
+        
+        self.last_significant_event_summary = f"attempted to persuade {target_npc.name} regarding '{statement_text[:30]}...'."
+        self.advance_time(TIME_UNITS_PER_PLAYER_ACTION) # Persuasion takes time
+        return True, True # action_taken, show_atmospherics
+
     def _handle_give_item(self, item_to_use_name, item_props, target_name_input):
         """Handles giving an item to an NPC."""
         # This method currently only implements giving "worn coin".
@@ -1509,7 +1786,13 @@ class Game:
                         self._get_objectives_summary(self.player_character)
                     )
                     self._print_color(f"{target_npc.name}: \"{reaction}\"", Colors.YELLOW)
-                    target_npc.relationship_with_player += 1
+                    target_npc.relationship_with_player += 1 # Basic relationship update
+                    target_npc.add_player_memory(
+                        memory_type="received_item",
+                        turn=self.game_time,
+                        content={"item_name": item_to_use_name, "quantity": 1, "from_player": True},
+                        sentiment_impact=1 # Giving a coin is generally positive
+                    )
                     self.last_significant_event_summary = f"gave a coin to {target_npc.name}."
                     return True # Successfully gave item
                 else:
