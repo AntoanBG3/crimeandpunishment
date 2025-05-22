@@ -454,3 +454,78 @@ class GeminiAPI:
         Generate text for '{document_type}' now:
         """
         return self._generate_content_with_fallback(prompt, f"generated text for {document_type}")
+
+    def get_npc_dialogue_persuasion_attempt(self, npc_character, player_character, player_persuasive_statement, 
+                                            current_location_name, current_time_period, relationship_status_text, 
+                                            npc_memory_summary, player_apparent_state, 
+                                            player_notable_items_summary, recent_game_events_summary, 
+                                            npc_objectives_summary, player_objectives_summary, 
+                                            persuasion_skill_check_result_text):
+        conversation_context = npc_character.get_formatted_history(player_character.name)
+        situation_summary = (
+            f"You, {npc_character.name} (current internal state/mood: '{npc_character.apparent_state}', pursuing: {npc_objectives_summary}), "
+            f"are in {current_location_name} during the {current_time_period}. "
+            f"The player, {player_character.name} (appearing '{player_apparent_state}', pursuing: {player_objectives_summary}), "
+            f"{player_notable_items_summary}. "
+            f"Your relationship with {player_character.name} is '{relationship_status_text}'. "
+            f"You recall: {npc_memory_summary}. "
+            f"Key recent events in the world: {recent_game_events_summary}."
+        )
+        prompt = f"""
+        **Roleplay Mandate: Embody {npc_character.name} from Dostoevsky's "Crime and Punishment" with utmost fidelity.**
+        **Your Persona, {npc_character.name}:**
+        {npc_character.persona}
+        **Current Detailed Situation:**
+        {situation_summary}
+        **Recent Conversation History with {player_character.name} (most recent last):**
+        ---
+        {conversation_context if conversation_context else "No prior conversation in this session."}
+        ---
+        **Player's Persuasion Attempt:**
+        {player_character.name} is trying to persuade you, {npc_character.name}, about the following: "{player_persuasive_statement}"
+        This persuasion attempt was a {persuasion_skill_check_result_text}.
+
+        **Your Task (as {npc_character.name}):**
+        Respond to this persuasion attempt.
+        - If the persuasion was a SUCCESS (e.g., "SUCCESS due to their skillful argument", "CRITICAL SUCCESS, they are very convincing"): You should seem noticeably swayed, convinced, more agreeable, or willing to reveal something (if appropriate to your persona and the statement). Your dialogue should reflect this change of heart or willingness.
+        - If the persuasion was a FAILURE (e.g., "FAILURE despite their efforts", "CRITICAL FAILURE, the attempt was clumsy and offensive"): You should resist the persuasion. You might become annoyed, suspicious, dismissive, reiterate your current stance more firmly, or even subtly mock the attempt, depending on your persona.
+        - Your response should still be in character, concise, and in Dostoevskian tone.
+        - DO NOT explicitly say "The persuasion succeeded" or "The persuasion failed." Show it through your dialogue.
+        - DO NOT use parenthetical remarks like (He seems hesitant) or similar stage directions. Your response is dialogue only.
+
+        Respond now as {npc_character.name}:
+        """
+        ai_text = self._generate_content_with_fallback(prompt, f"NPC persuasion response for {npc_character.name}")
+        
+        # Add to history (persuasion attempt is also a form of dialogue)
+        if not ai_text.startswith("(OOC:"):
+            npc_character.add_to_history(player_character.name, player_character.name, f"(Attempting to persuade) {player_persuasive_statement}")
+            npc_character.add_to_history(player_character.name, npc_character.name, ai_text)
+            player_character.add_to_history(npc_character.name, player_character.name, f"(My persuasive attempt) {player_persuasive_statement}")
+            player_character.add_to_history(npc_character.name, npc_character.name, ai_text)
+        return ai_text
+
+    def get_enhanced_observation(self, character_obj, target_name, target_category, base_description, skill_check_context):
+        prompt = f"""
+        **Roleplay Mandate: Provide a subtle, insightful observation for {character_obj.name}, reflecting a successful Observation skill check.**
+        **Character Making Observation:** {character_obj.name} (State: {character_obj.apparent_state})
+        **Target of Observation:** '{target_name}' (Category: {target_category})
+        **Base Information Already Known/Visible:** {base_description}
+        **Specific Skill Check Context from Game:** {skill_check_context}
+
+        **Your Task:**
+        Generate a brief (1-2 sentences) additional detail that {character_obj.name} notices due to their keen observation. This detail should NOT be obvious and should provide a deeper understanding, hint, or nuance related to the target. It should feel like a reward for a successful skill check.
+        - If observing a *person*, focus on subtle body language, a faint scent, an almost hidden object on them, a flicker of emotion they try to hide.
+        - If observing an *item*, focus on a tiny inscription, wear patterns indicating unusual use, a faint smell, a hidden compartment, its true material or age if disguised.
+        - If observing *scenery*, focus on something out of place, a sign of recent passage, a hidden vantage point, an unusual silence or sound.
+
+        **Response Guidelines:**
+        1.  **Subtlety is Key:** Avoid revealing major secrets directly. Hint, imply, suggest.
+        2.  **Dostoevskian Tone:** Maintain the game's atmosphere.
+        3.  **Concise:** 1-2 sentences.
+        4.  **Direct Observation:** Output only the observed detail, not {character_obj.name}'s thoughts about it, unless the thought *is* the observation (e.g., "It strikes you that the stain is much fresher than the surrounding grime.").
+        5.  **No OOC or Meta-Commentary.**
+
+        Generate the enhanced observation now:
+        """
+        return self._generate_content_with_fallback(prompt, f"enhanced observation of {target_name}")
