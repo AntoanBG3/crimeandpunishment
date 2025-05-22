@@ -39,7 +39,7 @@ CHARACTERS_DATA = {
                 "stages": [
                      {"stage_id": "initial_validation", "description": "Internally justify your actions based on your theory.", "is_current_stage": True},
                      {"stage_id": "challenged_by_reality", "description": "Confront the human cost and psychological toll, questioning the theory's basis.", "is_current_stage": False},
-                     {"stage_id": "theory_shattered", "description": "Recognize the flaws and inhumanity of the theory.", "is_current_stage": False, "linked_to_objective_completion": "grapple_with_crime"},
+                     {"stage_id": "theory_shattered", "description": "Recognize the flaws and inhumanity of the theory.", "is_current_stage": False, "linked_to_objective_completion": {"id": "grapple_with_crime", "stage_to_advance_to": "seek_sonya"}},
                      {"stage_id": "theory_reinforced_darkly", "description": "Twist the theory further to rationalize ongoing defiance or despair.", "is_current_stage": False},
                 ]
             },
@@ -71,6 +71,12 @@ CHARACTERS_DATA = {
             "Afternoon": "Haymarket Square",
             "Evening": "Raskolnikov's Garret",
             "Night": "Raskolnikov's Garret"
+        },
+        "skills": {
+            "Academia": 2,
+            "Observation": 1,
+            "Persuasion": 0,
+            "Streetwise": 0
         }
     },
     "Sonya Marmeladova": {
@@ -103,11 +109,21 @@ CHARACTERS_DATA = {
             {"name": "Sonya's New Testament", "quantity": 1},
             {"name": "Sonya's Cypress Cross", "quantity": 1}
         ],
+        "npc_relationships": {
+            "Katerina Ivanovna Marmeladova": -1,
+            "Rodion Raskolnikov": 0 
+        },
+        "skills": {
+            "Observation": 1, 
+            "Persuasion": 0, 
+            "Streetwise": 1, 
+            "Academia": 0
+        },
         "schedule": {
             "Morning": "Sonya's Room",
-            "Afternoon": "Katerina Ivanovna's Apartment", # Might be out earning or with family
+            "Afternoon": "Katerina Ivanovna's Apartment", 
             "Evening": "Sonya's Room",
-            "Night": "Sonya's Room" # Or Haymarket if desperate times
+            "Night": "Sonya's Room" 
         }
     },
     "Porfiry Petrovich": {
@@ -115,9 +131,9 @@ CHARACTERS_DATA = {
         "greeting": "Well, well, look who it is. Come in, come in. Care for a little chat... or perhaps you have something on your mind?",
         "default_location": "Porfiry's Office",
         "accessible_locations": [
-            "Porfiry's Office", "Police Station (General Area)", "Haymarket Square", "Raskolnikov's Garret" # Might visit Raskolnikov
+            "Porfiry's Office", "Police Station (General Area)", "Haymarket Square", "Raskolnikov's Garret" 
         ],
-        "objectives": [ # Objectives for Porfiry
+        "objectives": [ 
             {
                 "id": "solve_murders", "description": "Uncover the truth behind the murders of Alyona Ivanovna and Lizaveta, focusing on Raskolnikov.",
                 "completed": False, "active": True, "current_stage_id": "initial_suspicion",
@@ -135,12 +151,22 @@ CHARACTERS_DATA = {
                  "stages" : [{"stage_id": "default", "description": "Observe and analyze criminal behavior."}]
             }
         ],
-        "inventory_items": [], # Porfiry doesn't need much
-        "schedule": { # Porfiry's schedule
+        "inventory_items": [], 
+        "npc_relationships": {
+            "Rodion Raskolnikov": 0,
+            "Dmitri Razumikhin": 0 
+        },
+        "skills": {
+            "Observation": 2, 
+            "Persuasion": 1,  
+            "Academia": 1,    
+            "Streetwise": 0
+        },
+        "schedule": { 
             "Morning": "Porfiry's Office",
             "Afternoon": "Porfiry's Office",
-            "Evening": "Police Station (General Area)", # Could be conferring or wrapping up
-            "Night": "Porfiry's Office" # Late worker or at home (not represented)
+            "Evening": "Police Station (General Area)", 
+            "Night": "Porfiry's Office" 
         }
     },
     "Dunya Raskolnikova": {
@@ -151,7 +177,7 @@ CHARACTERS_DATA = {
             "Pulcheria's Lodgings", "Haymarket Square", "Raskolnikov's Garret", "Sonya's Room", "Tavern",
             "Katerina Ivanovna's Apartment"
         ],
-        "objectives": [ # Objectives for Dunya
+        "objectives": [ 
             {
                 "id": "protect_rodion", "description": "Understand what is troubling Rodion and protect him from harm or folly.",
                 "completed": False, "active": True, "current_stage_id": "default",
@@ -171,7 +197,7 @@ CHARACTERS_DATA = {
         "inventory_items": [],
         "schedule": {
             "Morning": "Pulcheria's Lodgings",
-            "Afternoon": "Haymarket Square", # Could be running errands or meeting someone
+            "Afternoon": "Haymarket Square", 
             "Evening": "Pulcheria's Lodgings",
             "Night": "Pulcheria's Lodgings"
         }
@@ -179,12 +205,12 @@ CHARACTERS_DATA = {
     "Arkady Svidrigailov": {
         "persona": "You are Arkady Svidrigailov from Dostoevsky's 'Crime and Punishment'. You are a sensualist, amoral, and enigmatic figure, haunted by his past and capable of both depravity and surprising acts of charity. You are often cynical, worldly, and your speech can be laced with double entendres or unsettling observations about the darker sides of human nature.",
         "greeting": "Ah, a new face. Or an old one? St. Petersburg is so full of... possibilities. And ghosts. Don't you find?",
-        "default_location": "Tavern", # Or some other discreet lodging
+        "default_location": "Tavern", 
         "accessible_locations": [
             "Tavern", "Haymarket Square", "Sonya's Room", "Pulcheria's Lodgings", "Voznesensky Bridge",
             "Raskolnikov's Garret", "Katerina Ivanovna's Apartment"
         ],
-        "objectives": [ # Objectives for Svidrigailov
+        "objectives": [ 
             {
                 "id": "pursue_dunya", "description": "Attempt to win over Dunya Raskolnikova, employing various means.",
                 "completed": False, "active": True, "current_stage_id": "default",
@@ -198,27 +224,27 @@ CHARACTERS_DATA = {
             },
             {
                 "id": "final_reckoning", "description": "Confront the emptiness of his existence.",
-                "completed": False, "active": False, "current_stage_id": "default", # Becomes active later
+                "completed": False, "active": False, "current_stage_id": "default", 
                 "stages" : [{"stage_id": "default", "description": "The end approaches."}]
             }
         ],
-        "inventory_items": [{"name": "worn coin", "quantity": 100}], # Svidrigailov has money
+        "inventory_items": [{"name": "worn coin", "quantity": 100}], 
         "schedule": {
-            "Morning": "Tavern", # Or his lodgings
-            "Afternoon": "Haymarket Square", # Observing, seeking amusement
-            "Evening": "Tavern", # Or other pleasure spots
-            "Night": "Voznesensky Bridge" # Contemplating or up to no good
+            "Morning": "Tavern", 
+            "Afternoon": "Haymarket Square", 
+            "Evening": "Tavern", 
+            "Night": "Voznesensky Bridge" 
         }
     },
      "Dmitri Razumikhin": {
         "persona": "You are Dmitri Razumikhin from Dostoevsky's 'Crime and Punishment'. You are Raskolnikov's loyal friend, energetic, talkative, somewhat poor but resourceful and generally good-natured. You are practical and often try to help Raskolnikov, though sometimes bewildered by his behavior. Your speech is enthusiastic, direct, and sometimes a bit boisterous.",
         "greeting": "Hello there! Good to see you! Rodya's been acting stranger than a three-legged dog, has he mentioned anything to you?",
-        "default_location": "Tavern", # Often found here or near university/Raskolnikov
+        "default_location": "Tavern", 
         "accessible_locations": [
             "Tavern", "Haymarket Square", "Raskolnikov's Garret", "Stairwell (Outside Raskolnikov's Garret)",
             "Pulcheria's Lodgings", "Police Station (General Area)", "Sonya's Room", "Katerina Ivanovna's Apartment"
         ],
-        "objectives": [ # Objectives for Razumikhin
+        "objectives": [ 
             {
                 "id": "help_raskolnikov", "description": "Figure out what's wrong with Raskolnikov and help him get back on his feet.",
                 "completed": False, "active": True, "current_stage_id": "default",
@@ -231,10 +257,15 @@ CHARACTERS_DATA = {
             }
         ],
         "inventory_items": [{"name": "worn coin", "quantity": 15}],
+        "npc_relationships": {
+            "Rodion Raskolnikov": 5,
+            "Dunya Raskolnikova": 2,
+            "Porfiry Petrovich": -1
+        },
         "schedule": {
-            "Morning": "Raskolnikov's Garret", # Checking on Rodya
-            "Afternoon": "Tavern", # Socializing or working
-            "Evening": "Pulcheria's Lodgings", # Helping Rodya's family
+            "Morning": "Raskolnikov's Garret", 
+            "Afternoon": "Tavern", 
+            "Evening": "Pulcheria's Lodgings", 
             "Night": "Tavern"
         }
     },
@@ -246,7 +277,7 @@ CHARACTERS_DATA = {
             "Pulcheria's Lodgings", "Raskolnikov's Garret", "Haymarket Square", "Sonya's Room",
             "Katerina Ivanovna's Apartment"
         ],
-        "objectives": [ # Objectives for Pulcheria
+        "objectives": [ 
             {
                 "id": "ensure_rodyas_wellbeing", "description": "Understand why Rodya is so troubled and ensure he is safe and well.",
                 "completed": False, "active": True, "current_stage_id": "default",
@@ -261,7 +292,7 @@ CHARACTERS_DATA = {
         "inventory_items": [],
         "schedule": {
             "Morning": "Pulcheria's Lodgings",
-            "Afternoon": "Raskolnikov's Garret", # Visiting Rodya
+            "Afternoon": "Raskolnikov's Garret", 
             "Evening": "Pulcheria's Lodgings",
             "Night": "Pulcheria's Lodgings"
         }
@@ -273,7 +304,7 @@ CHARACTERS_DATA = {
         "accessible_locations": [
             "Katerina Ivanovna's Apartment", "Haymarket Square", "Sonya's Room", "Tavern"
         ],
-        "objectives": [ # Objectives for Katerina
+        "objectives": [ 
             {
                 "id": "lament_fate", "description": "Express outrage and despair at her family's poverty and the injustices of the world.",
                 "completed": False, "active": True, "current_stage_id": "default",
@@ -294,20 +325,19 @@ CHARACTERS_DATA = {
             }
         ],
         "inventory_items": [{"name": "tattered handkerchief", "quantity": 1}],
-        "schedule": { # Katerina's schedule
+        "schedule": { 
             "Morning": "Katerina Ivanovna's Apartment",
-            "Afternoon": "Katerina Ivanovna's Apartment", # Increasingly confined
+            "Afternoon": "Katerina Ivanovna's Apartment", 
             "Evening": "Katerina Ivanovna's Apartment",
             "Night": "Katerina Ivanovna's Apartment"
         },
-        "apparent_state": "feverish and agitated" # Default state
+        "apparent_state": "feverish and agitated" 
     },
-    # --- New Police Station Characters ---
     "Police Clerk Ilya": {
         "persona": "You are Ilya, a junior police clerk. You are overworked, somewhat officious, and keen to follow procedure. You mostly deal with paperwork and minor complaints, often sighing about the chaos of the station. You address people formally.",
         "greeting": "Yes? State your business, please. Quickly, I have much to attend to.",
         "default_location": "Police Station (General Area)",
-        "accessible_locations": ["Police Station (General Area)", "Porfiry's Office"], # Might run errands
+        "accessible_locations": ["Police Station (General Area)", "Porfiry's Office"], 
         "objectives": [
             {
                 "id": "maintain_order", "description": "Try to keep the station's administrative tasks in order.",
@@ -320,7 +350,7 @@ CHARACTERS_DATA = {
             "Morning": "Police Station (General Area)",
             "Afternoon": "Police Station (General Area)",
             "Evening": "Police Station (General Area)",
-            "Night": "Police Station (General Area)" # May work late
+            "Night": "Police Station (General Area)" 
         },
         "apparent_state": "harried"
     },
@@ -328,7 +358,7 @@ CHARACTERS_DATA = {
         "persona": "You are Officer Volkov, a seasoned but weary police officer. You've seen much in your time on the St. Petersburg streets and are generally cynical and taciturn. You might offer a gruff comment or a suspicious glance. You don't waste words.",
         "greeting": "Hmph. What is it now?",
         "default_location": "Police Station (General Area)",
-        "accessible_locations": ["Police Station (General Area)", "Haymarket Square"], # Patrols
+        "accessible_locations": ["Police Station (General Area)", "Haymarket Square"], 
         "objectives": [
             {
                 "id": "keep_peace", "description": "Maintain a semblance of order on the streets and in the station.",
@@ -339,9 +369,9 @@ CHARACTERS_DATA = {
         "inventory_items": [],
         "schedule": {
             "Morning": "Police Station (General Area)",
-            "Afternoon": "Haymarket Square", # On patrol
+            "Afternoon": "Haymarket Square", 
             "Evening": "Police Station (General Area)",
-            "Night": "Haymarket Square" # Night patrol
+            "Night": "Haymarket Square" 
         },
         "apparent_state": "watchful"
     }
@@ -350,7 +380,7 @@ CHARACTERS_DATA = {
 
 class Character:
     def __init__(self, name, persona, greeting, default_location, accessible_locations,
-                 objectives=None, inventory_items=None, schedule=None, is_player=False):
+                 objectives=None, inventory_items=None, schedule=None, npc_relationships=None, skills_data=None, is_player=False):
         self.name = name
         self.persona = persona
         self.greeting = greeting
@@ -359,16 +389,18 @@ class Character:
         self.accessible_locations = accessible_locations if accessible_locations is not None else [default_location]
         self.is_player = is_player
         self.conversation_histories = {}
-        self.memory_about_player = [] # General memories, dialogue summaries
-        self.journal_entries = [] # For specific AI-generated texts like rumors, news, notes
+        self.memory_about_player = [] 
+        self.journal_entries = [] 
         self.relationship_with_player = 0
-        # Ensure objectives and their stages are deep copied and correctly initialized
+        self.npc_relationships = copy.deepcopy(npc_relationships) if npc_relationships is not None else {}
+        self.skills = copy.deepcopy(skills_data) if skills_data is not None else {}
+        
         self.objectives = []
         if objectives:
             for obj_template in objectives:
                 obj = copy.deepcopy(obj_template)
                 obj["completed"] = obj.get("completed", False)
-                obj["active"] = obj.get("active", True) # Default to active if not specified
+                obj["active"] = obj.get("active", True) 
                 if "stages" not in obj or not obj["stages"]:
                     obj["stages"] = [{"stage_id": "default", "description": "Initial state of objective.", "is_current_stage": True}]
                 
@@ -383,10 +415,10 @@ class Character:
                             stage["is_current_stage"] = False
                 
                 if not current_stage_id_present or not current_stage_is_valid:
-                    if obj["stages"]: # If stages exist, set first as current
+                    if obj["stages"]: 
                         obj["current_stage_id"] = obj["stages"][0].get("stage_id")
                         obj["stages"][0]["is_current_stage"] = True
-                    else: # Fallback if stages somehow empty (shouldn't happen with above default)
+                    else: 
                         obj["current_stage_id"] = "default"
 
                 self.objectives.append(obj)
@@ -394,7 +426,6 @@ class Character:
 
         self.inventory = [copy.deepcopy(item) for item in inventory_items] if inventory_items else []
         self.schedule = schedule if schedule else {}
-        # Use apparent_state from CHARACTERS_DATA if available, else default to "normal"
         self.apparent_state = CHARACTERS_DATA.get(name, {}).get("apparent_state", "normal")
 
 
@@ -421,6 +452,8 @@ class Character:
             "memory_about_player": self.memory_about_player,
             "journal_entries": self.journal_entries, 
             "relationship_with_player": self.relationship_with_player,
+            "npc_relationships": self.npc_relationships,
+            "skills": self.skills,
             "objectives": self.objectives,
             "inventory": self.inventory,
             "apparent_state": self.apparent_state,
@@ -430,20 +463,20 @@ class Character:
     def from_dict(cls, data, static_char_data):
         static_char_data_safe = static_char_data if static_char_data is not None else {}
         
-        # Create character instance with basic info from static data
         char = cls(
-            name=data["name"], # Name must come from save data
+            name=data["name"], 
             persona=static_char_data_safe.get("persona", "A mysterious figure."),
             greeting=static_char_data_safe.get("greeting", "Hello."),
             default_location=static_char_data_safe.get("default_location", "Unknown Location"),
             accessible_locations=static_char_data_safe.get("accessible_locations", []),
-            objectives=[], # Will be populated carefully below
-            inventory_items=data.get("inventory", []), # From save
+            objectives=[], 
+            inventory_items=data.get("inventory", []), 
             schedule=static_char_data_safe.get("schedule", {}),
-            is_player=data.get("is_player", False) # From save
+            npc_relationships=static_char_data_safe.get("npc_relationships", {}), 
+            skills_data=static_char_data_safe.get("skills", {}),
+            is_player=data.get("is_player", False) 
         )
         
-        # Load dynamic state from save data
         char.current_location = data.get("current_location", char.default_location)
         char.conversation_histories = data.get("conversation_histories", {})
         char.memory_about_player = data.get("memory_about_player", [])
@@ -451,7 +484,14 @@ class Character:
         char.relationship_with_player = data.get("relationship_with_player", 0)
         char.apparent_state = data.get("apparent_state", static_char_data_safe.get("apparent_state", "normal"))
 
-        # Objective loading: Prioritize saved state but use static template for structure
+        saved_npc_relationships = data.get("npc_relationships")
+        if saved_npc_relationships is not None:
+            char.npc_relationships = saved_npc_relationships
+        
+        saved_skills = data.get("skills")
+        if saved_skills is not None:
+            char.skills = saved_skills
+
         loaded_objectives_map = {obj['id']: obj for obj in data.get("objectives", []) if 'id' in obj}
         static_objectives_template = static_char_data_safe.get("objectives", [])
         
@@ -461,15 +501,14 @@ class Character:
                 obj_id = static_obj_template_item.get("id")
                 if not obj_id: continue
 
-                final_obj = copy.deepcopy(static_obj_template_item) # Start with template
+                final_obj = copy.deepcopy(static_obj_template_item) 
 
-                if obj_id in loaded_objectives_map: # If saved data exists for this ID, merge it
+                if obj_id in loaded_objectives_map: 
                     loaded_obj_data = loaded_objectives_map[obj_id]
                     final_obj["completed"] = loaded_obj_data.get("completed", final_obj.get("completed", False))
                     final_obj["active"] = loaded_obj_data.get("active", final_obj.get("active", True))
                     final_obj["current_stage_id"] = loaded_obj_data.get("current_stage_id", final_obj.get("current_stage_id"))
 
-                # Ensure stages are consistent
                 if "stages" in final_obj and final_obj["stages"]:
                     current_stage_id_found_in_stages = False
                     for stage_in_final_obj in final_obj["stages"]:
@@ -477,23 +516,21 @@ class Character:
                         stage_in_final_obj["is_current_stage"] = is_current
                         if is_current:
                             current_stage_id_found_in_stages = True
-                    if not current_stage_id_found_in_stages and final_obj["stages"]: # If current_stage_id from save wasn't in template's stages, or if it was never set
+                    if not current_stage_id_found_in_stages and final_obj["stages"]: 
                         final_obj["current_stage_id"] = final_obj["stages"][0].get("stage_id")
                         final_obj["stages"][0]["is_current_stage"] = True
-                elif "stages" not in final_obj or not final_obj.get("stages"): # Fallback if no stages defined at all
+                elif "stages" not in final_obj or not final_obj.get("stages"): 
                      final_obj["stages"] = [{"stage_id": "default", "description": "Objective state.", "is_current_stage": True}]
                      final_obj["current_stage_id"] = "default"
 
                 final_objectives_list.append(final_obj)
         
-        # Add any objectives that were in save but not in static data (less likely, but for robustness)
         for loaded_id, loaded_obj_val in loaded_objectives_map.items():
             if not any(fo.get('id') == loaded_id for fo in final_objectives_list):
-                # Ensure basic structure for these "rogue" saved objectives
                 loaded_obj_val["stages"] = loaded_obj_val.get("stages", [{"stage_id": "default", "description": "Legacy objective state.", "is_current_stage": True}])
                 if "current_stage_id" not in loaded_obj_val and loaded_obj_val.get("stages"):
                     loaded_obj_val["current_stage_id"] = loaded_obj_val["stages"][0].get("stage_id")
-                if loaded_obj_val.get("stages"): # Ensure is_current_stage is set
+                if loaded_obj_val.get("stages"): 
                     for stage in loaded_obj_val["stages"]:
                         stage["is_current_stage"] = (stage.get("stage_id") == loaded_obj_val.get("current_stage_id"))
                 loaded_obj_val["active"] = loaded_obj_val.get("active", True)
@@ -504,9 +541,8 @@ class Character:
         return char
 
     def add_to_inventory(self, item_name, quantity=1):
-        from game_config import DEFAULT_ITEMS # Local import to avoid circular dependency at module level
+        from game_config import DEFAULT_ITEMS 
         if item_name not in DEFAULT_ITEMS:
-            # print(f"Debug: Attempted to add unknown or misconfigured item '{item_name}' to {self.name}'s inventory.")
             return False
 
         item_props = DEFAULT_ITEMS[item_name]
@@ -518,15 +554,13 @@ class Character:
                     item["quantity"] = item.get("quantity", 1) + quantity
                     return True
                 else: 
-                    # print(f"Debug: Already has non-stackable item '{item_name}'. Cannot add another.")
                     return False 
 
         new_item_entry = {"name": item_name}
         if is_stackable:
             new_item_entry["quantity"] = quantity
         elif quantity > 1: 
-            # print(f"Debug: Cannot add quantity {quantity} of non-stackable item '{item_name}'. Adding one.")
-            pass # Just add one if non-stackable but quantity > 1 given
+            pass 
 
         self.inventory.append(new_item_entry) 
         return True
@@ -547,15 +581,15 @@ class Character:
                     elif current_quantity == quantity:
                         self.inventory.pop(i)
                         return True
-                    else: # Not enough to remove
+                    else: 
                         return False
-                else: # Non-stackable
-                    if quantity == 1: # Can only remove 1
+                else: 
+                    if quantity == 1: 
                         self.inventory.pop(i)
                         return True
-                    else: # Trying to remove more than 1 of a non-stackable
+                    else: 
                         return False
-        return False # Item not found
+        return False 
 
     def has_item(self, item_name, quantity=1):
         from game_config import DEFAULT_ITEMS
@@ -566,8 +600,8 @@ class Character:
             if item["name"] == item_name:
                 if is_stackable:
                     return item.get("quantity", 1) >= quantity
-                else: # Non-stackable
-                    return quantity == 1 # Only true if asking for exactly one
+                else: 
+                    return quantity == 1 
         return False
 
     def get_notable_carried_items_summary(self):
@@ -585,7 +619,7 @@ class Character:
                 if (item_props.get("stackable") or item_props.get("value") is not None) and qty > 1:
                     item_str += f" (x{qty})"
                 notable_items_list.append(item_str)
-            elif item_name == "worn coin" and qty >= item_props.get("notable_threshold", 20): # Check notable_threshold for coins
+            elif item_name == "worn coin" and qty >= item_props.get("notable_threshold", 20): 
                  notable_items_list.append(f"a sum of money ({qty} coins)")
         if not notable_items_list:
             return "is not carrying anything particularly noteworthy."
@@ -593,7 +627,7 @@ class Character:
             return f"is carrying {notable_items_list[0]}."
         elif len(notable_items_list) == 2:
             return f"is carrying {notable_items_list[0]} and {notable_items_list[1]}."
-        else: # More than 2
+        else: 
             return f"is carrying {', '.join(notable_items_list[:-1])}, and {notable_items_list[-1]}."
 
     def get_inventory_description(self):
@@ -616,10 +650,10 @@ class Character:
     def add_to_history(self, other_char_name, speaker_name, text):
         if other_char_name not in self.conversation_histories:
             self.conversation_histories[other_char_name] = []
-        max_history = 10 # Keep this many lines per interlocutor
+        max_history = 10 
         self.conversation_histories[other_char_name].append(f"{speaker_name}: {text}")
         if len(self.conversation_histories[other_char_name]) > max_history:
-            self.conversation_histories[other_char_name].pop(0) # Remove oldest
+            self.conversation_histories[other_char_name].pop(0) 
 
     def get_formatted_history(self, other_char_name, limit=6):
         history = self.conversation_histories.get(other_char_name, [])
@@ -648,9 +682,9 @@ class Character:
             if keyword in player_dialogue_lower:
                 change -= 1
         
-        if change != 0: # Only update and add memory if there was a change
+        if change != 0: 
             self.relationship_with_player += change
-            self.relationship_with_player = max(-10, min(10, self.relationship_with_player)) # Clamp relationship
+            self.relationship_with_player = max(-10, min(10, self.relationship_with_player)) 
             if change > 0:
                 self.add_player_memory(f"They said something positive ('{player_dialogue[:30]}...').")
             elif change < 0:
@@ -675,7 +709,7 @@ class Character:
         obj = self.get_objective_by_id(objective_id)
         if obj and obj.get("stages"):
             current_stage_found_in_obj = False
-            next_stage_obj_from_template = None # The stage object itself
+            next_stage_obj_from_template = None 
             
             for s_val_in_obj_stages in obj["stages"]:
                 if s_val_in_obj_stages.get("stage_id") == next_stage_id:
@@ -683,10 +717,9 @@ class Character:
                     break
             
             if not next_stage_obj_from_template:
-                # print(f"Debug: Next stage '{next_stage_id}' not found for objective '{objective_id}'.")
                 return False
 
-            for stage_in_obj in obj["stages"]: # Iterate through stages in the character's current objective
+            for stage_in_obj in obj["stages"]: 
                 stage_in_obj["is_current_stage"] = (stage_in_obj.get("stage_id") == next_stage_id)
                 if stage_in_obj["is_current_stage"]: 
                     current_stage_found_in_obj = True 
@@ -701,41 +734,118 @@ class Character:
                 if next_stage_obj_from_template.get("is_ending_stage", False):
                     self.complete_objective(objective_id, by_stage=True)
                 return True
-            # else: 
-                # print(f"Debug: Could not set current stage for objective '{objective_id}' to '{next_stage_id}'.")
         return False
 
     def complete_objective(self, objective_id, by_stage=False):
         obj = self.get_objective_by_id(objective_id)
         if obj and not obj.get("completed", False):
             obj["completed"] = True
-            obj["active"] = False # Typically completed objectives are no longer active
+            obj["active"] = False  
             obj_desc = obj.get('description', 'Unnamed Objective')
             if self.is_player:
+                current_stage_for_memory = self.get_current_stage_for_objective(objective_id)
+                stage_desc_for_memory = current_stage_for_memory.get('description', 'final stage') if current_stage_for_memory else 'final stage'
+                
                 if not by_stage:
                     self.add_player_memory(f"Objective '{obj_desc}' was completed.")
                 else:
-                    current_stage_desc = self.get_current_stage_for_objective(objective_id).get('description', 'final stage')
-                    self.add_player_memory(f"Objective '{obj_desc}' concluded with stage '{current_stage_desc}'.")
+                    self.add_player_memory(f"Objective '{obj_desc}' concluded with stage '{stage_desc_for_memory}'.")
+                print(f"[DEBUG] Player {self.name} completed objective: {obj_desc} (Stage: {stage_desc_for_memory if by_stage else 'N/A'})")
+
+            link_info = None
+            current_stage = self.get_current_stage_for_objective(objective_id)
+            if current_stage and "linked_to_objective_completion" in current_stage:
+                link_info = current_stage["linked_to_objective_completion"]
+            elif "linked_to_objective_completion" in obj:
+                link_info = obj["linked_to_objective_completion"]
+
+            if link_info:
+                target_objective_id = None
+                specific_next_stage_id = None
+
+                if isinstance(link_info, str): 
+                    target_objective_id = link_info
+                elif isinstance(link_info, dict): 
+                    target_objective_id = link_info.get("id")
+                    specific_next_stage_id = link_info.get("stage_to_advance_to")
+
+                if target_objective_id:
+                    target_objective = self.get_objective_by_id(target_objective_id)
+                    if target_objective:
+                        target_obj_desc = target_objective.get('description', 'Unnamed Linked Objective')
+                        if not target_objective.get("active", False) and not target_objective.get("completed", False) :
+                            print(f"[DEBUG] Linking: Activating objective '{target_obj_desc}' due to completion of '{obj_desc}'.")
+                            self.activate_objective(target_objective_id) 
+                            if specific_next_stage_id and target_objective.get("current_stage_id") != specific_next_stage_id :
+                                print(f"[DEBUG] Linking: Advancing newly activated objective '{target_obj_desc}' to specific stage '{specific_next_stage_id}'.")
+                                self.advance_objective_stage(target_objective_id, specific_next_stage_id)
+                            if self.is_player: self.add_player_memory(f"Completing '{obj_desc}' has opened up new paths regarding '{target_obj_desc}'.")
+                        
+                        elif target_objective.get("active", False) and not target_objective.get("completed", False):
+                            if specific_next_stage_id:
+                                print(f"[DEBUG] Linking: Advancing active objective '{target_obj_desc}' to specific stage '{specific_next_stage_id}' due to '{obj_desc}'.")
+                                if self.advance_objective_stage(target_objective_id, specific_next_stage_id):
+                                     if self.is_player: self.add_player_memory(f"Progress on '{obj_desc}' has further developed your understanding of '{target_obj_desc}'.")
+                                else: print(f"[DEBUG] Linking: Failed to advance '{target_obj_desc}' to stage '{specific_next_stage_id}'.")
+                            else:
+                                current_target_stage = self.get_current_stage_for_objective(target_objective_id)
+                                if current_target_stage and current_target_stage.get("next_stages"):
+                                    potential_next_ids = current_target_stage["next_stages"]
+                                    if isinstance(potential_next_ids, dict) and potential_next_ids:
+                                        auto_next_stage_id = next(iter(potential_next_ids.values()))
+                                        print(f"[DEBUG] Linking: Attempting generic advance for active objective '{target_obj_desc}' to its next stage '{auto_next_stage_id}' due to '{obj_desc}'.")
+                                        if self.advance_objective_stage(target_objective_id, auto_next_stage_id):
+                                            if self.is_player: self.add_player_memory(f"Progress on '{obj_desc}' has influenced your approach to '{target_obj_desc}'.")
+                                    elif isinstance(potential_next_ids, list) and potential_next_ids:
+                                         auto_next_stage_id = potential_next_ids[0]
+                                         print(f"[DEBUG] Linking: Attempting generic advance for active objective '{target_obj_desc}' to its next stage '{auto_next_stage_id}' due to '{obj_desc}'.")
+                                         if self.advance_objective_stage(target_objective_id, auto_next_stage_id):
+                                            if self.is_player: self.add_player_memory(f"Progress on '{obj_desc}' has influenced your approach to '{target_obj_desc}'.")
+                                    else:
+                                        print(f"[DEBUG] Linking: Objective '{target_obj_desc}' is active, but current stage has no defined 'next_stages' for generic advance.")
+                                else:
+                                    print(f"[DEBUG] Linking: Objective '{target_obj_desc}' is active, but current stage or its 'next_stages' are not clearly defined for generic advance.")
             return True
         return False
 
-    def activate_objective(self, objective_id):
+def get_relationship_description(score):
+    """Translates a numerical relationship score into a descriptive string."""
+    if score > 5: return "very friendly"
+    if score > 2: return "friendly"
+    if score == 0: return "neutral"
+    if score < -5: return "very hostile"
+    if score < -2: return "hostile"
+    if score < 0: return "unfriendly" # Covers -1, -2
+    if score > 0: return "amicable" # Covers 1, 2
+    return "neutral" # Should not be reached if logic is correct
+
+    def activate_objective(self, objective_id, set_stage_id=None):
         obj = self.get_objective_by_id(objective_id)
         if obj:
             obj["active"] = True
-            obj["completed"] = False # Ensure it's not marked completed if re-activating
-            if "stages" in obj and obj["stages"]:
-                current_stage_id = obj.get("current_stage_id")
-                # If current_stage_id is not valid or not set, default to first stage
-                if not current_stage_id or not any(s.get("stage_id") == current_stage_id for s in obj.get("stages",[])):
-                    obj["current_stage_id"] = obj["stages"][0].get("stage_id")
-                # Set is_current_stage correctly for all stages
-                for stage in obj["stages"]:
-                    stage["is_current_stage"] = (stage.get("stage_id") == obj.get("current_stage_id"))
-            else: # Fallback if no stages array somehow
-                obj["stages"] = [{"stage_id": "default", "description": "Objective activated.", "is_current_stage": True}]
-                obj["current_stage_id"] = "default"
-            if self.is_player: self.add_player_memory(f"New objective active or re-activated: '{obj.get('description', 'Unnamed Objective')}'.")
+            obj["completed"] = False  
+
+            initial_stage_id_to_set = None
+            if set_stage_id: 
+                if any(s.get("stage_id") == set_stage_id for s in obj.get("stages", [])):
+                    initial_stage_id_to_set = set_stage_id
+                else:
+                    print(f"[DEBUG] Warning: Requested stage_id '{set_stage_id}' for activating objective '{objective_id}' not found. Defaulting to first stage.")
+
+            if not initial_stage_id_to_set: 
+                if obj.get("stages") and obj["stages"][0].get("stage_id"):
+                    initial_stage_id_to_set = obj["stages"][0].get("stage_id")
+                else: 
+                    obj["stages"] = [{"stage_id": "default", "description": "Objective activated.", "is_current_stage": True}]
+                    initial_stage_id_to_set = "default"
+            
+            obj["current_stage_id"] = initial_stage_id_to_set
+            for stage in obj.get("stages", []):
+                stage["is_current_stage"] = (stage.get("stage_id") == initial_stage_id_to_set)
+            
+            current_stage_desc = self.get_current_stage_for_objective(objective_id).get('description', 'initial stage')
+            if self.is_player:
+                self.add_player_memory(f"New objective active or re-activated: '{obj.get('description', 'Unnamed Objective')}' (Current stage: '{current_stage_desc}').")
+            print(f"[DEBUG] Player {self.name} activated objective: {obj.get('description')} - now at stage '{current_stage_desc}'")
             return True
         return False
