@@ -1056,7 +1056,7 @@ class Game:
                         if self.gemini_api.model:
                             observation = self.gemini_api.get_player_reflection(
                                 self.player_character, self.current_location_name, self.get_current_time_period(),
-                                f"observing {npc.name} in {self.current_location_name}. They appear to be '{npc.apparent_state}'. You recall: {npc.get_player_memory_summary()}",
+                                f"observing {npc.name} in {self.current_location_name}. They appear to be '{npc.apparent_state}'. You recall: {npc.get_player_memory_summary(self.game_time)}",
                                 self.player_character.get_inventory_description(),
                                 self._get_objectives_summary(self.player_character))
                             self._print_color(f"\"{observation}\"", Colors.GREEN if not observation.startswith("(OOC:") else Colors.YELLOW)
@@ -1369,7 +1369,7 @@ class Game:
                         target_npc, self.player_character, player_dialogue,
                         self.current_location_name, self.get_current_time_period(),
                         self.get_relationship_text(target_npc.relationship_with_player),
-                        target_npc.get_player_memory_summary(),
+                        target_npc.get_player_memory_summary(self.game_time),
                         self.player_character.apparent_state,
                         self.player_character.get_notable_carried_items_summary(),
                         self._get_recent_events_summary(),
@@ -1779,7 +1779,7 @@ class Game:
                         target_npc, self.player_character,
                         f"(Offers a coin out of {random.choice(['pity', 'a sudden impulse', 'a desire to help', 'unease'])}.)",
                         self.current_location_name, self.get_current_time_period(), relationship_text,
-                        target_npc.get_player_memory_summary(), self.player_character.apparent_state,
+                        target_npc.get_player_memory_summary(self.game_time), self.player_character.apparent_state,
                         self.player_character.get_notable_carried_items_summary(),
                         self._get_recent_events_summary(),
                         self._get_objectives_summary(target_npc),
