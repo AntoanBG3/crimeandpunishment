@@ -34,6 +34,13 @@ class EventManager:
                 "trigger": self.trigger_find_anonymous_note,
                 "action": self.action_find_anonymous_note,
                 "one_time": True # Or could be multiple different notes
+            },
+            {
+                "id": "street_life_haymarket",
+                "name": "Street Life in Haymarket",
+                "trigger": self.trigger_street_life_haymarket,
+                "action": self.action_street_life_haymarket,
+                "one_time": False # Repeatable
             }
         ]
 
@@ -160,6 +167,28 @@ class EventManager:
         else:
             self._print_event("You thought you saw something, but it was just a trick of the light.")
 
+    def trigger_street_life_haymarket(self):
+        return (self.game.current_location_name == "Haymarket Square" and
+                random.random() < 0.10 and
+                "street_life_haymarket_recent" not in self.triggered_events)
+
+    def action_street_life_haymarket(self):
+        player_context = "observing the surroundings"
+        if self.game.player_character:
+            player_context = f"while {self.game.player_character.name} (appearing {self.game.player_character.apparent_state}) is present"
+
+        description = self.game.gemini_api.get_street_life_event_description(
+            self.game.current_location_name,
+            self.game.get_current_time_period(),
+            player_context
+        )
+        if description and not description.startswith("(OOC:"):
+            self.game._print_color(f"\n{Colors.DIM}(Nearby, {description}){Colors.RESET}", Colors.DIM)
+            if self.game.player_character:
+                self.game.player_character.add_journal_entry("Observation", description, self.game._get_current_game_time_period_str())
+
+        self.triggered_events.add("street_life_haymarket_recent")
+
 
     def check_and_trigger_events(self):
         if self.game.game_time % 100 == 5: # Cooldown reset periodically
@@ -189,23 +218,71 @@ class EventManager:
         return False
 
     def attempt_npc_npc_interaction(self):
-        # ... (as before)
         if len(self.game.npcs_in_current_location) >= 2:
-            try: npc1, npc2 = random.sample(self.game.npcs_in_current_location, 2)
-            except ValueError: return False
+            try:
+                npc1, npc2 = random.sample(self.game.npcs_in_current_location, 2)
+            except ValueError:
+                return False
 
             self.game._print_color(f"\n{Colors.MAGENTA}Nearby, you overhear a brief exchange...{Colors.RESET}", Colors.MAGENTA)
-            interaction_text = self.game.gemini_api.get_npc_to_npc_interaction(npc1, npc2, self.game.current_location_name, self.game.get_current_time_period())
+
+            interaction_text = self.game.gemini_api.get_npc_to_npc_interaction(
+                npc1, npc2,
+                self.game.current_location_name,
+                self.game.get_current_time_period(),
+                npc1_objectives_summary=self.game._get_objectives_summary(npc1), # Pass objectives
+                npc2_objectives_summary=self.game._get_objectives_summary(npc2)  # Pass objectives
+            )
+
             if interaction_text and not interaction_text.startswith("(OOC:"):
+                # Print the interaction first
                 lines = interaction_text.split('\n')
                 for line in lines:
                     if ":" in line:
                         speaker, dialogue = line.split(":", 1)
                         self.game._print_color(f"{speaker.strip()}:", Colors.YELLOW, end=""); print(f" \"{dialogue.strip()}\"")
-                    else: self.game._print_color(f"{Colors.DIM}{line}{Colors.RESET}", Colors.DIM)
-                return True
+                    else:
+                        self.game._print_color(f"{Colors.DIM}{line}{Colors.RESET}", Colors.DIM)
+
+                # Now, try to identify and process rumors
+                rumor_keywords = ["did you hear", "they say", "i heard that", "word is", "gossip has it", "rumor is"]
+                potential_rumor_identified = False
+                extracted_rumor_core = ""
+
+                for line in lines: # Iterate again for rumor check
+                    for keyword in rumor_keywords:
+                        if keyword in line.lower():
+                            try:
+                                rumor_part_index = line.lower().find(keyword) + len(keyword)
+                                rumor_candidate = line[rumor_part_index:].strip(" .,;:!?-").capitalize()
+                                if len(rumor_candidate) > 15:
+                                    extracted_rumor_core = rumor_candidate
+                                    potential_rumor_identified = True
+                                    break
+                            except Exception:
+                                pass
+                    if potential_rumor_identified:
+                        break
+
+                if potential_rumor_identified and extracted_rumor_core:
+                    if not hasattr(self.game, 'overheard_rumors'):
+                        self.game.overheard_rumors = []
+
+                    MAX_OVERHEARD_RUMORS = 10
+                    if len(self.game.overheard_rumors) >= MAX_OVERHEARD_RUMORS:
+                        self.game.overheard_rumors.pop(0)
+
+                    rumor_to_add = f"Overheard between {npc1.name} and {npc2.name}: \"{extracted_rumor_core[:150]}...\""
+                    if rumor_to_add not in self.game.overheard_rumors:
+                         self.game.overheard_rumors.append(rumor_to_add)
+
+                    self.game._print_color(f"\n{Colors.MAGENTA}(You overhear an intriguing snippet of gossip...){Colors.RESET}", Colors.MAGENTA)
+                    if self.game.player_character:
+                        self.game.player_character.add_journal_entry("Gossip Overheard", extracted_rumor_core, self.game._get_current_game_time_period_str())
+
+                return True # Interaction happened (and was printed)
             else:
                 # self.game._print_color(f"{Colors.MAGENTA}...but it trails off into indistinct murmurs.{Colors.RESET}", Colors.MAGENTA)
-                pass # AI might sometimes return OOC or empty, don't always print murmurs for that
+                pass
                 return False
         return False

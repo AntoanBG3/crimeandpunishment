@@ -45,6 +45,7 @@ class Game:
         self.key_events_occurred = ["Game started."] 
         self.numbered_actions_context = []
         self.current_conversation_log = []
+        self.overheard_rumors = [] # This line is already present from the previous successful edit.
 
     def _get_current_game_time_period_str(self):
         return f"Day {self.current_day}, {self.get_current_time_period()}"
@@ -868,7 +869,8 @@ class Game:
         elif not (hasattr(self, 'numbered_actions_context') and self.numbered_actions_context):
             hint_string = f" (Hint: {Colors.DIM}type 'look' or 'help'{Colors.RESET})"
 
-        prompt_text = f"\n[{Colors.CYAN}{self.current_location_name}{Colors.RESET} ({player_state_info})]{hint_string} What do you do? {self.game_config.PROMPT_ARROW}"
+        time_info = self._get_current_game_time_period_str()
+        prompt_text = f"\n[{Colors.DIM}{time_info}{Colors.RESET} | {Colors.CYAN}{self.current_location_name}{Colors.RESET} ({player_state_info})]{hint_string} What do you do? {self.game_config.PROMPT_ARROW}"
         raw_action_input = self._input_color(prompt_text, Colors.WHITE)
 
         try:
