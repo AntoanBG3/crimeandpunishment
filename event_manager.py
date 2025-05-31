@@ -79,9 +79,9 @@ class EventManager:
             "and his own wretchedness. You listen, or perhaps only half-listen, to his tragic tale.")
         self._print_event(event_desc)
         if self.game.player_character:
-            self.game.player_character.add_player_memory("Listened to Marmeladov's tragic story in the tavern.")
+            self.game.player_character.add_player_memory(memory_type="event_marmeladov_encounter", turn=self.game.game_time, content={"summary": "Listened to Marmeladov's tragic story in the tavern."}, sentiment_impact=1)
             if self.game.player_character.get_objective_by_id("understand_theory"):
-                 self.game.player_character.add_player_memory("Marmeladov's suffering gives pause to your theories.")
+                 self.game.player_character.add_player_memory(memory_type="reflection_marmeladov_suffering", turn=self.game.game_time, content={"summary": "Marmeladov's suffering gives pause to your theories."}, sentiment_impact=1)
         self.game.last_significant_event_summary = "encountered Marmeladov in the tavern."
         self.game.key_events_occurred.append("Encountered Marmeladov.")
         # This encounter might add to "known_facts_about_crime" if Marmeladov mentions Sonya's situation vaguely.
@@ -97,7 +97,7 @@ class EventManager:
             "The letter speaks of their imminent arrival in St. Petersburg.")
         self._print_event(event_desc)
         if self.game.player_character:
-            self.game.player_character.add_player_memory("Received a troubling letter from mother about Dunya and Luzhin.")
+            self.game.player_character.add_player_memory(memory_type="event_mother_letter", turn=self.game.game_time, content={"summary": "Received a troubling letter from mother about Dunya and Luzhin."}, sentiment_impact=-1) # "Troubling" suggests negative sentiment
             obj_help_family = self.game.player_character.get_objective_by_id("help_family")
             if obj_help_family and not obj_help_family.get("active", True):
                 self.game.player_character.activate_objective("help_family")
@@ -116,7 +116,7 @@ class EventManager:
         katerina = self.game.all_character_objects.get("Katerina Ivanovna Marmeladova")
         if katerina: katerina.apparent_state = "highly agitated and feverish"
         if self.game.player_character:
-            self.game.player_character.add_player_memory("Witnessed Katerina Ivanovna's distressing public scene in Haymarket.")
+            self.game.player_character.add_player_memory(memory_type="event_katerina_lament", turn=self.game.game_time, content={"summary": "Witnessed Katerina Ivanovna's distressing public scene in Haymarket."}, sentiment_impact=-1) # "Distressing" suggests negative sentiment
         self.game.last_significant_event_summary = "witnessed Katerina Ivanovna's public outburst."
         self.game.key_events_occurred.append("Katerina Ivanovna caused a public scene.")
         self.triggered_events.add("katerina_ivanovna_public_lament_recent")
@@ -152,7 +152,7 @@ class EventManager:
                  self._print_color(f"You find a strange note: \"{note_text}\"", Colors.YELLOW)
 
             if self.game.player_character:
-                self.game.player_character.add_player_memory("Found an ominous anonymous note.")
+                self.game.player_character.add_player_memory(memory_type="event_found_anon_note", turn=self.game.game_time, content={"summary": "Found an ominous anonymous note."}, sentiment_impact=-1) # "Ominous" suggests negative sentiment
                 self.game.player_character.apparent_state = "paranoid"
             self.game.last_significant_event_summary = "found an anonymous warning note."
             self.game.key_events_occurred.append("Found an anonymous warning note.")

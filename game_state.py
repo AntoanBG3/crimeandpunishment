@@ -1491,7 +1491,7 @@ class Game:
                 if "crime" in article_snippet.lower() or "investigation" in article_snippet.lower() or "murder" in article_snippet.lower():
                     self.player_character.apparent_state = "thoughtful"
                     if self.player_character.name == "Rodion Raskolnikov":
-                        self.player_character.add_player_memory("Read unsettling news about the recent crime.")
+                        self.player_character.add_player_memory(memory_type="read_news_crime", turn=self.game_time, content={"summary": "Read unsettling news about the recent crime."}, sentiment_impact=0)
                         self.player_notoriety_level = min(self.player_notoriety_level + 0.1, 3)
                 self.last_significant_event_summary = f"read an {item_to_use_name}."
             else:
@@ -1504,7 +1504,7 @@ class Game:
             self._print_color(f"\"{reflection}\"", Colors.CYAN)
             self.player_character.apparent_state = random.choice(["burdened", "agitated", "resolved"])
             if self.player_character.name == "Rodion Raskolnikov":
-                self.player_character.add_player_memory("Re-reading mother's letter intensified feelings of duty and distress.")
+                self.player_character.add_player_memory(memory_type="reread_mother_letter", turn=self.game_time, content={"summary": "Re-reading mother's letter intensified feelings of duty and distress."}, sentiment_impact=-1)
             self.last_significant_event_summary = f"re-read the {item_to_use_name}."
             return True
 
@@ -1514,7 +1514,7 @@ class Game:
             self._print_color(f"\"{reflection}\"", Colors.CYAN)
             if self.player_character.name == "Rodion Raskolnikov":
                 self.player_character.apparent_state = random.choice(["contemplative", "remorseful", "thoughtful", "hopeful"])
-                self.player_character.add_player_memory("Read from the New Testament, stirring deep thoughts of salvation and suffering.")
+                self.player_character.add_player_memory(memory_type="read_testament_sonya", turn=self.game_time, content={"summary": "Read from the New Testament, stirring deep thoughts of salvation and suffering."}, sentiment_impact=0)
             self.last_significant_event_summary = f"read from {item_to_use_name}."
             return True
 
@@ -1601,7 +1601,7 @@ class Game:
             self._print_color(f"You stare at the {item_to_use_name}. The dark stains seem to shift and spread before your eyes. Every sound, every shadow, feels like an accusation.", Colors.RED)
             self.player_character.apparent_state = "paranoid"
             if self.player_character.name == "Rodion Raskolnikov":
-                self.player_character.add_player_memory("The sight of the bloodied rag brought a fresh wave of paranoia.")
+                self.player_character.add_player_memory(memory_type="observed_bloodied_rag", turn=self.game_time, content={"summary": "The sight of the bloodied rag brought a fresh wave of paranoia."}, sentiment_impact=-1) # Paranoia suggests negative sentiment
                 self.player_notoriety_level = min(self.player_notoriety_level + 0.5, 3)
             self.last_significant_event_summary = f"was deeply disturbed by a {item_to_use_name}."
             used_successfully = True
@@ -1625,7 +1625,7 @@ class Game:
             self._print_color(f"You hesitantly open {item_to_use_name}. Inside are a few pitiful belongings: a worn shawl, a child's small wooden toy, a copper coin... The sight is a fresh stab of guilt for the gentle Lizaveta.", Colors.YELLOW)
             if self.player_character.name == "Rodion Raskolnikov":
                 self.player_character.apparent_state = "remorseful"
-                self.player_character.add_player_memory("Examined Lizaveta's bundle; the innocence of the items was a heavy burden.")
+                self.player_character.add_player_memory(memory_type="examined_lizavetas_bundle", turn=self.game_time, content={"summary": "Examined Lizaveta's bundle; the innocence of the items was a heavy burden."}, sentiment_impact=-1) # "Heavy burden" suggests negative sentiment
             self.last_significant_event_summary = f"examined Lizaveta's bundle, increasing the weight of guilt."
             used_successfully = True
         
