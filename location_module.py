@@ -22,7 +22,8 @@ LOCATIONS_DATA = {
         "description": "The stairwell is a dark, narrow passage, spiraling down into the building's depths. The air is cool and damp, carrying a mélange of odors: stale cooking smells from other apartments, the faint scent of lye from a recent, perfunctory cleaning, and an underlying mustiness. Each creak of the wooden steps underfoot echoes ominously. Faint sounds of life – a distant argument, a child's cry, a snatch of a song – drift from behind closed doors.",
         "exits": {
             "Raskolnikov's Garret": "Climb the last few steps back to the garret door.",
-            "Haymarket Square": "Descend the seemingly endless flights of stairs, emerging into the clamor of Haymarket Square."
+            "Haymarket Square": "Descend the seemingly endless flights of stairs, emerging into the clamor of Haymarket Square.",
+            "Quiet Courtyard": "Descend to the ground floor and find a passage leading to a secluded courtyard."
         },
         "items_present": []
     },
@@ -60,7 +61,8 @@ LOCATIONS_DATA = {
             "Voznesensky Bridge": "Head towards the wide expanse of the Voznesensky Bridge, seeking a moment's respite.",
             "Pulcheria's Lodgings": "Find the quieter side street leading to the modest rooms where Raskolnikov's mother and sister are staying.",
             "Pawnbroker's Apartment Building": "Turn down a familiar, grim street towards the building where Alyona Ivanovna, the old pawnbroker, met her end.",
-            "Katerina Ivanovna's Apartment": "Follow a narrow, squalid alley towards the Marmeladovs' chaotic dwelling." # New Exit
+            "Katerina Ivanovna's Apartment": "Follow a narrow, squalid alley towards the Marmeladovs' chaotic dwelling.", # New Exit
+            "Quiet Courtyard": "Slip through a narrow archway into a surprisingly quiet courtyard."
         },
         "items_present": [{"name": "tattered handkerchief", "quantity": 1}, {"name": "worn coin", "quantity": 2}],
         "time_effects": {
@@ -104,6 +106,18 @@ LOCATIONS_DATA = {
         "time_effects": {
             "Afternoon": " The children might be playing listlessly or crying, while Katerina Ivanovna is often in a state of high agitation.",
             "Evening": " Katerina might be trying to put the children to bed, her voice softer but filled with despair, or she could be loudly berating Sonya if she's present."
+        }
+    },
+    "Quiet Courtyard": {
+        "description": "Tucked away behind a crumbling archway, this small, forgotten courtyard offers a rare pocket of stillness amidst the city's cacophony. Moss clings to the damp cobblestones, and a few tenacious weeds sprout near the base of the surrounding tenement walls. The air is cool and smells of damp earth and distant chimney smoke. It feels like a place where secrets might be shared or a moment of troubled peace found.",
+        "exits": {
+            "Haymarket Square": "Pass back through the archway into the noise of Haymarket Square.",
+            "Stairwell (Outside Raskolnikov's Garret)": "Find the passage back to the stairwell of Raskolnikov's tenement building."
+        },
+        "items_present": [{"name": "old newspaper", "quantity": 1}, {"name": "worn coin", "quantity": 1}],
+        "time_effects": {
+            "Afternoon": " Shadows from the tall tenements stretch long across the cobblestones, deepening the sense of seclusion.",
+            "Night": " The courtyard is very dark, only faint light spills from distant windows, making it feel somewhat eerie."
         }
     }
 }
