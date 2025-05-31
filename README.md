@@ -1,125 +1,104 @@
-Crime and Punishment: A Text Adventure
-"To go wrong in one's own way is better than to go right in someone else's." - Fyodor Dostoevsky
+# Crime and Punishment: A Text Adventure
 
-Welcome to a text-based adventure game that immerses you in the dark and psychologically complex world of Fyodor Dostoevsky's masterpiece, "Crime and Punishment." Navigate the grimy streets of 19th-century St. Petersburg, interact with iconic characters, and grapple with profound moral and philosophical dilemmas. This game leverages the power of Google's Gemini API to create dynamic dialogues, rich atmospheric details, and a deeply personal narrative experience.
-Core Concept
+> *"To go wrong in one's own way is better than to go right in someone else's." - Fyodor Dostoevsky*
 
-Step into the shoes of characters like Rodion Raskolnikov, Sonya Marmeladova, or Porfiry Petrovich. Experience their struggles, motivations, and the oppressive atmosphere of Dostoevsky's world. Your choices in dialogue and action will shape your relationships, your understanding of your character's psyche, and the unfolding narrative, which aims to explore themes of guilt, redemption, alienation, and the nature of morality.
-Key Features
+Step into the tormented mind of Rodion Raskolnikov, the saintly Sonya Marmeladova, or the cunning Porfiry Petrovich in this immersive text-based adventure. Navigate the grim, atmospheric streets of 19th-century St. Petersburg, grapple with profound moral dilemmas, and witness the raw human condition as depicted in Dostoevsky's masterpiece. Powered by Google's Gemini API, every conversation and observation brings the world of "Crime and Punishment" to life with unprecedented dynamism.
 
-    Deep Narrative Immersion: Experience a story closely tied to the events and themes of "Crime and Punishment."
+## Why Delve into Dostoevsky's St. Petersburg?
 
-    Dynamic NPC Interactions: Engage in conversations powered by Google's Gemini API. NPCs react to your character's state, what they are carrying, and the history of your interactions, providing unique and in-character responses.
+* **Live the Novel:** Experience a narrative deeply intertwined with the pivotal events, characters, and philosophical struggles of "Crime and Punishment".
+* **Dynamic, Intelligent NPCs:** Engage in conversations that matter. Characters remember your past interactions, their personas shape their responses, and their objectives drive their actions, all powered by the Gemini API.
+* **Multiple Perspectives:** Play as iconic characters like Raskolnikov, grappling with his theory and the murder; Sonya, striving for her family's survival and Raskolnikov's soul; or Porfiry Petrovich, employing psychological tactics to uncover the truth.
+* **Atmosphere You Can Read:** Feel the oppressive weight of St. Petersburg through subtle, AI-generated atmospheric details that reflect your character's internal state and the grim reality around them.
+* **Meaningful Choices:** Your actions and dialogue influence your relationships, character objectives with multiple stages, and the unfolding narrative, leading to different outcomes.
+* **Living World:** NPCs follow their own schedules, events unfold dynamically, and the city reacts to your notoriety.
 
-    Playable Characters: Choose to play as different key characters from the novel, each with their own perspectives, objectives, and challenges.
+## Features
 
-    Atmospheric Storytelling: Gemini generates subtle atmospheric details, enhancing the mood and reflecting the psychological state of your character.
+* **Rich Narrative Core:** Follow branching objectives mirroring the novel's complexity, such as Raskolnikov's "Grapple with Crime" or Sonya's "Guide Raskolnikov".
+* **Interactive Item System:** Find, use, and give items like "Raskolnikov's axe," "Sonya's New Testament," or AI-generated "Anonymous Notes" that can drive the plot or reveal character insights.
+* **Dynamic Events:** Encounter scripted and emergent events, from Marmeladov's tragic tavern confessions to Katerina Ivanovna's public laments, or even find mysterious notes reacting to your deeds.
+* **Psychological Depth:** Explore your character's inner world through AI-generated reflections, dreams, and observations.
+* **Persistent World:** Save and load your progress at any time.
+* **Enhanced Terminal UI:** A more readable and structured interface using the `blessed` library.
 
-    Branching Objectives: Pursue character-specific objectives with multiple stages and potential outcomes based on your choices, mirroring the novel's complex plotlines.
+## Technologies Used
 
-    Item System: Find, take, drop, and use items that can influence interactions and objectives.
+* **Python 3:** Core programming language.
+* **Google Gemini API:** For dynamic NPC dialogue, atmospheric descriptions, player reflections, and other generative text.
+* **Blessed:** Python library for an improved terminal interface.
 
-    NPC Schedules & Movement: NPCs have their own routines and can move between locations, making the world feel more alive.
+## Setup and Installation
 
-    Save/Load System: Save your progress and return to your journey through St. Petersburg at any time.
-
-    Enhanced Terminal UI: Utilizes the blessed library for a more structured and readable text-based interface.
-
-Technologies Used
-
-    Python 3: The core programming language.
-
-    Google Gemini API: Powers NPC dialogue, atmospheric descriptions, player reflections, and other generative text elements.
-
-    Blessed: A Python library for creating more sophisticated terminal interfaces.
-
-Setup and Installation
-
-    Clone the Repository:
-
+1.  **Clone the Repository:**
+    ```bash
     git clone <your-repository-url>
     cd <repository-name>
-
-    (If you don't have the repository URL, you'll need to obtain it from where the game project is hosted.)
-
-    Create a Virtual Environment (Recommended):
-
+    ```
+2.  **Create a Virtual Environment (Recommended):**
+    ```bash
     python -m venv venv
     source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-    Install Dependencies:
-
-    pip install -r requirements.txt
-
-    (The requirements.txt file includes all necessary Python packages like google-generativeai and blessed.)
-
-    Set Up Your Gemini API Key:
-    This game requires a Google Gemini API key to function fully. The game will look for the API key in the following order:
-
-        Environment Variable (Most Secure): Set an environment variable named GEMINI_API_KEY to your actual API key. This is the recommended method.
-
-        Configuration File (Less Secure): As a fallback, the game will check for a gemini_config.json file in the root directory with the content:
-
+    ```
+3.  **Install Dependencies:**
+    ```bash
+    pip install -r requirements.txt 
+    ```
+    This will install `google-generativeai` and `blessed`.
+4.  **Set Up Your Gemini API Key:**
+    The game requires a Google Gemini API key. It will search in this order:
+    * **Environment Variable (Most Secure):** Set `GEMINI_API_KEY` to your API key.
+    * **Configuration File (`gemini_config.json`):** In the root directory, create `gemini_config.json` with:
+        ```json
         {"gemini_api_key": "YOUR_ACTUAL_API_KEY_HERE"}
+        ```
+        *(Ensure this file is in your `.gitignore` if using Git.)*
+    * **Manual Input:** If no key is found, the game will prompt you at startup.
 
-        Important: If you use this file, ensure it is listed in your .gitignore file (if using Git) to prevent accidental exposure of your API key.
+    *Obtain your Gemini API key from Google's official documentation.*
 
-        Manual Input: If no key is found via the methods above, the game will prompt you to enter it when it starts.
+## How to Play
 
-    Please refer to Google's official documentation for instructions on acquiring a Gemini API key.
-
-How to Play
-
-    Run the game from your terminal:
-
+1.  **Run the game from your terminal:**
+    ```bash
     python main.py
+    ```
+   
+2.  **Start or Load:** Choose to `load` a saved game or press Enter for a new game. If new, select your character.
+3.  **Interact with the World:**
+    Use text commands to explore and interact. Type `help` for a full list of actions. Key commands include:
 
-    At the start, you can choose to load a saved game or press Enter to start a new one.
+    * `look` / `l` / `examine [target]`: Observe your surroundings or focus on specifics.
+    * `talk to [character name]`: Engage in conversation.
+    * `move to [location/exit description]`: Navigate St. Petersburg.
+    * `inventory` / `i`: Check your items.
+    * `take [item]` / `drop [item]`: Manage your possessions.
+    * `use [item]` / `use [item] on [target]`: Interact with items.
+    * `read [item]`: Peruse readable items like letters or newspapers.
+    * `persuade [character] that/to [argument]`: Attempt to influence NPCs.
+    * `objectives` / `obj`: Review your current goals.
+    * `think` / `reflect`: Access your character's inner thoughts.
+    * `journal` / `notes`: Read your collected notes, news, and rumors.
+    * `save` / `load`: Manage your game progress.
+    * `quit` / `exit`: Leave the game.
 
-    If starting a new game, select your character.
+    *(Command synonyms are supported for flexibility, see `game_config.py`)*
 
-    Interact with the world using text commands. Type help at any time to see a list of available actions. Common commands include:
+## Future Vision
 
-        look or l: Examine your surroundings.
+This project aims to continuously enhance the depth and immersion of the experience. Future updates may include:
 
-        look at [thing/person]: Get more details.
+* Even deeper branching narratives with more significant consequences.
+* More complex item interactions and environmental puzzles.
+* Expanded NPC knowledge bases and even more nuanced, emergent behaviors.
+* Further UI refinements for an even smoother playthrough.
 
-        talk to [character name]: Initiate a conversation.
-
-        move to [location name/exit description]: Change locations.
-
-        inventory or i: Check your items.
-
-        take [item name]: Pick up an item.
-
-        drop [item name]: Leave an item.
-
-        use [item name] or use [item name] on [target]: Use an item.
-
-        objectives: View your current goals.
-
-        think: See your character's inner thoughts.
-
-        journal or notes: Review your character's journal entries (e.g., overheard rumors, read news).
-
-        save / load: Manage game progress.
-
-        quit: Exit the game.
-
-Planned Future Features
-
-Players can look forward to potential future updates that may include:
-
-    Deeper implementation of branching narratives and more significant consequences for choices made across all objectives.
-
-    More complex item interactions and environmental puzzles to solve.
-
-    Expanded NPC knowledge bases and even more nuanced reactions to player actions and world events.
-
-    Further refinements to the terminal UI for an even more immersive experience.
-
-License
+## License
 
 This project is currently unlicensed.
 
-"Svidrigailov was a man who had somehow run out of meaning, and when you run out of meaning, you have to find something to feel."
+*(Consider choosing an open-source license like MIT or GPLv3 if you plan to share or allow contributions.)*
+
+---
+
+> *"Pain and suffering are always inevitable for a large intelligence and a deep heart. The really great men must, I think, have great sadness on earth." - Fyodor Dostoevsky*
