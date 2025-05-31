@@ -11,7 +11,7 @@ CHARACTERS_DATA = {
             "Raskolnikov's Garret", "Stairwell (Outside Raskolnikov's Garret)", "Haymarket Square", "Tavern",
             "Sonya's Room", "Police Station (General Area)", "Porfiry's Office",
             "Pawnbroker's Apartment Building", "Pawnbroker's Apartment", "Voznesensky Bridge", "Pulcheria's Lodgings",
-            "Katerina Ivanovna's Apartment"
+            "Katerina Ivanovna's Apartment", "Quiet Courtyard"
         ],
         "objectives": [
             {
@@ -69,7 +69,7 @@ CHARACTERS_DATA = {
         "schedule": {
             "Morning": "Raskolnikov's Garret",
             "Afternoon": "Haymarket Square",
-            "Evening": "Raskolnikov's Garret",
+            "Evening": "Quiet Courtyard",
             "Night": "Raskolnikov's Garret"
         },
         "skills": {
@@ -85,7 +85,7 @@ CHARACTERS_DATA = {
         "default_location": "Sonya's Room",
         "accessible_locations": [
             "Sonya's Room", "Haymarket Square", "Raskolnikov's Garret", "Pulcheria's Lodgings",
-            "Police Station (General Area)", "Tavern", "Katerina Ivanovna's Apartment"
+            "Police Station (General Area)", "Tavern", "Katerina Ivanovna's Apartment", "Quiet Courtyard"
         ],
         "objectives": [ # Objectives for Sonya
             {
@@ -121,7 +121,7 @@ CHARACTERS_DATA = {
         },
         "schedule": {
             "Morning": "Sonya's Room",
-            "Afternoon": "Katerina Ivanovna's Apartment", 
+            "Afternoon": "Quiet Courtyard",
             "Evening": "Sonya's Room",
             "Night": "Sonya's Room" 
         }

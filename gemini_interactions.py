@@ -410,8 +410,21 @@ class GeminiAPI:
         prompt = f"""
         **Task: Simulate brief, ambient, Dostoevskian NPC-to-NPC interaction (1-3 lines).**
         **Setting:** {location_name}, {game_time_period}.
-        **Characters:** {npc1.name} & {npc2.name} (include states, personas, objectives).
-        **Guidelines:** In-character, reflect personas/states, avoid player focus, Dostoevskian tone, specific format.
+        **Characters:** {npc1.name} (appears {npc1.apparent_state}, persona: {npc1.persona[:150]}..., objectives: {npc1_objectives_summary}) & {npc2.name} (appears {npc2.apparent_state}, persona: {npc2.persona[:150]}..., objectives: {npc2_objectives_summary}).
+        **Guidelines:**
+        - Interaction should be in-character, reflecting their personas, current states, and objectives.
+        - Avoid direct player involvement or addressing the player. This is an ambient exchange.
+        - Maintain a Dostoevskian tone appropriate for "Crime and Punishment".
+        - Format:
+          {npc1.name}: [Their dialogue line 1]
+          {npc2.name}: [Their dialogue line 1, responding to NPC1 or initiating]
+          (Optional {npc1.name}: [Their dialogue line 2, responding to NPC2])
+        - The conversation might also touch upon local gossip or a rumor. If so, make the rumor distinct or have one NPC explicitly share a piece of news or gossip they've heard.
+        **Example of incorporating a rumor (do not use this specific rumor):**
+        NPC1: The price of bread is scandalous, isn't it?
+        NPC2: It is. And did you hear about that student, the one involved in that dreadful business with the pawnbroker? They say he's been seen lurking near the Haymarket, looking like a ghost...
+        NPC1: Hush now, it's not wise to speak of such things.
+        **Output:** Generate only the dialogue lines as specified.
         Generate the interaction now:
         """
         return self._generate_content_with_fallback(prompt, f"NPC-to-NPC interaction between {npc1.name} and {npc2.name}")
@@ -578,3 +591,23 @@ class GeminiAPI:
         Generate the enhanced observation now:
         """
         return self._generate_content_with_fallback(prompt, f"enhanced observation of {target_name}")
+
+    def get_street_life_event_description(self, location_name, time_period, player_character_context="present in the area"):
+        prompt = f"""
+        **Task: Generate a brief, atmospheric 'street life' event (1-2 sentences) for St. Petersburg.**
+        **Setting:** {location_name}, {time_period}.
+        **Context:** The player character ({player_character_context}) is present but not directly involved.
+        **Examples (do not repeat these verbatim):**
+        - A ragged beggar insistently pleads with a well-dressed passerby, only to be scornfully ignored.
+        - Two market vendors shout loudly at each other over the price of radishes, attracting a small crowd.
+        - A stray dog, ribs showing, darts through the crowd, snatching a dropped piece of bread.
+        - Children's laughter echoes briefly from a nearby alleyway before being swallowed by the city's drone.
+        - A lone musician plays a mournful tune on a battered accordion, his eyes closed.
+        **Guidelines:**
+        - Evocative and Dostoevskian in tone.
+        - Focus on sensory details or brief human interactions.
+        - Should *not* require player interaction or be plot-critical. Purely atmospheric.
+        - Output only the 1-2 sentence description of the event.
+        Generate the street life event description now:
+        """
+        return self._generate_content_with_fallback(prompt, f"street life event in {location_name}")
