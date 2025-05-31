@@ -1,6 +1,7 @@
 # character_module.py
 import random
 import copy
+import logging
 
 CHARACTERS_DATA = {
     "Rodion Raskolnikov": {
@@ -528,10 +529,16 @@ class Character:
                         stage_in_final_obj["is_current_stage"] = is_current
                         if is_current:
                             current_stage_id_found_in_stages = True
-                    if not current_stage_id_found_in_stages and final_obj["stages"]: 
+                    if not current_stage_id_found_in_stages and final_obj["stages"]:
+                        saved_stage_id = final_obj.get("current_stage_id") # Get the saved stage ID before defaulting
+                        objective_id = final_obj.get("id", "Unknown Objective")
+                        logging.warning(
+                            f"Warning: Saved objective stage ID '{saved_stage_id}' for objective '{objective_id}' "
+                            f"not found in current game data. Defaulting to first stage."
+                        )
                         final_obj["current_stage_id"] = final_obj["stages"][0].get("stage_id")
                         final_obj["stages"][0]["is_current_stage"] = True
-                elif "stages" not in final_obj or not final_obj.get("stages"): 
+                elif "stages" not in final_obj or not final_obj.get("stages"):
                      final_obj["stages"] = [{"stage_id": "default", "description": "Objective state.", "is_current_stage": True}]
                      final_obj["current_stage_id"] = "default"
 
