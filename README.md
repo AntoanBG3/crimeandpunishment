@@ -92,13 +92,3 @@ This project aims to continuously enhance the depth and immersion of the experie
 * More complex item interactions and environmental puzzles.
 * Expanded NPC knowledge bases and even more nuanced, emergent behaviors.
 * Further UI refinements for an even smoother playthrough.
-
-## License
-
-This project is currently unlicensed.
-
-*(Consider choosing an open-source license like MIT or GPLv3 if you plan to share or allow contributions.)*
-
----
-
-> *"Pain and suffering are always inevitable for a large intelligence and a deep heart. The really great men must, I think, have great sadness on earth." - Fyodor Dostoevsky*
