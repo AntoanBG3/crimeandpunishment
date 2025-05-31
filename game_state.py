@@ -1625,7 +1625,7 @@ class Game:
         self._print_color("You wait for a while...", Colors.MAGENTA)
         self.last_significant_event_summary = "waited, letting time and thoughts drift."
         return TIME_UNITS_PER_PLAYER_ACTION * random.randint(3, 6) # Return time_to_advance
-
+    
     def _handle_talk_to_command(self, argument):
         """Handles the 'talk to [npc]' command."""
         if not argument:
@@ -1642,7 +1642,6 @@ class Game:
         target_npc = next((npc for npc in self.npcs_in_current_location if npc.name.lower().startswith(target_name_input.lower())), None)
 
         if target_npc:
-            # --- NPC Behavior Change based on Objective Stage (Porfiry Example) ---
             if target_npc.name == "Porfiry Petrovich":
                 solve_murders_obj = target_npc.get_objective_by_id("solve_murders")
                 if solve_murders_obj and solve_murders_obj.get("active"):
@@ -1652,24 +1651,19 @@ class Game:
                         if target_npc.apparent_state != new_state:
                             target_npc.apparent_state = new_state
                             self._print_color(f"({target_npc.name} seems to adopt a new demeanor, his gaze sharpening. He now appears {target_npc.apparent_state}.)", self.game_config.Colors.MAGENTA + self.game_config.Colors.DIM)
-            # --- End NPC Behavior Change ---
 
-            self.current_conversation_log = [] # Clear log for new conversation
-            MAX_CONVERSATION_LOG_LINES = 20 # Define max log size
+            self.current_conversation_log = [] 
+            MAX_CONVERSATION_LOG_LINES = 20 
 
-            greeting_line = f"{target_npc.name}: \"{target_npc.greeting}\""
             self._print_color(f"\nYou approach {Colors.YELLOW}{target_npc.name}{Colors.RESET} (appears {target_npc.apparent_state}).", Colors.WHITE)
-            # Display initial greeting from NPC (already handled by character.greeting or AI first line)
-            # For simplicity, we'll assume the first AI response or a standard greeting is shown.
-            # We can log the greeting if it's explicitly printed or generated before loop.
-            # For now, let's assume the first AI response will be the greeting if no explicit one is printed before.
-            # If an explicit greeting is always printed, we should log it here.
-            # Example: self._print_color(f"{target_npc.name}: \"{target_npc.greeting}\"", Colors.YELLOW)
-            # self.current_conversation_log.append(greeting_line)
-            # if len(self.current_conversation_log) > MAX_CONVERSATION_LOG_LINES: self.current_conversation_log.pop(0)
+            
+            # ==== MODIFICATION FOR DYNAMIC GREETING STARTS HERE ====
+            should_print_static_greeting = True
+            if self.player_character.name == "Rodion Raskolnikov" and target_npc.name == "Dmitri Razumikhin":
+                should_print_static_greeting = False # Let AI generate the first line for this specific interaction
+            # ==== MODIFICATION FOR DYNAMIC GREETING ENDS HERE ====
 
-            # If NPC has a specific greeting phrase, print and log it.
-            if hasattr(target_npc, 'greeting') and target_npc.greeting:
+            if should_print_static_greeting and hasattr(target_npc, 'greeting') and target_npc.greeting:
                  initial_greeting_text = f"{target_npc.name}: \"{target_npc.greeting}\""
                  self._print_color(f"{target_npc.name}: ", Colors.YELLOW, end=""); print(f"\"{target_npc.greeting}\"")
                  self.current_conversation_log.append(initial_greeting_text)
@@ -1684,7 +1678,7 @@ class Game:
                     if not self.current_conversation_log:
                         self._print_color("No history recorded yet for this conversation.", Colors.DIM)
                     else:
-                        history_to_show = self.current_conversation_log[-10:] # Show last 10 lines
+                        history_to_show = self.current_conversation_log[-10:] 
                         for line in history_to_show:
                             if line.startswith("You:"):
                                 self._print_color(line, Colors.GREEN)
@@ -1695,7 +1689,7 @@ class Game:
                             else:
                                 self._print_color(line, Colors.DIM)
                     self._print_color("--- End of History ---", Colors.CYAN + Colors.BOLD)
-                    continue # Restart the loop to get fresh player input
+                    continue 
                 
                 logged_player_dialogue = f"You: {player_dialogue}"
                 self.current_conversation_log.append(logged_player_dialogue)
@@ -1705,10 +1699,8 @@ class Game:
                     self._print_color(f"You end the conversation with {Colors.YELLOW}{target_npc.name}{Colors.RESET}.", Colors.WHITE)
                     conversation_active = False
                     break
-                if not player_dialogue: # Check after history and logging empty line
+                if not player_dialogue: 
                     self._print_color("You remain silent for a moment.", Colors.DIM)
-                    # We logged the empty line, so AI can react to silence if programmed to.
-                    # No 'continue' here, let it proceed to AI response.
                     pass
 
 
@@ -1718,14 +1710,14 @@ class Game:
                         target_npc, self.player_character, player_dialogue,
                         self.current_location_name, self.get_current_time_period(),
                         self.get_relationship_text(target_npc.relationship_with_player),
-                        target_npc.get_player_memory_summary(self.game_time), # Pass current_turn
+                        target_npc.get_player_memory_summary(self.game_time), 
                         self.player_character.apparent_state,
                         self.player_character.get_notable_carried_items_summary(),
                         self._get_recent_events_summary(),
                         self._get_objectives_summary(target_npc),
                         self._get_objectives_summary(self.player_character)
                     )
-                else: # Fallback if no API
+                else: 
                     ai_response = random.choice([
                         "Yes?", "Hmm.", "What is it?", "I am busy.",
                         f"{target_npc.greeting if hasattr(target_npc, 'greeting') else '...'}"
@@ -1733,20 +1725,6 @@ class Game:
                     self._print_color(f"{Colors.DIM}(Using placeholder dialogue){Colors.RESET}", Colors.DIM)
 
                 target_npc.update_relationship(player_dialogue, POSITIVE_KEYWORDS, NEGATIVE_KEYWORDS, self.game_time)
-                # The update_relationship method in Character class now handles adding a "relationship_change" memory.
-                # We can also add a more general "dialogue_exchange" memory here if needed,
-                # but let's rely on update_relationship for now to avoid too much redundancy.
-                # Example of adding a direct dialogue memory if desired:
-                # target_npc.add_player_memory(
-                # memory_type="dialogue_exchange",
-                # turn=self.game_time,
-                # content={
-                # "player_statement": player_dialogue[:100], # Truncate for brevity
-                # "npc_response": ai_response[:100], # Truncate
-                # "topic_hint": "general conversation" # This could be improved with topic detection
-                # },
-                #     sentiment_impact=0 # Or derive from keyword match if not using update_relationship's impact
-                # )
                 self._print_color(f"{target_npc.name}: ", Colors.YELLOW, end=""); print(f"\"{ai_response}\"")
 
                 logged_ai_response = f"{target_npc.name}: \"{ai_response}\""
@@ -1759,12 +1737,10 @@ class Game:
                     self._print_color(f"\nThe conversation with {Colors.YELLOW}{target_npc.name}{Colors.RESET} seems to have concluded.", Colors.MAGENTA)
                     conversation_active = False
                 
-                # Time advances per exchange in conversation
                 self.advance_time(TIME_UNITS_PER_PLAYER_ACTION) 
-                if self.event_manager.check_and_trigger_events(): # Check events after each line of dialogue
+                if self.event_manager.check_and_trigger_events(): 
                     self.last_significant_event_summary = "an event occurred during conversation."
 
-            # After conversation loop (or if it ends prematurely), record player state and items
             unusual_states = ["feverish", "slightly drunk", "paranoid", "agitated", "dangerously agitated", "remorseful", "haunted by dreams", "injured"]
             current_player_state = self.player_character.apparent_state
             if current_player_state in unusual_states:
@@ -1795,13 +1771,11 @@ class Game:
                         sentiment_impact=sentiment
                     )
             
-            # --- Notoriety Change for talking to Porfiry ---
             if self.player_character.name == "Rodion Raskolnikov" and target_npc and target_npc.name == "Porfiry Petrovich":
                 self.player_notoriety_level = min(3, max(0, self.player_notoriety_level + 0.15))
                 self._print_color("(Your conversation with Porfiry seems to have drawn some attention...)", Colors.YELLOW + Colors.DIM)
-                print(f"[DEBUG] Notoriety changed to: {self.player_notoriety_level}")
-            # --- End Notoriety Change ---
-            return True, True # action_taken, show_atmospherics
+                # print(f"[DEBUG] Notoriety changed to: {self.player_notoriety_level}") # Kept for dev testing if needed
+            return True, True 
         else:
             self._print_color(f"You don't see anyone named '{target_name_input}' here.", Colors.RED)
             return False, False

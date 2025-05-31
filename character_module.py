@@ -246,7 +246,7 @@ CHARACTERS_DATA = {
     },
      "Dmitri Razumikhin": {
         "persona": "You are Dmitri Razumikhin from Dostoevsky's 'Crime and Punishment'. You are Raskolnikov's loyal friend, energetic, talkative, somewhat poor but resourceful and generally good-natured. You are practical and often try to help Raskolnikov, though sometimes bewildered by his behavior. Your speech is enthusiastic, direct, and sometimes a bit boisterous.",
-        "greeting": "Hello there! Good to see you! Rodya's been acting stranger than a three-legged dog, has he mentioned anything to you?",
+        "greeting": "Rodya! There you are! I was just thinking about you. You've been looking stranger than a three-legged dog lately. What's on your mind?",
         "default_location": "Tavern", 
         "accessible_locations": [
             "Tavern", "Haymarket Square", "Raskolnikov's Garret", "Stairwell (Outside Raskolnikov's Garret)",
