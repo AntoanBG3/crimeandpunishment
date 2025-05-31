@@ -43,6 +43,7 @@ class Game:
         self.player_notoriety_level = 0 
         self.known_facts_about_crime = ["An old pawnbroker and her sister were murdered recently."] 
         self.key_events_occurred = ["Game started."] 
+        self.numbered_actions_context = []
 
     def _get_current_game_time_period_str(self):
         return f"Day {self.current_day}, {self.get_current_time_period()}"
@@ -118,6 +119,7 @@ class Game:
                         self.player_character.apparent_state = "haunted by dreams"
                     self._print_color(f"(The dream leaves you feeling {self.player_character.apparent_state}.)", Colors.YELLOW)
                     self.last_significant_event_summary = "awoke troubled by a vivid dream."
+                    self._print_color("", Colors.RESET) # Extra spacing
 
         self.time_since_last_npc_interaction += units
         self.time_since_last_npc_schedule_update += units
@@ -245,6 +247,7 @@ class Game:
             self._print_color("\n(As time passes...)", Colors.MAGENTA)
             for info in moved_npcs_info:
                 self._print_color(info, Colors.MAGENTA)
+            self._print_color("", Colors.RESET) # Extra spacing
         self.update_npcs_in_current_location() 
 
 
@@ -295,28 +298,35 @@ class Game:
     def display_objectives(self):
         self._print_color("\n--- Your Objectives ---", Colors.CYAN + Colors.BOLD)
         if not self.player_character or not self.player_character.objectives:
-            print("You have no specific objectives at the moment.")
+            self._print_color("You have no specific objectives at the moment.", Colors.DIM)
             return
-        has_active = False
-        for obj in self.player_character.objectives:
-            if obj.get("active", False) and not obj.get("completed", False):
-                if not has_active: self._print_color("Ongoing:", Colors.YELLOW)
-                has_active = True
+
+        active_objectives = [obj for obj in self.player_character.objectives if obj.get("active", False) and not obj.get("completed", False)]
+        completed_objectives = [obj for obj in self.player_character.objectives if obj.get("completed", False)]
+
+        if not active_objectives and not completed_objectives:
+            self._print_color("You have no specific objectives at the moment.", Colors.DIM)
+            return
+
+        if active_objectives:
+            self._print_color("\nOngoing:", Colors.YELLOW + Colors.BOLD)
+            for obj in active_objectives:
                 self._print_color(f"- {obj.get('description', 'Unnamed objective')}", Colors.WHITE)
                 current_stage = self.player_character.get_current_stage_for_objective(obj.get('id'))
                 if current_stage:
                     self._print_color(f"  Current Stage: {current_stage.get('description', 'No stage description')}", Colors.CYAN)
-        if not has_active:
-             print("You have no active objectives right now.")
-        completed_objectives = [obj for obj in self.player_character.objectives if obj.get("completed", False)]
+        else:
+            self._print_color("\nNo active objectives right now.", Colors.DIM)
+
         if completed_objectives:
-            self._print_color("\nCompleted:", Colors.GREEN)
+            self._print_color("\nCompleted:", Colors.GREEN + Colors.BOLD)
             for obj in completed_objectives:
                 self._print_color(f"- {obj.get('description', 'Unnamed objective')}", Colors.WHITE)
 
 
     def display_help(self):
         self._print_color("\n--- Available Actions ---", Colors.CYAN + Colors.BOLD)
+        self._print_color("", Colors.RESET) # Extra spacing before list
         actions = [
             ("look / l / examine / observe / look around", "Examine surroundings, see people, items, and exits."),
             ("look at [thing/person/scenery]", "Examine something specific more closely."),
@@ -340,6 +350,7 @@ class Game:
         ]
         for cmd, desc in actions:
             self._print_color(f"{cmd:<65} {Colors.WHITE}- {desc}{Colors.RESET}", Colors.MAGENTA)
+        self._print_color("", Colors.RESET) # Extra spacing after list
 
 
     def parse_action(self, raw_input):
@@ -774,6 +785,7 @@ class Game:
             )
             if rumor_text and not rumor_text.startswith("(OOC:"):
                 self._print_color(f"\n{Colors.DIM}(You overhear some chatter nearby: \"{rumor_text}\"){Colors.RESET}", Colors.DIM)
+                self._print_color("", Colors.RESET) # Extra spacing
                 if self.player_character: # Ensure player_character exists
                     self.player_character.add_journal_entry("Overheard Rumor", rumor_text, self._get_current_game_time_period_str())
                     if self.player_character.name == "Rodion Raskolnikov" and \
@@ -784,9 +796,85 @@ class Game:
     def _get_player_input(self):
         """Gets and parses the player's raw input."""
         player_state_info = f"{self.player_character.apparent_state}" if self.player_character else "Unknown state"
-        prompt_text = f"\n[{Colors.CYAN}{self.current_location_name}{Colors.RESET} ({player_state_info})] What do you do? {self.game_config.PROMPT_ARROW}"
+
+        prompt_hints = []
+        hint_types_added = set() # To ensure variety, like {'talk', 'item', 'move'}
+
+        if hasattr(self, 'numbered_actions_context') and self.numbered_actions_context:
+            # Prioritize Talk Hint
+            if 'talk' not in hint_types_added:
+                for action_info in self.numbered_actions_context:
+                    if action_info['type'] == 'talk':
+                        prompt_hints.append(f"Talk to {action_info['target']}")
+                        hint_types_added.add('talk')
+                        break
+
+            # Prioritize Notable Item Hint (Take or Look)
+            if 'item' not in hint_types_added:
+                for action_info in self.numbered_actions_context:
+                    if action_info['type'] == 'take' or action_info['type'] == 'look_at_item':
+                        item_name = action_info['target']
+                        if self.game_config.DEFAULT_ITEMS.get(item_name, {}).get('is_notable', False):
+                            action_verb = "Take" if action_info['type'] == 'take' else "Examine"
+                            prompt_hints.append(f"{action_verb} {item_name}")
+                            hint_types_added.add('item')
+                            break
+
+            # If no notable item hint and still need an item hint (and space for hints < 2)
+            if 'item' not in hint_types_added and len(prompt_hints) < 2:
+                 for action_info in self.numbered_actions_context:
+                    if action_info['type'] == 'take' or action_info['type'] == 'look_at_item':
+                        item_name = action_info['target']
+                        # Avoid adding if it's the same as an existing hint (e.g. if talk hint was to a person also listed as look_at_npc)
+                        # This basic check might not be perfect but helps reduce very redundant hints.
+                        potential_hint = f"Take {item_name}" if action_info['type'] == 'take' else f"Examine {item_name}"
+                        if not any(potential_hint in h for h in prompt_hints):
+                             prompt_hints.append(potential_hint)
+                             hint_types_added.add('item')
+                             break
+
+            # Prioritize Exit Hint if space allows (len < 2)
+            if 'move' not in hint_types_added and len(prompt_hints) < 2:
+                for action_info in self.numbered_actions_context:
+                    if action_info['type'] == 'move':
+                        prompt_hints.append(f"Go to {action_info['target']}")
+                        hint_types_added.add('move')
+                        break
+
+        active_hints = prompt_hints[:2] # Ensure max 2 hints
+        hint_string = ""
+        if active_hints:
+            hint_string = f" (Hint: {Colors.DIM}{' | '.join(active_hints)}{Colors.RESET})"
+        elif not (hasattr(self, 'numbered_actions_context') and self.numbered_actions_context):
+            hint_string = f" (Hint: {Colors.DIM}type 'look' or 'help'{Colors.RESET})"
+
+        prompt_text = f"\n[{Colors.CYAN}{self.current_location_name}{Colors.RESET} ({player_state_info})]{hint_string} What do you do? {self.game_config.PROMPT_ARROW}"
         raw_action_input = self._input_color(prompt_text, Colors.WHITE)
-        return self.parse_action(raw_action_input)
+
+        try:
+            action_number = int(raw_action_input)
+            if 1 <= action_number <= len(self.numbered_actions_context):
+                action_info = self.numbered_actions_context[action_number - 1]
+                action_type = action_info['type']
+                target = action_info['target']
+
+                if action_type == 'move':
+                    return 'move to', target
+                elif action_type == 'talk':
+                    return 'talk to', target
+                elif action_type == 'take':
+                    return 'take', target
+                elif action_type == 'look_at_item':
+                    return 'look', target
+                elif action_type == 'look_at_npc':
+                    return 'look', target
+                # Add other action types if needed
+            else:
+                # Number out of range, treat as normal command
+                return self.parse_action(raw_action_input)
+        except ValueError:
+            # Not a number, parse as normal command
+            return self.parse_action(raw_action_input)
 
     def _process_command(self, command, argument):
         """Processes the parsed command and returns turn flags."""
@@ -928,6 +1016,9 @@ class Game:
     # --- Command Handler Methods ---
     def _handle_look_command(self, argument):
         """Handles the 'look' command and its variations."""
+        self.numbered_actions_context.clear()
+        action_number = 1
+
         current_location_data = LOCATIONS_DATA.get(self.current_location_name)
         is_general_look = (argument is None or argument.lower() in ["around", ""])
         self.update_current_location_details(from_explicit_look_cmd=is_general_look)
@@ -1117,41 +1208,88 @@ class Game:
             if not found_target:
                 self._print_color(f"You don't see '{argument}' here to look at specifically.", Colors.RED)
 
-        # Display items, NPCs, exits (already part of update_current_location_details or can be explicitly listed here)
+        # Display items, NPCs, exits
+        self._print_color("", Colors.RESET) # Extra spacing before lists
         current_loc_items = self.dynamic_location_items.get(self.current_location_name, [])
         if current_loc_items:
-            self._print_color("\nYou also see here:", Colors.YELLOW)
+            self._print_color("--- Items Here ---", Colors.YELLOW + Colors.BOLD)
             for item_info in current_loc_items:
                 item_name = item_info["name"]; item_qty = item_info.get("quantity", 1)
                 item_default_info = DEFAULT_ITEMS.get(item_name, {})
                 desc_snippet = item_default_info.get('description', 'an item')[:40]
                 qty_str = f" (x{item_qty})" if (item_default_info.get("stackable") or item_default_info.get("value") is not None) and item_qty > 1 else ""
-                print(f"- {Colors.GREEN}{item_name}{Colors.RESET}{qty_str} - {desc_snippet}...")
-        else:
-            print("\nYou see no loose items of interest here.")
-        
-        if self.npcs_in_current_location:
-            self._print_color("\nPeople here:", Colors.YELLOW)
-            for npc in self.npcs_in_current_location:
-                print(f"- {Colors.YELLOW}{npc.name}{Colors.RESET} (Appears: {npc.apparent_state}, Relationship: {self.get_relationship_text(npc.relationship_with_player)})")
-        else:
-            print("\nYou see no one else of note here.")
 
-        self._print_color("\nExits:", Colors.BLUE)
+                look_at_display = f"Look at {item_name}"
+                self.numbered_actions_context.append({'type': 'look_at_item', 'target': item_name, 'display': look_at_display})
+                self._print_color(f"{action_number}. {look_at_display}", Colors.GREEN, end="")
+                print(f" - {desc_snippet}...")
+                action_number += 1
+
+                if item_default_info.get("takeable", False):
+                    take_display = f"Take {item_name}"
+                    self.numbered_actions_context.append({'type': 'take', 'target': item_name, 'display': take_display})
+                    self._print_color(f"{action_number}. {take_display}{qty_str}", Colors.GREEN)
+                    action_number += 1
+        else:
+            self._print_color("--- Items Here ---", Colors.YELLOW + Colors.BOLD)
+            self._print_color("No loose items of interest here.", Colors.DIM)
+        
+        if current_loc_items: # Check if items were actually listed
+            self._print_color("(Hint: You can 'take [item name]', 'look at [item name]', or use a number to interact.)", Colors.DIM)
+
+        self._print_color("", Colors.RESET) # Extra spacing
+        if self.npcs_in_current_location:
+            self._print_color("--- People Here ---", Colors.YELLOW + Colors.BOLD)
+            for npc in self.npcs_in_current_location:
+                look_at_npc_display = f"Look at {npc.name}"
+                self.numbered_actions_context.append({'type': 'look_at_npc', 'target': npc.name, 'display': look_at_npc_display})
+                self._print_color(f"{action_number}. {look_at_npc_display}", Colors.YELLOW, end="")
+                print(f" (Appears: {npc.apparent_state}, Relationship: {self.get_relationship_text(npc.relationship_with_player)})")
+                action_number += 1
+
+                talk_to_npc_display = f"Talk to {npc.name}"
+                self.numbered_actions_context.append({'type': 'talk', 'target': npc.name, 'display': talk_to_npc_display})
+                self._print_color(f"{action_number}. {talk_to_npc_display}", Colors.YELLOW)
+                action_number += 1
+            self._print_color("(Hint: You can 'talk to [npc name]', 'look at [npc name]', or use a number.)", Colors.DIM)
+        else:
+            self._print_color("--- People Here ---", Colors.YELLOW + Colors.BOLD)
+            self._print_color("You see no one else of note here.", Colors.DIM)
+
+        self._print_color("", Colors.RESET) # Extra spacing
+        self._print_color("--- Exits ---", Colors.BLUE + Colors.BOLD)
         has_accessible_exits = False
         if current_location_data and current_location_data.get("exits"):
             for exit_target_loc, exit_desc in current_location_data["exits"].items():
-                print(f"- {Colors.BLUE}{exit_desc} (to {Colors.CYAN}{exit_target_loc}{Colors.BLUE}){Colors.RESET}")
+                display_text = f"{exit_desc} (to {exit_target_loc})"
+                self.numbered_actions_context.append({'type': 'move', 'target': exit_target_loc, 'description': exit_desc, 'display': display_text})
+                self._print_color(f"{action_number}. {display_text}", Colors.BLUE)
+                action_number += 1
                 has_accessible_exits = True
         if not has_accessible_exits:
-            print(f"{Colors.BLUE}There are no obvious exits from here.{Colors.RESET}")
+            self._print_color("There are no obvious exits from here.", Colors.DIM)
 
 
     def _handle_inventory_command(self):
         """Handles the 'inventory' command."""
         if self.player_character:
             self._print_color("\n--- Your Inventory ---", Colors.CYAN + Colors.BOLD)
-            print(self.player_character.get_inventory_description())
+            inv_desc = self.player_character.get_inventory_description()
+            if inv_desc.startswith("You are carrying: "):
+                items_str = inv_desc.replace("You are carrying: ", "", 1)
+                if items_str.lower() == "nothing.":
+                    self._print_color("- Nothing", Colors.DIM)
+                else:
+                    items_list = items_str.split(", ")
+                    for item_with_details in items_list:
+                        # Remove trailing period if present before printing
+                        self._print_color(f"- {item_with_details.rstrip('.')}", Colors.GREEN)
+                    if items_list: # If there were items
+                        self._print_color("(Hint: You can 'use [item]', 'read [item]', 'drop [item]', or 'give [item] to [person]'.)", Colors.DIM)
+            elif inv_desc.lower() == "you are carrying nothing.": # Alternative phrasing from character_module
+                 self._print_color("- Nothing", Colors.DIM)
+            else: # Fallback if format is unexpected
+                print(inv_desc)
         else:
             self._print_color("Cannot display inventory: Player character not available.", Colors.RED)
 
@@ -1220,6 +1358,15 @@ class Game:
                                 sentiment_impact= -1 if item_default_props.get("is_notable") else 0 # Taking notable items might be seen negatively
                             )
                             # self._print_color(f"[DEBUG] {npc.name} remembers player taking {item_found_in_loc['name']}", Colors.DIM)
+
+                    # Add contextual hint for taken item
+                    taken_item_name = item_found_in_loc["name"]
+                    taken_item_props = self.game_config.DEFAULT_ITEMS.get(taken_item_name, {})
+                    if taken_item_props.get("readable"):
+                        self._print_color(f"(Hint: You can now 'read {taken_item_name}'.)", Colors.DIM)
+                    elif taken_item_props.get("use_effect_player") and taken_item_name != "worn coin": # Avoid "use worn coin" hint unless it has other specific uses
+                        self._print_color(f"(Hint: You can try to 'use {taken_item_name}'.)", Colors.DIM)
+
                     return True, True
                 else:
                     self._print_color(f"Failed to add {item_found_in_loc['name']} to inventory.", Colors.RED)
