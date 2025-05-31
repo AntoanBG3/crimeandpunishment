@@ -3,7 +3,7 @@ from game_config import DEFAULT_ITEMS
 
 LOCATIONS_DATA = {
     "Tavern": {
-        "description": "The air in this St. Petersburg tavern is thick with the acrid smell of cheap makhorka tobacco, stale beer, and unwashed bodies. Grimy wooden tables are scarred with countless rings from wet glasses. Low, guttural laughter and hushed, desperate whispers mingle, creating a cacophony of the city's underbelly. Shadows cling to the corners, and the flickering gaslight casts a jaundiced glow on the faces of the patrons, each seemingly lost in their own private miseries or fleeting revelries.",
+        "description": "The air in this St. Petersburg tavern is thick with the acrid smell of cheap makhorka tobacco, stale beer, the greasy steam of cheap food, and unwashed bodies. Grimy wooden tables are scarred with countless rings from wet glasses and spilled drink. A cacophony of the city's underbelly fills the space: low, guttural laughter from one corner, hushed, desperate whispers from another, sharp arguments flaring up and dying down, and the occasional burst of drunken song. Shadows cling to the corners, and the flickering gaslight casts a jaundiced glow on the faces of the varied patrons – students, minor officials, workmen, and more shadowy figures – each seemingly lost in their own private miseries, fleeting revelries, or intense, low-voiced conversations that might concern anything from petty gossip to life-altering decisions. It's a place where crucial information might be overheard by chance, or a fateful encounter could occur.",
         "exits": {"Haymarket Square": "Push through the heavy, creaking door back into the sensory assault of Haymarket Square."},
         "items_present": [{"name": "dusty bottle", "quantity": 2}, {"name": "worn coin", "quantity": 1}, {"name": "cheap vodka", "quantity": 1}],
         "time_effects": {
@@ -11,7 +11,7 @@ LOCATIONS_DATA = {
         }
     },
     "Raskolnikov's Garret": {
-        "description": "This 'coffin' of a room, tucked away under the very eaves of a towering, five-storied house, is suffocating. The ceiling presses down, so low you feel you could touch it without standing. Yellowed, peeling wallpaper, adorned with a barely discernible floral pattern, seems to absorb what little light filters through the grimy window. The air is perpetually stuffy, heavy with the scent of dust, poverty, and unspoken thoughts. A rickety table, a chair, and a wretched sofa covered in tattered chintz are the sole furnishings.",
+        "description": "This tiny garret, more like a cupboard or a 'coffin' of a room, is tucked away oppressively under the very eaves of a towering, five-storied house. The ceiling presses down, so low you feel you could touch it without standing. Dusty, yellowed, and peeling wallpaper, adorned with a barely discernible floral pattern, seems to absorb what little light filters through the grimy window, contributing to the room's sense of psychological confinement. The air is perpetually stuffy, heavy with the scent of dust, abject poverty, and unspoken, feverish thoughts. A rickety table, a chair, and a wretched sofa covered in tattered chintz are the sole, miserable furnishings.",
         "exits": {"Stairwell (Outside Raskolnikov's Garret)": "Open the flimsy door and step out into the dim, echoing stairwell."},
         "items_present": [{"name": "old newspaper", "quantity": 1}],
         "time_effects": {
@@ -28,7 +28,7 @@ LOCATIONS_DATA = {
         "items_present": []
     },
     "Sonya's Room": {
-        "description": "Sonya Marmeladova's room at the Kapernaumovs' is surprisingly large, though the ceiling is oppressively low. It is irregularly shaped, with a sharp angle cutting into one wall, making it feel like a barn. Furnishings are meager: a plain wooden bed with a thin blanket, a simple table, a few mismatched chairs, and a small, battered chest of drawers. Despite its bareness, there's a sense of desperate tidiness, a quiet battle against encroaching squalor. The room is filled with a palpable atmosphere of sorrow, faith, and profound suffering.",
+        "description": "Sonya Marmeladova's room at the Kapernaumovs' is surprisingly large, though the ceiling is oppressively low, giving it a barn-like feeling. It's an irregularly shaped space, with a sharp angle cutting into one wall. Furnishings are meager: a plain wooden bed with a thin blanket, a simple table, a few mismatched chairs, and a small, battered chest of drawers. On the table, a well-worn copy of the New Testament is often visible, a testament to her deep faith. Despite its bareness and poverty, there's a sense of desperate tidiness, a quiet battle against encroaching squalor. The room is filled with a palpable atmosphere of sorrow, faith, and profound suffering.",
         "exits": {
             "Haymarket Square": "Leave the quiet sorrow of the room and return to the jarring noise of Haymarket Square.",
             "Katerina Ivanovna's Apartment": "A short, grim walk takes you to the even more chaotic dwelling of Katerina Ivanovna." # New Exit
@@ -52,7 +52,7 @@ LOCATIONS_DATA = {
         "items_present": []
     },
     "Haymarket Square": {
-        "description": "Haymarket Square is a sensory explosion, the beating, often diseased heart of this part of St. Petersburg. The air is a thick soup of smells: rotting vegetables, fresh hay, horse manure, cheap vodka, unwashed bodies, and the aroma of street food from countless stalls. A cacophony of sounds assaults the ears – the shouts of vendors hawking their wares, the rumbling of cartwheels on cobblestones, the whinnying of horses, the cries of beggars, and the drunken singing from nearby taverns. The crowd is a dense, ever-shifting mass of humanity, a cross-section of the city's poor and desperate.",
+        "description": "Haymarket Square is an oppressive sensory explosion, the beating, often diseased heart of this part of St. Petersburg, especially under the stifling summer heat. The air is a thick, choking soup of smells: rotting vegetables, fresh hay, horse manure, cheap vodka, unwashed bodies, and the greasy aroma of street food from countless stalls, all mingling with fine, pervasive dust. A relentless cacophony of sounds assaults the ears – the shouts of vendors hawking their wares, the rumbling of cartwheels on cobblestones, the whinnying of horses, the cries of beggars, and the drunken, desperate singing from nearby taverns. The crowd is a dense, ever-shifting mass of humanity – a cross-section of the city's poor, drunk, and desperate – navigating the chaotic, filthy space, contributing to an atmosphere that feels both overwhelmingly vibrant and deeply unsettling.",
         "exits": {
             "Tavern": "Duck into a nearby tavern, seeking either oblivion or company.",
             "Stairwell (Outside Raskolnikov's Garret)": "Weave through the throng towards the tall tenement building where Raskolnikov lodges.",
@@ -79,7 +79,7 @@ LOCATIONS_DATA = {
         "items_present": []
     },
     "Pawnbroker's Apartment": {
-        "description": "The air inside Alyona Ivanovna's small apartment is stale and heavy with an almost tangible silence. Dust motes dance in the weak shafts of light that penetrate the grimy windows. The sparse furniture – a few chairs, a chest, a bed – is draped in ghostly stillness. Every object seems to hold a memory, a silent testament to the violent events that transpired here. The place feels cold, violated, and haunted by an unspeakable dread.",
+        "description": "Alyona Ivanovna's small apartment, though rather cluttered, is surprisingly clean, a testament to Lizaveta's diligent work. The walls are covered in cheap, yellow wallpaper. Simple muslin curtains hang over the windows, which look out onto the courtyard. Pots of geraniums line the windowsills, adding a touch of incongruous life to the otherwise severe room. The main room contains a sofa with a high wooden back, a round table, a chest of drawers, and a few chairs. The air is usually thick with the smell of whatever Alyona is cooking or the general scent of old belongings. Despite the cleanliness, there's an underlying sense of tension and suspicion, largely emanating from the old pawnbroker herself.",
         "exits": {"Pawnbroker's Apartment Building": "Turn your back on the scene and leave the apartment, returning to the stairwell."},
         "items_present": [{"name": "Lizaveta's bundle", "quantity": 1}] # Lizaveta's bundle might be found here.
     },
@@ -118,6 +118,19 @@ LOCATIONS_DATA = {
         "time_effects": {
             "Afternoon": " Shadows from the tall tenements stretch long across the cobblestones, deepening the sense of seclusion.",
             "Night": " The courtyard is very dark, only faint light spills from distant windows, making it feel somewhat eerie."
+        }
+    },
+    "Svidrigaïlov's Lodging": {
+        "description": "Svidrigaïlov has taken rooms in a quiet, somewhat secluded part of the same building as Sonya's, though his are more spacious and less overtly squalid. The main feature of note is that his rooms adjoin Sonya's through a thin wall, and it is known he can, and does, listen to conversations in her room from an empty, connecting chamber he also rents. The air here often feels heavy with his cynical amusement and unspoken intentions. The furnishings are adequate but unremarkable, betraying little of the man's true nature beyond a desire for basic comfort and privacy.",
+        "exits": {
+            "Sonya's Room": "A door that presumably leads to a common hallway or area near Sonya's room.",
+            "Haymarket Square": "Descend to the street and make your way back to the bustle of Haymarket Square."
+            # Consider if an exit to a generic 'Apartment Hallway' might be better than directly to Sonya's,
+            # depending on how eavesdropping is mechanically handled. For now, 'Sonya's Room' implies proximity.
+        },
+        "items_present": [], # No specific items noted for now, can be added later.
+        "time_effects": {
+            "Night": " The rooms are often quiet, but a faint light might be seen under his door, suggesting his late hours and restless thoughts."
         }
     }
 }

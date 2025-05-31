@@ -112,6 +112,36 @@ class EventManager:
                 self.game.player_character.add_to_inventory("mother's letter")
                 self._print_color("The letter is now in your possession.", Colors.GREEN)
             self.game._print_color("This news weighs heavily on your mind.", Colors.YELLOW)
+
+            # --- Enhanced emotional impact ---
+            self.game.player_character.apparent_state = random.choice(["agitated", "burdened", "thoughtful"])
+            self.game._print_color(f"(The contents of the letter leave you feeling deeply {self.game.player_character.apparent_state}.)", Colors.YELLOW)
+
+            reflection_context = (
+                f"After reading the distressing letter from his mother about Dunya's engagement to Luzhin, "
+                f"Svidrigailov's shadow, and their imminent arrival in St. Petersburg, Raskolnikov "
+                f"(currently feeling {self.game.player_character.apparent_state}) is overwhelmed. "
+                f"His thoughts might turn to his family's sacrifice, his own poverty, the repugnance of Luzhin, "
+                f"the threat of Svidrigailov, and how this news impacts his 'extraordinary man' theory and his desperate plans."
+            )
+
+            # Assuming get_objectives_summary is available and suitable for Gemini context
+            objectives_summary = self.game._get_objectives_summary(self.game.player_character)
+
+            reflection_text = self.game.gemini_api.get_player_reflection(
+                player_char_obj=self.game.player_character,
+                current_location_name=self.game.current_location_name,
+                current_time_period=self.game.get_current_time_period(),
+                context_string=reflection_context,
+                objectives_summary=objectives_summary
+            )
+
+            if reflection_text and not reflection_text.startswith("(OOC:"):
+                self.game._print_color(f"Your thoughts race: \"{reflection_text}\"", Colors.CYAN)
+            else:
+                self.game._print_color("Your mind is a whirl of conflicting emotions and calculations.", Colors.CYAN)
+            # --- End enhanced emotional impact ---
+
         self.game.last_significant_event_summary = "received a letter from his mother about Dunya."
         self.game.key_events_occurred.append("Received letter from mother regarding Dunya's situation.")
 

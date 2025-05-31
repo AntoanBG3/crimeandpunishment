@@ -1683,6 +1683,19 @@ class Game:
                                 f"\nInventory: {self.player_character.get_inventory_description()}" + \
                                 f"\nYour current apparent state is '{self.player_character.apparent_state}'." + \
                                 f"\nRecent notable events: {self._get_recent_events_summary()}"
+
+        if self.player_character.name == "Rodion Raskolnikov":
+            theory_objective = self.player_character.get_objective_by_id("understand_theory")
+            if theory_objective and theory_objective.get("active"):
+                current_stage_obj = self.player_character.get_current_stage_for_objective("understand_theory")
+                current_stage_desc = current_stage_obj.get("description", "an unknown stage") if current_stage_obj else "an unknown stage"
+                full_reflection_context += (
+                    f"\nHe is particularly wrestling with his 'extraordinary man' theory "
+                    f"(currently at stage: '{current_stage_desc}'). How do his immediate "
+                    f"surroundings, recent events, or current feelings intersect with or "
+                    f"challenge this core belief?"
+                )
+
         if self.gemini_api.model:
             reflection = self.gemini_api.get_player_reflection(
                 self.player_character, self.current_location_name,
