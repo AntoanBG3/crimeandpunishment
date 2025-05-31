@@ -316,12 +316,39 @@ class GeminiAPI:
             f"You recall: {npc_memory_summary}. "
             f"Key recent events in the world: {recent_game_events_summary}."
         )
+
+        player_state_consideration = f"""
+        You should also consider the player's current apparent state: '{player_apparent_state}'.
+        If this state is unusual (e.g., not 'normal', 'thoughtful', 'contemplative'), your response should subtly acknowledge or react to it, in a way that is consistent with your persona and your relationship with the player.
+        For example, if the player is 'feverish', you might express concern or keep your distance. If they are 'agitated', you might be more cautious or try to calm them. If they are 'slightly drunk', you might dismiss them or find them amusing.
+        This reaction should be woven into your dialogue, not necessarily a separate statement, unless a direct comment is highly in character.
+        Do not overdo this; not every unusual state needs a strong reaction every time, but it should be a possibility.
+        """
+
+        player_items_consideration = f"""
+        The player is also carrying these notable items: '{player_notable_items_summary}'.
+        If any of these items are particularly striking, unusual for the player to carry, or relevant to your knowledge or suspicions (e.g., an axe, a bloodied item, a sacred symbol in an unexpected context), your dialogue should reflect your awareness of them.
+        Your reaction could range from subtle curiosity, suspicion, concern, fear, or even a direct comment, depending on your personality, the item, and the situation.
+        For instance, if the player is carrying 'Raskolnikov's axe', a character like Porfiry might make an indirect or probing remark, while Sonya might show distress if she saw a 'bloodied rag'.
+        This awareness should be naturally integrated into your response. Do not simply list the items you see.
+        """
+
+        npc_objective_consideration = f"""
+        Consider your own current objectives and your progress on them: '{npc_objectives_summary}'.
+        Your current dialogue, tone, and focus should be influenced by how you are feeling about these objectives and your current stage in achieving them.
+        For example, if you are close to completing an important objective, you might sound more confident or focused. If you are frustrated by a lack of progress on a key stage, this might color your words or make you less patient.
+        Let this internal state subtly guide your responses.
+        """
+
         prompt = f"""
         **Roleplay Mandate: Embody {npc_character.name} from Dostoevsky's "Crime and Punishment" with utmost fidelity.**
         **Your Persona, {npc_character.name}:**
         {npc_character.persona}
         **Current Detailed Situation:**
         {situation_summary}
+        {player_state_consideration}
+        {player_items_consideration}
+        {npc_objective_consideration}
         **Recent Conversation History with {player_character.name} (most recent last):**
         ---
         {conversation_context if conversation_context else "No prior conversation in this session."}
@@ -331,7 +358,7 @@ class GeminiAPI:
         **Response Guidelines (Strict Adherence Required):**
         1.  **Authenticity.**
         2.  **Conciseness & Impact.**
-        3.  **Contextual Reaction.**
+        3.  **Contextual Reaction.** (This includes reacting to the player's words, the situation, and their apparent state as described above).
         4.  **Dostoevskian Tone.**
         5.  **No OOC or Meta-Commentary.**
         6.  **Dialogue Only.**
@@ -471,12 +498,33 @@ class GeminiAPI:
             f"You recall: {npc_memory_summary}. "
             f"Key recent events in the world: {recent_game_events_summary}."
         )
+
+        player_state_persuasion_consideration = f"""
+        Additionally, consider the player's current apparent state: '{player_apparent_state}' when forming your response to their persuasion attempt.
+        An unusual state (e.g., 'agitated', 'feverish', 'paranoid', 'slightly drunk') might make you more or less receptive, or react in a specific way (e.g., wary, dismissive, concerned) to their attempt to persuade you.
+        Integrate this consideration naturally into your dialogue.
+        """
+
+        player_items_persuasion_consideration = f"""
+        Furthermore, consider the notable items the player is carrying: '{player_notable_items_summary}'.
+        The presence of certain items (e.g., a weapon, an item of evidence, something out of place) might influence your trust, suspicion, or overall reaction to their persuasion attempt.
+        Let this awareness subtly shape your response.
+        """
+
+        npc_objective_persuasion_consideration = f"""
+        Your current progress on your own objectives ('{npc_objectives_summary}') should also heavily influence your response to this persuasion attempt.
+        If their attempt aligns with or hinders your goals, or if your current objective stage makes you more or less receptive, reflect this in your dialogue.
+        """
+
         prompt = f"""
         **Roleplay Mandate: Embody {npc_character.name} from Dostoevsky's "Crime and Punishment" with utmost fidelity.**
         **Your Persona, {npc_character.name}:**
         {npc_character.persona}
         **Current Detailed Situation:**
         {situation_summary}
+        {player_state_persuasion_consideration}
+        {player_items_persuasion_consideration}
+        {npc_objective_persuasion_consideration}
         **Recent Conversation History with {player_character.name} (most recent last):**
         ---
         {conversation_context if conversation_context else "No prior conversation in this session."}
@@ -487,6 +535,7 @@ class GeminiAPI:
 
         **Your Task (as {npc_character.name}):**
         Respond to this persuasion attempt.
+        - Your reaction to the persuasion should also be influenced by the player's apparent state, as noted above.
         - If the persuasion was a SUCCESS (e.g., "SUCCESS due to their skillful argument", "CRITICAL SUCCESS, they are very convincing"): You should seem noticeably swayed, convinced, more agreeable, or willing to reveal something (if appropriate to your persona and the statement). Your dialogue should reflect this change of heart or willingness.
         - If the persuasion was a FAILURE (e.g., "FAILURE despite their efforts", "CRITICAL FAILURE, the attempt was clumsy and offensive"): You should resist the persuasion. You might become annoyed, suspicious, dismissive, reiterate your current stance more firmly, or even subtly mock the attempt, depending on your persona.
         - Your response should still be in character, concise, and in Dostoevskian tone.

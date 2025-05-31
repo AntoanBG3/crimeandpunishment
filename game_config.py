@@ -155,7 +155,8 @@ COMMAND_SYNONYMS = {
     "save": ["save game"],
     "load": ["load game"],
     "quit": ["exit", "q"],
-    "persuade": ["convince", "argue with"] # New command
+    "persuade": ["convince", "argue with"], # New command
+    "status": ["char", "character", "profile", "st"]
 }
 
 # --- Player States (for NPC reactions) ---
@@ -163,12 +164,18 @@ PLAYER_APPARENT_STATES = [
     "normal", "agitated", "feverish", "suspiciously calm", "despondent",
     "injured", "contemplative", "thoughtful", "burdened", "dangerously agitated",
     "less feverish", "slightly drunk", "remorseful", "resolved", "hopeful", "paranoid",
-    "haunted by dreams", "intrigued by rumors" # New states
+    "haunted by dreams", "intrigued by rumors", "intensely persuasive"
 ]
 
 # --- UI Elements ---
 PROMPT_ARROW = f"{Colors.GREEN}> {Colors.RESET}"
 SEPARATOR_LINE = Colors.DIM + ("-" * 60) + Colors.RESET
+
+# --- NPC Memory Configuration ---
+HIGHLY_NOTABLE_ITEMS_FOR_MEMORY = [
+    "Raskolnikov's axe", "bloodied rag", "Lizaveta's bundle",
+    "Sonya's Cypress Cross", "Sonya's New Testament", "mother's letter"
+]
 
 # --- Generic Scenery Keywords (for "look at scenery") ---
 # These are nouns that might appear in location descriptions.
