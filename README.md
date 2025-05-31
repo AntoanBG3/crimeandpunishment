@@ -52,7 +52,6 @@ Step into the tormented mind of Rodion Raskolnikov, the saintly Sonya Marmeladov
         ```json
         {"gemini_api_key": "YOUR_ACTUAL_API_KEY_HERE"}
         ```
-        *(Ensure this file is in your `.gitignore` if using Git.)*
     * **Manual Input:** If no key is found, the game will prompt you at startup.
 
     *Obtain your Gemini API key from Google's official documentation.*
@@ -83,12 +82,3 @@ Step into the tormented mind of Rodion Raskolnikov, the saintly Sonya Marmeladov
     * `quit` / `exit`: Leave the game.
 
     *(Command synonyms are supported for flexibility, see `game_config.py`)*
-
-## Future Vision
-
-This project aims to continuously enhance the depth and immersion of the experience. Future updates may include:
-
-* Even deeper branching narratives with more significant consequences.
-* More complex item interactions and environmental puzzles.
-* Expanded NPC knowledge bases and even more nuanced, emergent behaviors.
-* Further UI refinements for an even smoother playthrough.
