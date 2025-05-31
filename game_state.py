@@ -817,55 +817,127 @@ class Game:
         """Gets and parses the player's raw input."""
         player_state_info = f"{self.player_character.apparent_state}" if self.player_character else "Unknown state"
 
-        prompt_hints = []
-        hint_types_added = set() # To ensure variety, like {'talk', 'item', 'move'}
+        prompt_hint_objects = [] # Stores dicts: {'action_type': str, 'target': str, 'display_string': str}
+        hint_types_added = set() # Stores more specific types like 'talk', 'item_take', 'item_examine', 'move'
 
         if hasattr(self, 'numbered_actions_context') and self.numbered_actions_context:
-            # Prioritize Talk Hint
-            if 'talk' not in hint_types_added:
+            # 1. Talk Hint
+            if 'talk' not in hint_types_added and len(prompt_hint_objects) < 2:
                 for action_info in self.numbered_actions_context:
+                    if len(prompt_hint_objects) >= 2: break
                     if action_info['type'] == 'talk':
-                        prompt_hints.append(f"Talk to {action_info['target']}")
-                        hint_types_added.add('talk')
-                        break
+                        current_action_type = 'talk'
+                        current_target = action_info['target']
+                        display_string = f"Talk to {current_target}"
 
-            # Prioritize Notable Item Hint (Take or Look)
-            if 'item' not in hint_types_added:
+                        is_duplicate = False
+                        for existing_hint in prompt_hint_objects:
+                            if existing_hint['action_type'] == current_action_type and \
+                               (existing_hint['target'].startswith(current_target) or current_target.startswith(existing_hint['target'])):
+                                is_duplicate = True; break
+                        if not is_duplicate:
+                            prompt_hint_objects.append({'action_type': current_action_type, 'target': current_target, 'display_string': display_string})
+                            hint_types_added.add('talk')
+                            break # Found one talk hint, move to next category if needed by outer logic
+
+            # 2. Notable Item Hints (Take then Examine)
+            if len(prompt_hint_objects) < 2 and 'item_take' not in hint_types_added:
                 for action_info in self.numbered_actions_context:
-                    if action_info['type'] == 'take' or action_info['type'] == 'look_at_item':
-                        item_name = action_info['target']
-                        if self.game_config.DEFAULT_ITEMS.get(item_name, {}).get('is_notable', False):
-                            action_verb = "Take" if action_info['type'] == 'take' else "Examine"
-                            prompt_hints.append(f"{action_verb} {item_name}")
-                            hint_types_added.add('item')
+                    if len(prompt_hint_objects) >= 2: break
+                    if action_info['type'] == 'take' and self.game_config.DEFAULT_ITEMS.get(action_info['target'], {}).get('is_notable', False):
+                        current_action_type = 'item_take'
+                        current_target = action_info['target']
+                        display_string = f"Take {current_target}"
+
+                        is_duplicate = False
+                        for existing_hint in prompt_hint_objects:
+                            if existing_hint['action_type'] == current_action_type and \
+                               (existing_hint['target'].startswith(current_target) or current_target.startswith(existing_hint['target'])):
+                                is_duplicate = True; break
+                        if not is_duplicate:
+                            prompt_hint_objects.append({'action_type': current_action_type, 'target': current_target, 'display_string': display_string})
+                            hint_types_added.add('item_take')
                             break
 
-            # If no notable item hint and still need an item hint (and space for hints < 2)
-            if 'item' not in hint_types_added and len(prompt_hints) < 2:
-                 for action_info in self.numbered_actions_context:
-                    if action_info['type'] == 'take' or action_info['type'] == 'look_at_item':
-                        item_name = action_info['target']
-                        # Avoid adding if it's the same as an existing hint (e.g. if talk hint was to a person also listed as look_at_npc)
-                        # This basic check might not be perfect but helps reduce very redundant hints.
-                        potential_hint = f"Take {item_name}" if action_info['type'] == 'take' else f"Examine {item_name}"
-                        if not any(potential_hint in h for h in prompt_hints):
-                             prompt_hints.append(potential_hint)
-                             hint_types_added.add('item')
-                             break
-
-            # Prioritize Exit Hint if space allows (len < 2)
-            if 'move' not in hint_types_added and len(prompt_hints) < 2:
+            if len(prompt_hint_objects) < 2 and 'item_examine' not in hint_types_added:
                 for action_info in self.numbered_actions_context:
-                    if action_info['type'] == 'move':
-                        prompt_hints.append(f"Go to {action_info['target']}")
-                        hint_types_added.add('move')
-                        break
+                    if len(prompt_hint_objects) >= 2: break
+                    if action_info['type'] == 'look_at_item' and self.game_config.DEFAULT_ITEMS.get(action_info['target'], {}).get('is_notable', False):
+                        current_action_type = 'item_examine'
+                        current_target = action_info['target']
+                        display_string = f"Examine {current_target}"
 
-        active_hints = prompt_hints[:2] # Ensure max 2 hints
+                        is_duplicate = False
+                        for existing_hint in prompt_hint_objects:
+                            if existing_hint['action_type'] == current_action_type and \
+                               (existing_hint['target'].startswith(current_target) or current_target.startswith(existing_hint['target'])):
+                                is_duplicate = True; break
+                        if not is_duplicate:
+                            prompt_hint_objects.append({'action_type': current_action_type, 'target': current_target, 'display_string': display_string})
+                            hint_types_added.add('item_examine')
+                            break
+
+            # 3. Generic Item Hints (Take then Examine, if space and specific type not added)
+            if len(prompt_hint_objects) < 2 and 'item_take' not in hint_types_added :
+                for action_info in self.numbered_actions_context:
+                    if len(prompt_hint_objects) >= 2: break
+                    if action_info['type'] == 'take': # No notable check here
+                        current_action_type = 'item_take'
+                        current_target = action_info['target']
+                        display_string = f"Take {current_target}"
+
+                        is_duplicate = False
+                        for existing_hint in prompt_hint_objects:
+                            if existing_hint['action_type'] == current_action_type and \
+                               (existing_hint['target'].startswith(current_target) or current_target.startswith(existing_hint['target'])):
+                                is_duplicate = True; break
+                        if not is_duplicate:
+                            prompt_hint_objects.append({'action_type': current_action_type, 'target': current_target, 'display_string': display_string})
+                            hint_types_added.add('item_take')
+                            break
+
+            if len(prompt_hint_objects) < 2 and 'item_examine' not in hint_types_added:
+                for action_info in self.numbered_actions_context:
+                    if len(prompt_hint_objects) >= 2: break
+                    if action_info['type'] == 'look_at_item': # No notable check here
+                        current_action_type = 'item_examine'
+                        current_target = action_info['target']
+                        display_string = f"Examine {current_target}"
+
+                        is_duplicate = False
+                        for existing_hint in prompt_hint_objects:
+                            if existing_hint['action_type'] == current_action_type and \
+                               (existing_hint['target'].startswith(current_target) or current_target.startswith(existing_hint['target'])):
+                                is_duplicate = True; break
+                        if not is_duplicate:
+                            prompt_hint_objects.append({'action_type': current_action_type, 'target': current_target, 'display_string': display_string})
+                            hint_types_added.add('item_examine')
+                            break
+
+            # 4. Move Hint
+            if 'move' not in hint_types_added and len(prompt_hint_objects) < 2:
+                for action_info in self.numbered_actions_context:
+                    if len(prompt_hint_objects) >= 2: break
+                    if action_info['type'] == 'move':
+                        current_action_type = 'move'
+                        current_target = action_info['target'] # This is the location name
+                        display_string = f"Go to {current_target}"
+
+                        is_duplicate = False
+                        for existing_hint in prompt_hint_objects:
+                            if existing_hint['action_type'] == current_action_type and \
+                               (existing_hint['target'].startswith(current_target) or current_target.startswith(existing_hint['target'])):
+                                is_duplicate = True; break
+                        if not is_duplicate:
+                            prompt_hint_objects.append({'action_type': current_action_type, 'target': current_target, 'display_string': display_string})
+                            hint_types_added.add('move')
+                            break
+
+        active_hint_display_strings = [h['display_string'] for h in prompt_hint_objects[:2]]
         hint_string = ""
-        if active_hints:
-            hint_string = f" (Hint: {Colors.DIM}{' | '.join(active_hints)}{Colors.RESET})"
-        elif not (hasattr(self, 'numbered_actions_context') and self.numbered_actions_context):
+        if active_hint_display_strings:
+            hint_string = f" (Hint: {Colors.DIM}{' | '.join(active_hint_display_strings)}{Colors.RESET})"
+        elif not (hasattr(self, 'numbered_actions_context') and self.numbered_actions_context): # Default hint if no actions context at all
             hint_string = f" (Hint: {Colors.DIM}type 'look' or 'help'{Colors.RESET})"
 
         prompt_text = f"\n[{Colors.CYAN}{self.current_location_name}{Colors.RESET} ({player_state_info})]{hint_string} What do you do? {self.game_config.PROMPT_ARROW}"
@@ -2270,11 +2342,11 @@ class Game:
                 self._print_color(f"You contemplate the {item_to_use_name}, but don't find a specific use for it right now.", Colors.YELLOW)
                 used_successfully = False # No actual game state change or time passes
 
-        if used_successfully and item_props.get("consumable", False):
+        if used_successfully and item_props.get("consumable", False) and item_to_use_name != "cheap vodka":
             # Special handling for vodka is inside _handle_self_use_item to avoid double removal.
-            if item_to_use_name != "cheap vodka": 
-                if self.player_character.remove_from_inventory(item_to_use_name, 1):
-                    self._print_color(f"The {item_to_use_name} is used up.", Colors.MAGENTA)
-                # else: Error removing consumed item? Should be rare.
+            # The check "item_to_use_name != "cheap vodka"" is now in the main if.
+            if self.player_character.remove_from_inventory(item_to_use_name, 1):
+                self._print_color(f"The {item_to_use_name} is used up.", Colors.MAGENTA)
+            # else: Error removing consumed item? Should be rare.
         
         return used_successfully
