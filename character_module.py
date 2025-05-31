@@ -634,7 +634,7 @@ class Character:
             elif item_name == "worn coin" and qty >= item_props.get("notable_threshold", 20): 
                  notable_items_list.append(f"a sum of money ({qty} coins)")
         if not notable_items_list:
-            return "is not carrying anything particularly noteworthy."
+            return "is not carrying anything of note." # Made consistent
         if len(notable_items_list) == 1:
             return f"is carrying {notable_items_list[0]}."
         elif len(notable_items_list) == 2:
