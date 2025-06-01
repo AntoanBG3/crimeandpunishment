@@ -1191,12 +1191,20 @@ class Game:
             if self.player_character.name == "Rodion Raskolnikov": self.player_character.add_player_memory(memory_type="observed_bloodied_rag", turn=self.game_time, content={"summary": "The sight of the bloodied rag brought a fresh wave of paranoia."}, sentiment_impact=-1); self.player_notoriety_level = min(self.player_notoriety_level + 0.5, 3)
             self.last_significant_event_summary = f"was deeply disturbed by a {item_to_use_name}."; used_successfully = True
         elif effect_key == "drink_vodka_for_oblivion" and item_to_use_name == "cheap vodka":
+            original_state_feverish = (self.player_character.apparent_state == "feverish")
             self._print_color(f"You take a long swig of the harsh vodka. It burns on the way down, offering a brief, false warmth and a dulling of the senses.", Colors.MAGENTA)
+
+            # Default effect of vodka
             self.player_character.apparent_state = "slightly drunk"
+
             if self.player_character.has_item("cheap vodka"): self.player_character.remove_from_inventory("cheap vodka", 1)
             else: self._print_color("Odd, the bottle seems to have vanished before you could drink it all.", Colors.DIM)
             self.last_significant_event_summary = "drank some cheap vodka to numb the thoughts."
-            if self.player_character.apparent_state == "feverish": self.player_character.apparent_state = "agitated"; self._print_color("The vodka clashes terribly with your fever, making you feel worse.", Colors.RED)
+
+            # Override if originally feverish
+            if original_state_feverish:
+                self.player_character.apparent_state = "agitated"
+                self._print_color("The vodka clashes terribly with your fever, making you feel worse.", Colors.RED)
             used_successfully = True; return True
         elif effect_key == "examine_bundle_and_face_guilt_for_Lizaveta" and item_to_use_name == "Lizaveta's bundle":
             self._print_color(f"You hesitantly open {item_to_use_name}. Inside are a few pitiful belongings: a worn shawl, a child's small wooden toy, a copper coin... The sight is a fresh stab of guilt for the gentle Lizaveta.", Colors.YELLOW)
