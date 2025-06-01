@@ -233,7 +233,7 @@ class TestGameStateCommands(unittest.TestCase):
         patch.stopall()
 
     def test_handle_look_command_item_display(self):
-        self.game._handle_look_command(None)
+        self.game._handle_look_command(None, show_full_look_details=True)
         printed_content = " ".join([str(call_obj[0][0]) for call_obj in self.mock_print_color.call_args_list if call_obj[0]])
 
         self.assertIn("test_apple (x3) - A juicy red apple, looking crisp.", printed_content)
@@ -254,8 +254,10 @@ class TestGameStateCommands(unittest.TestCase):
     def test_process_command_select_item_then_look_at(self, mock_specific_look):
         item_name = "test_apple"
         self.mock_input_color.return_value = "look at"
+        # When _process_command handles 'select_item', show_full_look_details is False
         action_taken, show_atmospherics, time_units, _ = self.game._process_command('select_item', item_name)
-        mock_specific_look.assert_called_once_with(item_name)
+        # So, _handle_look_command (mocked as mock_specific_look here) should be called with False
+        mock_specific_look.assert_called_once_with(item_name, False)
         self.assertTrue(action_taken)
         self.assertTrue(show_atmospherics)
         self.assertEqual(time_units, self.game.TIME_UNITS_PER_PLAYER_ACTION)
