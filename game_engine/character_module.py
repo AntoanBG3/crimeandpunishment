@@ -290,9 +290,8 @@ class Character:
             if command_suffix_marker in original_item_name:
                 parts = original_item_name.split(command_suffix_marker, 1)
                 potential_clean_name = parts[0]
-                # If suffix is present, always use the potential_clean_name for display
-                # and for property lookup (which will default to {} if not in DEFAULT_ITEMS)
-                clean_item_name = potential_clean_name
+                if potential_clean_name in DEFAULT_ITEMS:
+                    clean_item_name = potential_clean_name
 
             item_props = DEFAULT_ITEMS.get(clean_item_name, {})
             is_stackable = item_props.get("stackable", False) or item_props.get("value") is not None

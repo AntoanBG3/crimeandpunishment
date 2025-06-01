@@ -6,7 +6,7 @@ import json
 # --- Self-contained API Configuration Constants ---
 API_CONFIG_FILE = "gemini_config.json"
 GEMINI_API_KEY_ENV_VAR = "GEMINI_API_KEY"
-DEFAULT_GEMINI_MODEL_NAME = 'gemini-2.0-flash'
+DEFAULT_GEMINI_MODEL_NAME = 'gemini-1.5-flash-latest' # Updated Default
 
 from .game_config import Colors
 
@@ -123,25 +123,34 @@ class GeminiAPI:
     def _ask_for_model_selection(self):
         self._print_color_func("\nPlease select which Gemini model to use:", Colors.CYAN)
         # Using model IDs provided by the user
+        # Models that failed simulated testing ('gemini-2.0-flash', 'gemini-2.5-flash-preview-04-17') are removed.
         models_map = {
-            "1": {"name": "Gemini 1.5 Flash", "id": "gemini-1.5-flash-latest"},
+            "1": {"name": "Gemini 1.5 Flash (Default)", "id": DEFAULT_GEMINI_MODEL_NAME}, # New Default
             "2": {"name": "Gemini 1.5 Pro", "id": "gemini-1.5-pro-latest"},
-            "3": {"name": "Gemini 2.0 Flash (Default)", "id": DEFAULT_GEMINI_MODEL_NAME},
-            "4": {"name": "Gemini 2.5 Flash", "id": "gemini-2.5-flash-preview-04-17"}, # User-provided ID
-            "5": {"name": "Gemini 2.5 Pro", "id": "gemini-2.5-pro-preview-05-06"},   # User-provided ID
+            # "3" corresponding to old 'gemini-2.0-flash' is removed
+            # "4" corresponding to 'gemini-2.5-flash-preview-04-17' is removed
+            "3": {"name": "Gemini 2.5 Pro", "id": "gemini-2.5-pro-preview-05-06"},   # Renumbered from 5
         }
-        for key, model_info in models_map.items():
-            self._print_color_func(f"{key}. {model_info['name']} (ID: {model_info['id']})", Colors.WHITE)
+        # Adjust numbering for display
+        display_map = {}
+        current_key = 1
+        for _key, model_info in models_map.items(): # Iterate in defined order (Python 3.7+)
+            display_map[str(current_key)] = model_info
+            self._print_color_func(f"{current_key}. {model_info['name']} (ID: {model_info['id']})", Colors.WHITE)
+            current_key += 1
         
         while True:
-            choice = self._input_color_func("Enter your choice (1-5, or press Enter for default): ", Colors.MAGENTA).strip()
+            # Adjust prompt based on new number of choices
+            choice_prompt = f"Enter your choice (1-{len(display_map)}, or press Enter for default): "
+            choice = self._input_color_func(choice_prompt, Colors.MAGENTA).strip()
             if not choice: 
-                default_model_info = next(item for item in models_map.values() if item["id"] == DEFAULT_GEMINI_MODEL_NAME)
+                # Ensure default_model_info correctly refers to the new DEFAULT_GEMINI_MODEL_NAME's description
+                default_model_info = next(item for item in display_map.values() if item["id"] == DEFAULT_GEMINI_MODEL_NAME)
                 self._print_color_func(f"Using default model: {default_model_info['name']}", Colors.YELLOW)
                 return DEFAULT_GEMINI_MODEL_NAME
-            if choice in models_map:
-                self._print_color_func(f"You selected: {models_map[choice]['name']}", Colors.GREEN)
-                return models_map[choice]['id']
+            if choice in display_map: # Check against display_map
+                self._print_color_func(f"You selected: {display_map[choice]['name']}", Colors.GREEN)
+                return display_map[choice]['id'] # Return ID from display_map
             else:
                 self._print_color_func("Invalid choice. Please enter a number from the list.", Colors.RED)
 

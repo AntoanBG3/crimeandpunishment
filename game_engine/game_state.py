@@ -14,7 +14,11 @@ from .game_config import (Colors, SAVE_GAME_FILE, # API_CONFIG_FILE, GEMINI_MODE
                          DREAM_CHANCE_NORMAL_STATE, DREAM_CHANCE_TROUBLED_STATE,
                          RUMOR_CHANCE_PER_NPC_INTERACTION, AMBIENT_RUMOR_CHANCE_PUBLIC_PLACE,
                          NPC_SHARE_RUMOR_MIN_RELATIONSHIP, GENERIC_SCENERY_KEYWORDS,
-                         PROMPT_ARROW, HIGHLY_NOTABLE_ITEMS_FOR_MEMORY, SEPARATOR_LINE)
+                         PROMPT_ARROW, HIGHLY_NOTABLE_ITEMS_FOR_MEMORY, SEPARATOR_LINE,
+                         STATIC_ATMOSPHERIC_DETAILS, generate_static_scenery_observation, # Added
+                         STATIC_PLAYER_REFLECTIONS, STATIC_ENHANCED_OBSERVATIONS,      # Added
+                         STATIC_NEWSPAPER_SNIPPETS, STATIC_DREAM_SEQUENCES,            # Added
+                         generate_static_item_interaction_description, STATIC_RUMORS)  # Added
 from .character_module import Character, CHARACTERS_DATA
 from .location_module import LOCATIONS_DATA
 from .gemini_interactions import GeminiAPI
@@ -47,6 +51,7 @@ class Game:
         self.numbered_actions_context = []
         self.current_conversation_log = []
         self.overheard_rumors = []
+        self.low_ai_data_mode = False
 
     def _get_current_game_time_period_str(self):
         return f"Day {self.current_day}, {self.get_current_time_period()}"
@@ -117,12 +122,23 @@ class Game:
                     if self.all_character_objects.get("Sonya Marmeladova"):
                         sonya_npc = self.all_character_objects["Sonya Marmeladova"]
                         relationships_summary = f"Sonya: {self.get_relationship_text(sonya_npc.relationship_with_player if hasattr(sonya_npc, 'relationship_with_player') else 0)}"
-                    dream_text = self.gemini_api.get_dream_sequence(
-                        self.player_character, self._get_recent_events_summary(),
-                        self._get_objectives_summary(self.player_character), relationships_summary)
+
+                    dream_text = None
+                    if not self.low_ai_data_mode and self.gemini_api.model:
+                        dream_text = self.gemini_api.get_dream_sequence(
+                            self.player_character, self._get_recent_events_summary(),
+                            self._get_objectives_summary(self.player_character), relationships_summary)
+
+                    if dream_text is None or (isinstance(dream_text, str) and dream_text.startswith("(OOC:")) or self.low_ai_data_mode:
+                        if STATIC_DREAM_SEQUENCES:
+                            dream_text = random.choice(STATIC_DREAM_SEQUENCES)
+                        else:
+                            dream_text = "You had a restless night filled with strange, fleeting images." # Ultimate fallback
+
                     self._print_color(f"{Colors.CYAN}Dream: \"{dream_text}\"{Colors.RESET}", Colors.CYAN)
                     self.player_character.add_journal_entry("Dream", dream_text, self._get_current_game_time_period_str())
-                    self.player_character.add_player_memory(f"Had a disturbing dream: {dream_text[:50]}...")
+                    # Ensure add_player_memory gets a string, even if dream_text was None initially and STATIC_DREAM_SEQUENCES was empty.
+                    self.player_character.add_player_memory(f"Had a disturbing dream: {(dream_text if dream_text else '')[:50]}...")
                     if "terror" in dream_text.lower() or "blood" in dream_text.lower() or "axe" in dream_text.lower():
                         self.player_character.apparent_state = random.choice(["paranoid", "agitated", "haunted by dreams"])
                     elif "sonya" in dream_text.lower() or "hope" in dream_text.lower() or "cross" in dream_text.lower():
@@ -140,12 +156,21 @@ class Game:
             self.time_since_last_npc_schedule_update = 0
 
     def display_atmospheric_details(self):
-        if self.player_character and self.current_location_name and self.gemini_api.model:
-            details = self.gemini_api.get_atmospheric_details(
-                self.player_character, self.current_location_name, self.get_current_time_period(),
-                self.last_significant_event_summary, self._get_objectives_summary(self.player_character))
-            if details and not details.startswith("(OOC:"):
-                self._print_color(f"\n{details}", Colors.CYAN)
+        if self.player_character and self.current_location_name:
+            details = None
+            if not self.low_ai_data_mode and self.gemini_api.model:
+                details = self.gemini_api.get_atmospheric_details(
+                    self.player_character, self.current_location_name, self.get_current_time_period(),
+                    self.last_significant_event_summary, self._get_objectives_summary(self.player_character))
+
+            if details is None or (isinstance(details, str) and details.startswith("(OOC:")) or self.low_ai_data_mode:
+                if STATIC_ATMOSPHERIC_DETAILS:
+                    details = random.choice(STATIC_ATMOSPHERIC_DETAILS)
+                else:
+                    details = "The atmosphere is thick with unspoken stories." # Ultimate fallback
+
+            if details: # Ensure details is not None if fallbacks were empty
+                 self._print_color(f"\n{details}", Colors.CYAN)
             self.last_significant_event_summary = None
 
     def initialize_dynamic_location_items(self):
@@ -305,6 +330,7 @@ class Game:
             ("save", "Save your current game progress."), ("load", "Load a previously saved game."),
             ("help / commands", "Show this help message."),
             ("status / char / profile / st", "Display your character's current status."),
+            ("toggle lowai / lowaimode", "Toggle low AI data usage mode."),
             ("quit / exit / q", "Exit the game.")]
         for cmd, desc in actions: self._print_color(f"{cmd:<65} {Colors.WHITE}- {desc}{Colors.RESET}", Colors.MAGENTA)
         self._print_color("", Colors.RESET)
@@ -344,7 +370,8 @@ class Game:
             "known_facts_about_crime": self.known_facts_about_crime,
             "key_events_occurred": self.key_events_occurred,
             "current_location_description_shown_this_visit": self.current_location_description_shown_this_visit,
-            "chosen_gemini_model": self.gemini_api.chosen_model_name }
+            "chosen_gemini_model": self.gemini_api.chosen_model_name,
+            "low_ai_data_mode": self.low_ai_data_mode }
         try:
             with open(SAVE_GAME_FILE, 'w') as f: json.dump(game_state_data, f, indent=4)
             self._print_color(f"Game saved to {SAVE_GAME_FILE}", Colors.GREEN)
@@ -363,6 +390,7 @@ class Game:
             self.known_facts_about_crime = game_state_data.get("known_facts_about_crime", ["An old pawnbroker and her sister were murdered recently."])
             self.key_events_occurred = game_state_data.get("key_events_occurred", ["Game loaded."])
             self.current_location_description_shown_this_visit = game_state_data.get("current_location_description_shown_this_visit", False)
+            self.low_ai_data_mode = game_state_data.get("low_ai_data_mode", False)
             saved_model_name = game_state_data.get("chosen_gemini_model")
             if saved_model_name: self.gemini_api.chosen_model_name = saved_model_name; self._print_color(f"Loaded preferred Gemini model: {saved_model_name}", Colors.DIM)
             self.all_character_objects = {}
@@ -455,8 +483,20 @@ class Game:
              if self.player_character.name == "Rodion Raskolnikov":
                 self._print_color("You clutch the small cypress cross. It feels strangely significant in your hand, a stark contrast to the turmoil within you.", Colors.GREEN)
                 self.player_character.apparent_state = random.choice(["remorseful", "contemplative", "hopeful"]); self.last_significant_event_summary = f"held Sonya's cross, feeling its weight and Sonya's sacrifice."
-                reflection = self.gemini_api.get_player_reflection(self.player_character, self.current_location_name, self.get_current_time_period(), "Holding Sonya's cross, new thoughts about suffering and sacrifice surface.")
-                self._print_color(f"\"{reflection}\"", Colors.CYAN); used_successfully = True
+                reflection = None
+                prompt_context = "Holding Sonya's cross, new thoughts about suffering and sacrifice surface."
+                if not self.low_ai_data_mode and self.gemini_api.model:
+                    reflection = self.gemini_api.get_player_reflection(self.player_character, self.current_location_name, self.get_current_time_period(), prompt_context)
+
+                if reflection is None or (isinstance(reflection, str) and reflection.startswith("(OOC:")) or self.low_ai_data_mode:
+                    if STATIC_PLAYER_REFLECTIONS:
+                        reflection = random.choice(STATIC_PLAYER_REFLECTIONS)
+                    else:
+                        reflection = "The cross feels heavy with meaning." # Ultimate fallback
+                    self._print_color(f"\"{reflection}\"", Colors.DIM) # Static in DIM
+                else: # AI success
+                    self._print_color(f"\"{reflection}\"", Colors.CYAN)
+                used_successfully = True
              else: self._print_color(f"You examine {item_to_use_name}. It seems to be a simple wooden cross, yet it emanates a certain potent feeling.", Colors.YELLOW); used_successfully = True
         elif effect_key == "examine_rag_and_spiral_into_paranoia" and item_to_use_name == "bloodied rag":
             self._print_color(f"You stare at the {item_to_use_name}. The dark stains seem to shift and spread before your eyes. Every sound, every shadow, feels like an accusation.", Colors.RED)
@@ -537,25 +577,39 @@ class Game:
         return True
 
     def _handle_ambient_rumors(self):
-        if self.gemini_api.model and \
-           self.current_location_name in ["Haymarket Square", "Tavern", "Squalid St. Petersburg Street"] and \
+        if self.current_location_name in ["Haymarket Square", "Tavern", "Squalid St. Petersburg Street"] and \
            random.random() < AMBIENT_RUMOR_CHANCE_PUBLIC_PLACE:
             source_npc = random.choice(self.npcs_in_current_location) if self.npcs_in_current_location \
                          else Character("A Passerby", "A typical St. Petersburg citizen.", "", self.current_location_name, [])
             relationship_score_for_rumor = 0
             if source_npc.name != "A Passerby" and hasattr(source_npc, 'relationship_with_player'):
                 relationship_score_for_rumor = source_npc.relationship_with_player
-            rumor_text = self.gemini_api.get_rumor_or_gossip(
-                source_npc, self.current_location_name, self.get_current_time_period(),
-                self._get_known_facts_summary(), self.player_notoriety_level,
-                self.get_relationship_text(relationship_score_for_rumor), self._get_objectives_summary(source_npc))
-            if rumor_text and not rumor_text.startswith("(OOC:"):
+
+            rumor_text = None
+            if not self.low_ai_data_mode and self.gemini_api.model:
+                rumor_text = self.gemini_api.get_rumor_or_gossip(
+                    source_npc, self.current_location_name, self.get_current_time_period(),
+                    self._get_known_facts_summary(), self.player_notoriety_level,
+                    self.get_relationship_text(relationship_score_for_rumor), self._get_objectives_summary(source_npc))
+
+            if rumor_text is None or (isinstance(rumor_text, str) and rumor_text.startswith("(OOC:")) or self.low_ai_data_mode:
+                if STATIC_RUMORS:
+                    rumor_text = random.choice(STATIC_RUMORS)
+                else:
+                    rumor_text = "The air buzzes with indistinct chatter." # Ultimate fallback
+                # Print static rumor with a different color or note if desired
+                self._print_color(f"\n{Colors.DIM}(You overhear some chatter nearby: \"{rumor_text}\"){Colors.RESET}", Colors.DIM); self._print_color("", Colors.RESET)
+                if self.player_character and rumor_text: # Check rumor_text is not None
+                     self.player_character.add_journal_entry("Overheard Rumor (Static)", rumor_text, self._get_current_game_time_period_str())
+            elif rumor_text: # AI success and not OOC
                 self._print_color(f"\n{Colors.DIM}(You overhear some chatter nearby: \"{rumor_text}\"){Colors.RESET}", Colors.DIM); self._print_color("", Colors.RESET)
                 if self.player_character:
-                    self.player_character.add_journal_entry("Overheard Rumor", rumor_text, self._get_current_game_time_period_str())
-                    if self.player_character.name == "Rodion Raskolnikov" and \
-                       any(kw in rumor_text.lower() for kw in ["student", "axe", "pawnbroker", "murder", "police"]):
-                        self.player_character.apparent_state = "paranoid"; self.player_notoriety_level = min(self.player_notoriety_level + 0.2, 3)
+                     self.player_character.add_journal_entry("Overheard Rumor (AI)", rumor_text, self._get_current_game_time_period_str())
+
+            # Common logic for Raskolnikov if any rumor was processed (AI or static)
+            if rumor_text and self.player_character and self.player_character.name == "Rodion Raskolnikov" and \
+               any(kw in rumor_text.lower() for kw in ["student", "axe", "pawnbroker", "murder", "police"]):
+                self.player_character.apparent_state = "paranoid"; self.player_notoriety_level = min(self.player_notoriety_level + 0.2, 3)
 
     def _get_player_input(self):
         player_state_info = f"{self.player_character.apparent_state}" if self.player_character else "Unknown state"
@@ -685,6 +739,10 @@ class Game:
         elif command == "move to": action_taken_this_turn, show_atmospherics_this_turn = self._handle_move_to_command(argument)
         elif command == "persuade": action_taken_this_turn, show_atmospherics_this_turn = self._handle_persuade_command(argument)
         elif command == "status": self._handle_status_command(); action_taken_this_turn = False; show_atmospherics_this_turn = False
+        elif command == "toggle_lowai":
+            self.low_ai_data_mode = not self.low_ai_data_mode
+            self._print_color(f"Low AI Data Mode is now {'ON' if self.low_ai_data_mode else 'OFF'}.", Colors.MAGENTA)
+            return False, False, 0, False # No action, no time, no atmospherics
         else: self._print_color(f"Unknown command: '{command}'. Type 'help' for a list of actions.", Colors.RED); action_taken_this_turn = False; show_atmospherics_this_turn = False
         return action_taken_this_turn, show_atmospherics_this_turn, time_to_advance, False
 
@@ -741,12 +799,26 @@ class Game:
                 if item_info["name"].lower().startswith(target_to_look_at):
                     item_default = DEFAULT_ITEMS.get(item_info["name"]); base_desc_for_skill_check = "An ordinary item."
                     if item_default:
-                        self._print_color(f"You examine the {item_info['name']}:", Colors.GREEN); gen_desc = None
-                        if self.gemini_api.model:
+                        self._print_color(f"You examine the {item_info['name']}:", Colors.GREEN)
+                        gen_desc = None
+                        base_desc_for_skill_check = item_default.get('description', "An ordinary item.") # Initialize base_desc
+
+                        if not self.low_ai_data_mode and self.gemini_api.model:
                             gen_desc = self.gemini_api.get_item_interaction_description(self.player_character, item_info['name'], item_default, "examine closely in environment", self.current_location_name, self.get_current_time_period())
-                            self._print_color(f"\"{gen_desc}\"", Colors.GREEN if not gen_desc.startswith("(OOC:") else Colors.YELLOW)
-                            base_desc_for_skill_check = gen_desc if not gen_desc.startswith("(OOC:") else item_default.get('description', base_desc_for_skill_check)
-                        else: base_desc_for_skill_check = item_default.get('description', base_desc_for_skill_check); self._print_color(f"({base_desc_for_skill_check})", Colors.DIM)
+
+                        if gen_desc is not None and not (isinstance(gen_desc, str) and gen_desc.startswith("(OOC:")) and not self.low_ai_data_mode:
+                            # AI success
+                            self._print_color(f"\"{gen_desc}\"", Colors.GREEN)
+                            base_desc_for_skill_check = gen_desc # Use AI desc for skill check base
+                        else:
+                            # Fallback or AI failed/OOC or low_ai_mode
+                            if self.low_ai_data_mode or gen_desc is None or (isinstance(gen_desc, str) and gen_desc.startswith("(OOC:")) :
+                                gen_desc = generate_static_item_interaction_description(item_info['name'], "examine")
+                                # base_desc_for_skill_check remains item_default.get('description', ...) from initialization
+                                self._print_color(f"\"{gen_desc}\"", Colors.CYAN)
+                            else: # Should not be reached if logic is correct, but as a safeguard
+                                self._print_color(f"({base_desc_for_skill_check})", Colors.DIM)
+
                         properties_to_display = []
                         if item_default.get('readable', False): properties_to_display.append(f"Type: Readable")
                         if item_default.get('consumable', False): properties_to_display.append(f"Type: Consumable")
@@ -762,8 +834,20 @@ class Game:
                         if self.player_character.check_skill("Observation", 1):
                             self._print_color("(Your keen eye picks up on finer details...)", Colors.CYAN + Colors.DIM)
                             observation_context = f"Player ({self.player_character.name}) succeeded an Observation skill check examining the {item_info['name']} in {self.current_location_name}. What subtle detail, past use, hidden inscription, or unusual characteristic do they notice that isn't immediately obvious?"
-                            detailed_observation = self.gemini_api.get_enhanced_observation(self.player_character, target_name=item_info['name'], target_category="item", base_description=base_desc_for_skill_check, skill_check_context=observation_context)
-                            if detailed_observation and not detailed_observation.startswith("(OOC:"): self._print_color(f"Detail: \"{detailed_observation}\"", Colors.GREEN)
+                            detailed_observation = None
+                            if not self.low_ai_data_mode and self.gemini_api.model:
+                                detailed_observation = self.gemini_api.get_enhanced_observation(self.player_character, target_name=item_info['name'], target_category="item", base_description=base_desc_for_skill_check, skill_check_context=observation_context)
+
+                            if detailed_observation is None or (isinstance(detailed_observation, str) and detailed_observation.startswith("(OOC:")) or self.low_ai_data_mode:
+                                if STATIC_ENHANCED_OBSERVATIONS:
+                                    detailed_observation = random.choice(STATIC_ENHANCED_OBSERVATIONS)
+                                else:
+                                    detailed_observation = "You notice a few more mundane details, but nothing striking."
+                                if detailed_observation:
+                                     self._print_color(f"Detail: \"{detailed_observation}\"", Colors.CYAN)
+                            elif detailed_observation:
+                                self._print_color(f"Detail: \"{detailed_observation}\"", Colors.GREEN)
+
                             if item_info["name"] in HIGHLY_NOTABLE_ITEMS_FOR_MEMORY:
                                 for npc_observer in self.npcs_in_current_location:
                                     if npc_observer.name != self.player_character.name:
@@ -775,12 +859,24 @@ class Game:
                     if inv_item_info["name"].lower().startswith(target_to_look_at):
                         item_default = DEFAULT_ITEMS.get(inv_item_info["name"]); base_desc_for_skill_check = "An ordinary item."
                         if item_default:
-                            self._print_color(f"You examine your {inv_item_info['name']}:", Colors.GREEN); gen_desc = None
-                            if self.gemini_api.model:
+                            self._print_color(f"You examine your {inv_item_info['name']}:", Colors.GREEN)
+                            gen_desc = None
+                            base_desc_for_skill_check = item_default.get('description', "An ordinary item.") # Initialize base_desc
+
+                            if not self.low_ai_data_mode and self.gemini_api.model:
                                 gen_desc = self.gemini_api.get_item_interaction_description(self.player_character, inv_item_info['name'], item_default, "examine closely from inventory", self.current_location_name, self.get_current_time_period())
-                                self._print_color(f"\"{gen_desc}\"", Colors.GREEN if not gen_desc.startswith("(OOC:") else Colors.YELLOW)
-                                base_desc_for_skill_check = gen_desc if not gen_desc.startswith("(OOC:") else item_default.get('description', base_desc_for_skill_check)
-                            else: base_desc_for_skill_check = item_default.get('description', base_desc_for_skill_check); self._print_color(f"({base_desc_for_skill_check})", Colors.DIM)
+
+                            if gen_desc is not None and not (isinstance(gen_desc, str) and gen_desc.startswith("(OOC:")) and not self.low_ai_data_mode:
+                                # AI success
+                                self._print_color(f"\"{gen_desc}\"", Colors.GREEN)
+                                base_desc_for_skill_check = gen_desc # Use AI desc for skill check base
+                            else:
+                                # Fallback or AI failed/OOC or low_ai_mode
+                                if self.low_ai_data_mode or gen_desc is None or (isinstance(gen_desc, str) and gen_desc.startswith("(OOC:")) :
+                                    gen_desc = generate_static_item_interaction_description(inv_item_info['name'], "examine")
+                                    self._print_color(f"\"{gen_desc}\"", Colors.CYAN)
+                                else: # Should not be reached
+                                    self._print_color(f"({base_desc_for_skill_check})", Colors.DIM)
                             properties_to_display = []
                             if item_default.get('readable', False): properties_to_display.append(f"Type: Readable")
                             if item_default.get('consumable', False): properties_to_display.append(f"Type: Consumable")
@@ -796,8 +892,21 @@ class Game:
                                 if self.player_character.check_skill("Observation", 1):
                                     self._print_color("(Your keen eye picks up on finer details...)", Colors.CYAN + Colors.DIM)
                                     observation_context = f"Player ({self.player_character.name}) succeeded an Observation skill check examining their {inv_item_info['name']}. What subtle detail, past use, hidden inscription, or unusual characteristic do they notice that isn't immediately obvious?"
-                                    detailed_observation = self.gemini_api.get_enhanced_observation(self.player_character, target_name=inv_item_info['name'], target_category="item", base_description=base_desc_for_skill_check, skill_check_context=observation_context)
-                                    if detailed_observation and not detailed_observation.startswith("(OOC:"): self._print_color(f"Detail: \"{detailed_observation}\"", Colors.GREEN)
+                                    detailed_observation = None
+                                    if not self.low_ai_data_mode and self.gemini_api.model:
+                                        detailed_observation = self.gemini_api.get_enhanced_observation(self.player_character, target_name=inv_item_info['name'], target_category="item", base_description=base_desc_for_skill_check, skill_check_context=observation_context)
+
+                                    if detailed_observation is None or (isinstance(detailed_observation, str) and detailed_observation.startswith("(OOC:")) or self.low_ai_data_mode:
+                                        if STATIC_ENHANCED_OBSERVATIONS:
+                                            detailed_observation = random.choice(STATIC_ENHANCED_OBSERVATIONS)
+                                        else:
+                                            detailed_observation = "You notice a few more mundane details, but nothing striking."
+                                        if detailed_observation: # Check if not None from random.choice
+                                            self._print_color(f"Detail: \"{detailed_observation}\"", Colors.CYAN)
+                                    elif detailed_observation: # AI success and not OOC
+                                        self._print_color(f"Detail: \"{detailed_observation}\"", Colors.GREEN)
+                                    # If detailed_observation is still None, nothing specific is printed.
+
                                 if inv_item_info["name"] in HIGHLY_NOTABLE_ITEMS_FOR_MEMORY:
                                     for npc_observer in self.npcs_in_current_location:
                                         if npc_observer.name != self.player_character.name:
@@ -807,33 +916,89 @@ class Game:
             if not found_target:
                 for npc in self.npcs_in_current_location:
                     if npc.name.lower().startswith(target_to_look_at):
-                        self._print_color(f"You look closely at {Colors.YELLOW}{npc.name}{Colors.RESET} (appears {npc.apparent_state}):", Colors.WHITE); base_desc_for_skill_check = f"{npc.name} appears {npc.apparent_state}."
-                        if self.gemini_api.model:
-                            observation = self.gemini_api.get_player_reflection(self.player_character, self.current_location_name, self.get_current_time_period(), f"observing {npc.name} in {self.current_location_name}. They appear to be '{npc.apparent_state}'. You recall: {npc.get_player_memory_summary(self.game_time)}", self.player_character.get_inventory_description(), self._get_objectives_summary(self.player_character))
-                            self._print_color(f"\"{observation}\"", Colors.GREEN if not observation.startswith("(OOC:") else Colors.YELLOW)
-                            base_desc_for_skill_check = observation if not observation.startswith("(OOC:") else npc.persona[:100]
-                        else: base_desc_for_skill_check = npc.persona[:100]; self._print_color(f"({base_desc_for_skill_check})", Colors.DIM)
+                        self._print_color(f"You look closely at {Colors.YELLOW}{npc.name}{Colors.RESET} (appears {npc.apparent_state}):", Colors.WHITE)
+                        base_desc_for_skill_check = npc.persona[:100] if npc.persona else f"{npc.name} is present." # Initialize base_desc
+                        observation = None
+
+                        if not self.low_ai_data_mode and self.gemini_api.model:
+                            observation_prompt = f"observing {npc.name} in {self.current_location_name}. They appear to be '{npc.apparent_state}'. You recall: {npc.get_player_memory_summary(self.game_time)}"
+                            observation = self.gemini_api.get_player_reflection(self.player_character, self.current_location_name, self.get_current_time_period(), observation_prompt, self.player_character.get_inventory_description(), self._get_objectives_summary(self.player_character))
+
+                        if observation is not None and not (isinstance(observation, str) and observation.startswith("(OOC:")) and not self.low_ai_data_mode:
+                            # AI success
+                            self._print_color(f"\"{observation}\"", Colors.GREEN)
+                            base_desc_for_skill_check = observation # Use AI desc for skill check base
+                        else:
+                            # Fallback or AI failed/OOC or low_ai_mode
+                            if self.low_ai_data_mode or observation is None or (isinstance(observation, str) and observation.startswith("(OOC:")) :
+                                if STATIC_PLAYER_REFLECTIONS: # Using general player reflections as a fallback for observing an NPC
+                                    observation = f"{npc.name} is here. {random.choice(STATIC_PLAYER_REFLECTIONS)}"
+                                else:
+                                    observation = f"You observe {npc.name}. They seem to be going about their business."
+                                self._print_color(f"\"{observation}\"", Colors.CYAN)
+                                # base_desc_for_skill_check remains npc.persona[:100]
+                            else: # Should not be reached
+                                self._print_color(f"({base_desc_for_skill_check})", Colors.DIM)
+
                         if self.player_character.check_skill("Observation", 1):
                             self._print_color("(Your keen observation notices something more...)", Colors.CYAN + Colors.DIM)
                             observation_context = f"Player ({self.player_character.name}) succeeded an Observation skill check while looking at {npc.name} (appears {npc.apparent_state}). What subtle, non-obvious detail does {self.player_character.name} notice about {npc.name}'s demeanor, clothing, a hidden object, or a subtle emotional cue? This should be something beyond the obvious, a deeper insight."
-                            detailed_observation = self.gemini_api.get_enhanced_observation(self.player_character, target_name=npc.name, target_category="person", base_description=base_desc_for_skill_check, skill_check_context=observation_context)
-                            if detailed_observation and not detailed_observation.startswith("(OOC:"): self._print_color(f"Insight: \"{detailed_observation}\"", Colors.GREEN)
+                            detailed_observation = None
+                            if not self.low_ai_data_mode and self.gemini_api.model:
+                                detailed_observation = self.gemini_api.get_enhanced_observation(self.player_character, target_name=npc.name, target_category="person", base_description=base_desc_for_skill_check, skill_check_context=observation_context)
+
+                            if detailed_observation is None or (isinstance(detailed_observation, str) and detailed_observation.startswith("(OOC:")) or self.low_ai_data_mode:
+                                if STATIC_ENHANCED_OBSERVATIONS:
+                                    detailed_observation = random.choice(STATIC_ENHANCED_OBSERVATIONS)
+                                else:
+                                    detailed_observation = "You notice some subtle cues, but their full meaning eludes you." # Ultimate fallback
+                                if detailed_observation: # Check if not None
+                                    self._print_color(f"Insight: \"{detailed_observation}\"", Colors.CYAN)
+                            elif detailed_observation: # AI success
+                                self._print_color(f"Insight: \"{detailed_observation}\"", Colors.GREEN)
+                            # If still None, nothing specific printed beyond skill check success.
                         found_target = True; break
             if not found_target:
                 loc_data = LOCATIONS_DATA.get(self.current_location_name, {}); loc_desc_lower = loc_data.get("description", "").lower()
                 is_scenery = any(keyword in target_to_look_at for keyword in GENERIC_SCENERY_KEYWORDS) or target_to_look_at in loc_desc_lower
                 if is_scenery:
-                    self._print_color(f"You focus on the {target_to_look_at}...", Colors.WHITE); base_desc_for_skill_check = f"The general scenery of {self.current_location_name}, focusing on {target_to_look_at}."
-                    if self.gemini_api.model:
+                    self._print_color(f"You focus on the {target_to_look_at}...", Colors.WHITE)
+                    base_desc_for_skill_check = f"The general scenery of {self.current_location_name}, focusing on {target_to_look_at}." # Initial base
+                    observation = None
+
+                    if not self.low_ai_data_mode and self.gemini_api.model:
                         observation = self.gemini_api.get_scenery_observation(self.player_character, target_to_look_at, self.current_location_name, self.get_current_time_period(), self._get_objectives_summary(self.player_character))
-                        if observation and not observation.startswith("(OOC:"): self._print_color(f"\"{observation}\"", Colors.CYAN); base_desc_for_skill_check = observation
-                        else: self._print_color(f"The {target_to_look_at} offers no particular insight beyond its mundane presence.", Colors.DIM)
-                    else: self._print_color(f"The {target_to_look_at} is just as it seems.", Colors.DIM)
+
+                    if observation is not None and not (isinstance(observation, str) and observation.startswith("(OOC:")) and not self.low_ai_data_mode:
+                        # AI success
+                        self._print_color(f"\"{observation}\"", Colors.CYAN)
+                        base_desc_for_skill_check = observation # Update for skill check
+                    else:
+                        # Fallback or AI failed/OOC or low_ai_mode
+                        if self.low_ai_data_mode or observation is None or (isinstance(observation, str) and observation.startswith("(OOC:")) :
+                            observation = generate_static_scenery_observation(target_to_look_at)
+                            # base_desc_for_skill_check remains the initial general one
+                            self._print_color(f"\"{observation}\"", Colors.DIM) # Static in DIM
+                        else: # Should not be reached
+                             self._print_color(f"The {target_to_look_at} is just as it seems.", Colors.DIM)
+
                     if self.player_character.check_skill("Observation", 0):
                         self._print_color("(You scan the area more intently...)", Colors.CYAN + Colors.DIM)
                         observation_context = f"Player ({self.player_character.name}) passed an Observation check while looking at '{target_to_look_at}' in {self.current_location_name}. What specific, easily missed detail about '{target_to_look_at}' or its immediate surroundings catches their eye, perhaps hinting at a past event, a hidden element, or the general atmosphere in a more profound way?"
-                        detailed_observation = self.gemini_api.get_enhanced_observation(self.player_character, target_name=target_to_look_at, target_category="scenery", base_description=base_desc_for_skill_check, skill_check_context=observation_context)
-                        if detailed_observation and not detailed_observation.startswith("(OOC:"): self._print_color(f"You also notice: \"{detailed_observation}\"", Colors.GREEN)
+                        detailed_observation = None
+                        if not self.low_ai_data_mode and self.gemini_api.model:
+                            detailed_observation = self.gemini_api.get_enhanced_observation(self.player_character, target_name=target_to_look_at, target_category="scenery", base_description=base_desc_for_skill_check, skill_check_context=observation_context)
+
+                        if detailed_observation is None or (isinstance(detailed_observation, str) and detailed_observation.startswith("(OOC:")) or self.low_ai_data_mode:
+                            if STATIC_ENHANCED_OBSERVATIONS:
+                                detailed_observation = random.choice(STATIC_ENHANCED_OBSERVATIONS)
+                            else:
+                                detailed_observation = "The scene offers no further secrets to your gaze." # Ultimate fallback
+                            if detailed_observation: # Check if not None
+                                self._print_color(f"You also notice: \"{detailed_observation}\"", Colors.CYAN) # Static in Cyan
+                        elif detailed_observation: # AI success
+                            self._print_color(f"You also notice: \"{detailed_observation}\"", Colors.GREEN)
+                        # If still None, nothing printed.
                     found_target = True
             if not found_target: self._print_color(f"You don't see '{argument}' here to look at specifically.", Colors.RED)
             self._print_color(SEPARATOR_LINE, Colors.DIM)
@@ -1015,10 +1180,18 @@ class Game:
                 current_stage_obj = self.player_character.get_current_stage_for_objective("understand_theory")
                 current_stage_desc = current_stage_obj.get("description", "an unknown stage") if current_stage_obj else "an unknown stage"
                 full_reflection_context += (f"\nHe is particularly wrestling with his 'extraordinary man' theory (currently at stage: '{current_stage_desc}'). How do his immediate surroundings, recent events, or current feelings intersect with or challenge this core belief?")
-        if self.gemini_api.model:
+
+        reflection = None
+        if not self.low_ai_data_mode and self.gemini_api.model:
             reflection = self.gemini_api.get_player_reflection(self.player_character, self.current_location_name, self.get_current_time_period(), full_reflection_context)
-            self._print_color(f"Inner thought: \"{reflection}\"", Colors.GREEN if not reflection.startswith("(OOC:") else Colors.YELLOW)
-        else: self._print_color(f"Inner thought: (Your mind is a whirl of thoughts, too complex to articulate now without deeper reflection.)", Colors.DIM)
+
+        if reflection is None or (isinstance(reflection, str) and reflection.startswith("(OOC:")) or self.low_ai_data_mode:
+            if STATIC_PLAYER_REFLECTIONS:
+                reflection = random.choice(STATIC_PLAYER_REFLECTIONS)
+            else:
+                reflection = "Your mind is a whirl of thoughts." # Ultimate fallback
+
+        self._print_color(f"Inner thought: \"{reflection}\"", Colors.GREEN) # Print whatever reflection is chosen
         self.last_significant_event_summary = "was lost in thought."
 
     def _handle_wait_command(self):
@@ -1119,26 +1292,70 @@ class Game:
         effect_key = item_props.get("use_effect_player")
         if item_to_use_name == "old newspaper" or item_to_use_name == "Fresh Newspaper":
             self._print_color(f"You smooth out the creases of the {item_to_use_name} and scan the faded print.", Colors.WHITE)
-            article_snippet = self.gemini_api.get_newspaper_article_snippet(self.current_day, self._get_recent_events_summary(), self._get_objectives_summary(self.player_character), self.player_character.apparent_state)
-            if article_snippet and not article_snippet.startswith("(OOC:"):
+            article_snippet = None
+            if not self.low_ai_data_mode and self.gemini_api.model:
+                article_snippet = self.gemini_api.get_newspaper_article_snippet(self.current_day, self._get_recent_events_summary(), self._get_objectives_summary(self.player_character), self.player_character.apparent_state)
+
+            if article_snippet is None or (isinstance(article_snippet, str) and article_snippet.startswith("(OOC:")) or self.low_ai_data_mode:
+                if STATIC_NEWSPAPER_SNIPPETS:
+                    article_snippet = random.choice(STATIC_NEWSPAPER_SNIPPETS)
+                else:
+                    article_snippet = "The newsprint is smudged and uninteresting." # Ultimate fallback
+
+                if article_snippet : # Make sure we have something to print/log
+                    self._print_color(f"An article catches your eye: \"{article_snippet}\"", Colors.CYAN) # Static in Cyan
+                    self.player_character.add_journal_entry("News (Static)", article_snippet, self._get_current_game_time_period_str()) # Optionally log differently
+            elif article_snippet: # AI success and not OOC
                 self._print_color(f"An article catches your eye: \"{article_snippet}\"", Colors.YELLOW)
-                self.player_character.add_journal_entry("News", article_snippet, self._get_current_game_time_period_str())
+                self.player_character.add_journal_entry("News (AI)", article_snippet, self._get_current_game_time_period_str()) # Optionally log differently
+
+            if not article_snippet: # Final fallback if all else fails
+                 self._print_color("The print is too faded or the news too mundane to hold your interest.", Colors.DIM)
+
+            # Common logic for both AI and static snippets if they are valid
+            if article_snippet:
                 if "crime" in article_snippet.lower() or "investigation" in article_snippet.lower() or "murder" in article_snippet.lower():
                     self.player_character.apparent_state = "thoughtful"
-                    if self.player_character.name == "Rodion Raskolnikov": self.player_character.add_player_memory(memory_type="read_news_crime", turn=self.game_time, content={"summary": "Read unsettling news about the recent crime."}, sentiment_impact=0); self.player_notoriety_level = min(self.player_notoriety_level + 0.1, 3)
+                    if self.player_character.name == "Rodion Raskolnikov":
+                        self.player_character.add_player_memory(memory_type="read_news_crime", turn=self.game_time, content={"summary": "Read unsettling news about the recent crime."}, sentiment_impact=0)
+                        self.player_notoriety_level = min(self.player_notoriety_level + 0.1, 3)
                 self.last_significant_event_summary = f"read an {item_to_use_name}."
-            else: self._print_color("The print is too faded or the news too mundane to hold your interest.", Colors.DIM)
             return True
         elif item_to_use_name == "mother's letter":
             self._print_color(f"You re-read your mother's letter. Her words of love and anxiety, Dunya's predicament... it all weighs heavily on you.", Colors.YELLOW)
-            reflection = self.gemini_api.get_player_reflection(self.player_character, self.current_location_name, self.get_current_time_period(), "re-reading mother's letter about Dunya and Luzhin, feeling guilt and responsibility")
-            self._print_color(f"\"{reflection}\"", Colors.CYAN); self.player_character.apparent_state = random.choice(["burdened", "agitated", "resolved"])
+            reflection = None
+            prompt_context = "re-reading mother's letter about Dunya and Luzhin, feeling guilt and responsibility"
+            if not self.low_ai_data_mode and self.gemini_api.model:
+                reflection = self.gemini_api.get_player_reflection(self.player_character, self.current_location_name, self.get_current_time_period(), prompt_context)
+
+            if reflection is None or (isinstance(reflection, str) and reflection.startswith("(OOC:")) or self.low_ai_data_mode:
+                if STATIC_PLAYER_REFLECTIONS:
+                    reflection = random.choice(STATIC_PLAYER_REFLECTIONS)
+                else:
+                    reflection = "The letter stirs a whirlwind of emotions and responsibilities." # Ultimate fallback
+                self._print_color(f"\"{reflection}\"", Colors.DIM) # Static reflection in DIM
+            else: # AI success
+                self._print_color(f"\"{reflection}\"", Colors.CYAN)
+
+            self.player_character.apparent_state = random.choice(["burdened", "agitated", "resolved"])
             if self.player_character.name == "Rodion Raskolnikov": self.player_character.add_player_memory(memory_type="reread_mother_letter", turn=self.game_time, content={"summary": "Re-reading mother's letter intensified feelings of duty and distress."}, sentiment_impact=-1)
             self.last_significant_event_summary = f"re-read the {item_to_use_name}."; return True
         elif item_to_use_name == "Sonya's New Testament":
             self._print_color(f"You open {item_to_use_name}. The familiar words of the Gospels seem to both accuse and offer a sliver of hope.", Colors.GREEN)
-            reflection = self.gemini_api.get_player_reflection(self.player_character, self.current_location_name, self.get_current_time_period(), f"reading from {item_to_use_name}, pondering Lazarus, guilt, and salvation")
-            self._print_color(f"\"{reflection}\"", Colors.CYAN)
+            reflection = None
+            prompt_context = f"reading from {item_to_use_name}, pondering Lazarus, guilt, and salvation"
+            if not self.low_ai_data_mode and self.gemini_api.model:
+                reflection = self.gemini_api.get_player_reflection(self.player_character, self.current_location_name, self.get_current_time_period(), prompt_context)
+
+            if reflection is None or (isinstance(reflection, str) and reflection.startswith("(OOC:")) or self.low_ai_data_mode:
+                if STATIC_PLAYER_REFLECTIONS:
+                    reflection = random.choice(STATIC_PLAYER_REFLECTIONS)
+                else:
+                    reflection = "The words offer a strange mix of judgment and hope." # Ultimate fallback
+                self._print_color(f"\"{reflection}\"", Colors.DIM) # Static reflection in DIM
+            else: # AI success
+                self._print_color(f"\"{reflection}\"", Colors.CYAN)
+
             if self.player_character.name == "Rodion Raskolnikov":
                 self.player_character.apparent_state = random.choice(["contemplative", "remorseful", "thoughtful", "hopeful"])
                 self.player_character.add_player_memory(memory_type="read_testament_sonya", turn=self.game_time, content={"summary": "Read from the New Testament, stirring deep thoughts of salvation and suffering."}, sentiment_impact=0)
@@ -1155,11 +1372,28 @@ class Game:
             else: self._print_color(f"You look at the {item_to_use_name}. It's a formal-looking slip of paper.", Colors.YELLOW)
             self.last_significant_event_summary = f"read an {item_to_use_name}."; return True
         elif item_to_use_name == "Student's Dog-eared Book":
-            book_reflection = self.gemini_api.get_item_interaction_description(self.player_character, item_to_use_name, item_props, "read", self.current_location_name, self.get_current_time_period())
-            self._print_color(f"You open the {item_to_use_name}. {book_reflection}", Colors.YELLOW)
-            self.last_significant_event_summary = f"read from a {item_to_use_name}."; return True
-        read_reflection = self.gemini_api.get_item_interaction_description(self.player_character, item_to_use_name, item_props, "read", self.current_location_name, self.get_current_time_period())
-        self._print_color(f"You read the {item_to_use_name}. {read_reflection}", Colors.YELLOW)
+            book_reflection = None
+            if not self.low_ai_data_mode and self.gemini_api.model:
+                book_reflection = self.gemini_api.get_item_interaction_description(self.player_character, item_to_use_name, item_props, "read", self.current_location_name, self.get_current_time_period())
+
+            if book_reflection is None or (isinstance(book_reflection, str) and book_reflection.startswith("(OOC:")) or self.low_ai_data_mode:
+                book_reflection = generate_static_item_interaction_description(item_to_use_name, "read")
+                self._print_color(f"You open the {item_to_use_name}. {book_reflection}", Colors.CYAN) # Static in Cyan
+            else: # AI success
+                self._print_color(f"You open the {item_to_use_name}. {book_reflection}", Colors.YELLOW)
+
+            self.last_significant_event_summary = f"read from a {item_to_use_name}."; used_successfully = True; return True # Keep used_successfully variable, though it's always true here
+
+        read_reflection = None
+        if not self.low_ai_data_mode and self.gemini_api.model:
+            read_reflection = self.gemini_api.get_item_interaction_description(self.player_character, item_to_use_name, item_props, "read", self.current_location_name, self.get_current_time_period())
+
+        if read_reflection is None or (isinstance(read_reflection, str) and read_reflection.startswith("(OOC:")) or self.low_ai_data_mode:
+            read_reflection = generate_static_item_interaction_description(item_to_use_name, "read")
+            self._print_color(f"You read the {item_to_use_name}. {read_reflection}", Colors.CYAN) # Static in Cyan
+        else: # AI success
+            self._print_color(f"You read the {item_to_use_name}. {read_reflection}", Colors.YELLOW)
+
         self.last_significant_event_summary = f"read the {item_to_use_name}."; return True
 
     def _handle_self_use_item(self, item_to_use_name, item_props, effect_key):
@@ -1215,8 +1449,15 @@ class Game:
             if self.player_character.apparent_state in ["burdened", "feverish", "despondent"]: self.player_character.apparent_state = "normal"; self._print_color("The bread provides a moment of simple relief.", Colors.CYAN)
             self.last_significant_event_summary = f"ate some {item_to_use_name}."; used_successfully = True
         elif effect_key == "contemplate_icon" and item_to_use_name == "Small, Tarnished Icon":
-            icon_reflection = self.gemini_api.get_item_interaction_description(self.player_character, item_to_use_name, item_props, "contemplate", self.current_location_name, self.get_current_time_period())
-            self._print_color(f"You gaze at the {item_to_use_name}. {icon_reflection}", Colors.YELLOW)
+            icon_reflection = None
+            if not self.low_ai_data_mode and self.gemini_api.model:
+                icon_reflection = self.gemini_api.get_item_interaction_description(self.player_character, item_to_use_name, item_props, "contemplate", self.current_location_name, self.get_current_time_period())
+
+            if icon_reflection is None or (isinstance(icon_reflection, str) and icon_reflection.startswith("(OOC:")) or self.low_ai_data_mode:
+                icon_reflection = generate_static_item_interaction_description(item_to_use_name, "contemplate")
+                self._print_color(f"You gaze at the {item_to_use_name}. {icon_reflection}", Colors.CYAN) # Static in Cyan
+            else: # AI success
+                self._print_color(f"You gaze at the {item_to_use_name}. {icon_reflection}", Colors.YELLOW)
             self.last_significant_event_summary = f"contemplated a {item_to_use_name}."; used_successfully = True
         if not used_successfully: self._print_color(f"You contemplate the {item_to_use_name}, but don't find a specific use for it right now.", Colors.YELLOW); return False
         return used_successfully
