@@ -2,394 +2,21 @@
 import random
 import copy
 import logging
+import json
 
-CHARACTERS_DATA = {
-    "Rodion Raskolnikov": {
-        "persona": "You are Rodion Raskolnikov from Dostoevsky's 'Crime and Punishment'. You are an impoverished ex-student, immensely proud, and highly intelligent. You are tormented by your philosophical theory about 'extraordinary' men who have the right to transgress laws, a theory you've recently tested by committing a terrible act. This act, born from a mix of desperate poverty, a desire to save your sister Dounia from a demeaning marriage, and the urge to prove your theory, has thrown you into a vortex of conflicting emotions. You wrestle with intellectual pride and conviction in your ideas, juxtaposed with profound guilt, intense fear of discovery, and surprising moments of compassion and vulnerability. You are often physically unwell, experiencing fever, chills, and a general sense of illness that contributes to your paranoia and irritability. Your thoughts are frequently feverish, obsessive, and suspicious of everyone around you. Your speech and actions should reflect this complex internal state: sometimes abrupt, contemptuous, and irritable; at other times deeply philosophical, despairing, or showing flickers of your underlying humanity and illness.",
-        "greeting": "Hmph. What do you want?",
-        "default_location": "Raskolnikov's Garret",
-        "accessible_locations": [
-            "Raskolnikov's Garret", "Stairwell (Outside Raskolnikov's Garret)", "Haymarket Square", "Tavern",
-            "Sonya's Room", "Police Station (General Area)", "Porfiry's Office",
-            "Pawnbroker's Apartment Building", "Pawnbroker's Apartment", "Voznesensky Bridge", "Pulcheria's Lodgings",
-            "Katerina Ivanovna's Apartment", "Quiet Courtyard"
-        ],
-        "objectives": [
-            {
-                "id": "grapple_with_crime",
-                "description": "Come to terms with the murder of Alyona Ivanovna and Lizaveta.",
-                "completed": False, "active": True, "current_stage_id": "initial_turmoil",
-                "stages": [
-                    {"stage_id": "initial_turmoil", "description": "Reel from the act, battling fever and paranoia. Avoid immediate suspicion.", "is_current_stage": True,
-                     "success_criteria": "Survive initial days without capture, manage fever.",
-                     "next_stages": {"confession_path": "seek_sonya", "justification_path": "engage_porfiry_intellectually", "despair_path": "isolate_further"}},
-                    {"stage_id": "seek_sonya", "description": "Drawn to Sonya's suffering and purity, consider confession as a path to redemption.", "is_current_stage": False},
-                    {"stage_id": "engage_porfiry_intellectually", "description": "Test your theories and will against Porfiry Petrovich, attempting to outwit him.", "is_current_stage": False},
-                    {"stage_id": "isolate_further", "description": "Succumb to nihilistic despair, pushing everyone away.", "is_current_stage": False},
-                    {"stage_id": "received_cross_from_sonya", "description": "Sonya has given you her cypress cross, a symbol of shared suffering and potential redemption.", "is_current_stage": False},
-                    {"stage_id": "confessed_to_sonya", "description": "Having confessed to Sonya, grapple with her reaction and the path she proposes.", "is_current_stage": False},
-                    {"stage_id": "public_confession", "description": "Confess publicly at the Haymarket or police station.", "is_current_stage": False, "is_ending_stage": True},
-                    {"stage_id": "siberia", "description": "Face the consequences in Siberia, seeking spiritual rebirth.", "is_current_stage": False, "is_ending_stage": True},
-                    {"stage_id": "unrepentant_end", "description": "Remain unrepentant, your theory leading to a bleak end (capture or suicide).", "is_current_stage": False, "is_ending_stage": True},
-                ]
-            },
-            {
-                "id": "understand_theory",
-                "description": "Grapple with the validity and consequences of your 'extraordinary man' theory.",
-                "completed": False, "active": True, "current_stage_id": "initial_validation",
-                "stages": [
-                     {"stage_id": "initial_validation", "description": "Internally justify your actions based on your theory.", "is_current_stage": True},
-                     {"stage_id": "challenged_by_reality", "description": "Confront the human cost and psychological toll, questioning the theory's basis.", "is_current_stage": False},
-                     {"stage_id": "theory_shattered", "description": "Recognize the flaws and inhumanity of the theory.", "is_current_stage": False, "linked_to_objective_completion": {"id": "grapple_with_crime", "stage_to_advance_to": "seek_sonya"}},
-                     {"stage_id": "theory_reinforced_darkly", "description": "Twist the theory further to rationalize ongoing defiance or despair.", "is_current_stage": False},
-                ]
-            },
-            {
-                "id": "help_family",
-                "description": "Alleviate your mother and sister's financial burdens and protect Dunya from Luzhin and Svidrigailov.",
-                "completed": False, "active": True, "current_stage_id": "learn_of_arrival",
-                 "stages": [
-                    {"stage_id": "learn_of_arrival", "description": "React to the news of your mother and sister's arrival and Dunya's engagement.", "is_current_stage": True},
-                    {"stage_id": "confront_luzhin", "description": "Confront Pyotr Petrovich Luzhin over his intentions towards Dunya.", "is_current_stage": False},
-                    {"stage_id": "warn_dunya_svidrigailov", "description": "Warn Dunya about the true nature of Arkady Svidrigailov.", "is_current_stage": False},
-                    {"stage_id": "family_secure", "description": "Ensure Dunya is safe and your mother is somewhat at peace.", "is_current_stage": False, "is_ending_stage": True},
-                 ]
-            },
-            {
-                "id": "ponder_redemption",
-                "description": "Reflect on the meaning of Sonya's cross and the possibility of redemption.",
-                "completed": False, "active": False, "current_stage_id": "initial_reflection",
-                "stages": [
-                    {"stage_id": "initial_reflection", "description": "The weight of the cross prompts unsettling thoughts of guilt and sacrifice.", "is_current_stage": True},
-                    {"stage_id": "glimmer_of_hope", "description": "A fleeting sense that suffering might lead to something beyond despair.", "is_current_stage": False},
-                    {"stage_id": "path_to_confession_clearer", "description": "The cross becomes a concrete symbol of the path Sonya represents.", "is_current_stage": False}
-                ]
-            }
-        ],
-        "inventory_items": [{"name": "mother's letter", "quantity": 1}, {"name": "worn coin", "quantity": 5}],
-        "schedule": {
-            "Morning": "Raskolnikov's Garret",
-            "Afternoon": "Haymarket Square",
-            "Evening": "Quiet Courtyard",
-            "Night": "Raskolnikov's Garret"
-        },
-        "skills": {
-            "Academia": 2,
-            "Observation": 1, # Base Raskolnikov Observation
-            "Persuasion": 1, # Added Persuasion for Raskolnikov
-            "Streetwise": 0
-        }
-    },
-    "Sonya Marmeladova": {
-        "persona": "You are Sonya Marmeladova from Dostoevsky's 'Crime and Punishment'. You embody profound humility and an unwavering Christian faith, which are the sources of your immense inner strength and boundless capacity for love and suffering. Forced into a life of shame by extreme poverty to support your consumptive stepmother, Katerina Ivanovna, and her children, you remain remarkably pure in spirit. You are outwardly timid and hesitant, especially in new company or when discussing worldly matters, but become firm and articulate when speaking of your moral convictions, God, or the need for redemption. Your compassion is vast, extending even to those who have committed terrible sins. Your speech should be gentle, often quiet and simple, yet capable of profound earnestness and quiet conviction, frequently referencing biblical themes like suffering, forgiveness, and resurrection (especially the story of Lazarus). Avoid any hint of judgment, focusing instead on empathy and the possibility of spiritual renewal.",
-        "greeting": "Oh... hello. May God be with you.",
-        "default_location": "Sonya's Room",
-        "accessible_locations": [
-            "Sonya's Room", "Haymarket Square", "Raskolnikov's Garret", "Pulcheria's Lodgings",
-            "Police Station (General Area)", "Tavern", "Katerina Ivanovna's Apartment", "Quiet Courtyard"
-        ],
-        "objectives": [ # Objectives for Sonya
-            {
-                "id": "support_family", "description": "Continue to support the Marmeladov children and Katerina Ivanovna.",
-                "completed": False, "active": True, "current_stage_id": "default",
-                "stages" : [{"stage_id": "default", "description": "Provide for the family amidst hardship."}]
-            },
-            {
-                "id": "guide_raskolnikov", "description": "Offer spiritual guidance and hope to Rodion Raskolnikov, urging him towards confession.",
-                "completed": False, "active": True, "current_stage_id": "initial_encounter",
-                "stages": [
-                    {"stage_id": "initial_encounter", "description": "Recognize a shared suffering in Raskolnikov."},
-                    {"stage_id": "lazarus_reading", "description": "Read the story of Lazarus to Raskolnikov, offering a path to spiritual rebirth."},
-                    {"stage_id": "offer_cross", "description": "Offer Raskolnikov her cypress cross as a symbol of shared suffering and redemption."},
-                    {"stage_id": "receive_confession", "description": "Hear Raskolnikov's confession and urge him to accept his suffering."},
-                    {"stage_id": "follow_to_siberia", "description": "Decide to follow Raskolnikov to Siberia.", "is_ending_stage": True}
-                ]
-            }
-        ],
-        "inventory_items": [
-            {"name": "Sonya's New Testament", "quantity": 1},
-            {"name": "Sonya's Cypress Cross", "quantity": 1}
-        ],
-        "npc_relationships": {
-            "Katerina Ivanovna Marmeladova": -1,
-            "Rodion Raskolnikov": 0 
-        },
-        "skills": {
-            "Observation": 2, # Sonya is observant
-            "Persuasion": 0, 
-            "Streetwise": 1, 
-            "Academia": 0
-        },
-        "schedule": {
-            "Morning": "Sonya's Room",
-            "Afternoon": "Quiet Courtyard",
-            "Evening": "Sonya's Room",
-            "Night": "Sonya's Room" 
-        }
-    },
-    "Porfiry Petrovich": {
-        "persona": "You are Porfiry Petrovich, the examining magistrate from Dostoevsky's 'Crime and Punishment'. You are exceptionally intelligent, observant, and a master of psychological manipulation, deeply versed in the criminal mind. Your primary method is a subtle, unnerving cat-and-mouse game, particularly with suspects like Raskolnikov. You often adopt a demeanor of jovial, almost rambling friendliness, prone to disarming digressions and seemingly off-topic remarks, all while lacing your conversation with indirect questions, baited statements, and keen observations designed to probe, confuse, and psychologically corner your interlocutor. You relish demonstrating your cunning and understanding of a person's psyche, sometimes even appearing to sympathize or offer 'outs' as part of your strategy. Avoid direct accusations until you are absolutely certain or as a final tactic. Your speech should be articulate, often deceptively casual or even slightly mocking, but always with an underlying current of sharp intellect and relentless pursuit of the truth. You might use phrases like 'Heh, heh,' or make small, knowing gestures. The goal is to make the other person reveal themselves through their reactions to your psychological pressure.",
-        "greeting": "Well, well, look who it is. Come in, come in. Care for a little chat... or perhaps you have something on your mind?",
-        "default_location": "Porfiry's Office",
-        "accessible_locations": [
-            "Porfiry's Office", "Police Station (General Area)", "Haymarket Square", "Raskolnikov's Garret" 
-        ],
-        "objectives": [ 
-            {
-                "id": "solve_murders", "description": "Uncover the truth behind the murders of Alyona Ivanovna and Lizaveta, focusing on Raskolnikov.",
-                "completed": False, "active": True, "current_stage_id": "initial_suspicion",
-                "stages": [
-                    {"stage_id": "initial_suspicion", "description": "Observe Raskolnikov and gather preliminary impressions."},
-                    {"stage_id": "psychological_probes", "description": "Engage Raskolnikov in conversations designed to test his guilt and theories."},
-                    {"stage_id": "closing_the_net", "description": "Subtly reveal the strength of the evidence or understanding of Raskolnikov's mind."},
-                    {"stage_id": "encourage_confession", "description": "Offer Raskolnikov a chance to confess for a potentially lighter sentence."},
-                    {"stage_id": "case_solved", "description": "Raskolnikov confesses or is irrefutably proven guilty.", "is_ending_stage": True}
-                ]
-            },
-            {
-                "id": "understand_criminal_mind", "description": "Explore the psychology of the criminal, particularly Raskolnikov's 'extraordinary man' theory.",
-                "completed": False, "active": True, "current_stage_id": "default",
-                 "stages" : [{"stage_id": "default", "description": "Observe and analyze criminal behavior."}]
-            }
-        ],
-        "inventory_items": [], 
-        "npc_relationships": {
-            "Rodion Raskolnikov": 0,
-            "Dmitri Razumikhin": 0 
-        },
-        "skills": {
-            "Observation": 3, # Porfiry is highly observant
-            "Persuasion": 2,  # Updated Porfiry's Persuasion
-            "Academia": 1,    
-            "Streetwise": 0
-        },
-        "schedule": { 
-            "Morning": "Porfiry's Office",
-            "Afternoon": "Porfiry's Office",
-            "Evening": "Police Station (General Area)", 
-            "Night": "Porfiry's Office" 
-        }
-    },
-    "Dunya Raskolnikova": {
-        "persona": "You are Dunya Raskolnikova, Rodion's sister, from Dostoevsky's 'Crime and Punishment'. You are intelligent, strong-willed, virtuous, and deeply concerned for your brother. You are protective and prepared to make sacrifices, but not at the cost of your dignity. Your speech is articulate, composed, and reflects your strong moral compass.",
-        "greeting": "Greetings. I hope you are well. Rodya has been so... unlike himself.",
-        "default_location": "Pulcheria's Lodgings",
-        "accessible_locations": [
-            "Pulcheria's Lodgings", "Haymarket Square", "Raskolnikov's Garret", "Sonya's Room", "Tavern",
-            "Katerina Ivanovna's Apartment"
-        ],
-        "objectives": [ 
-            {
-                "id": "protect_rodion", "description": "Understand what is troubling Rodion and protect him from harm or folly.",
-                "completed": False, "active": True, "current_stage_id": "default",
-                 "stages" : [{"stage_id": "default", "description": "Seek to understand and aid Rodion."}]
-            },
-            {
-                "id": "resolve_luzhin", "description": "Deal with the unwelcome attentions and proposal of Pyotr Petrovich Luzhin.",
-                "completed": False, "active": True, "current_stage_id": "default",
-                "stages" : [{"stage_id": "default", "description": "Address the situation with Luzhin."}]
-            },
-            {
-                "id": "assess_svidrigailov", "description": "Determine the true intentions of Arkady Svidrigailov and protect herself.",
-                "completed": False, "active": True, "current_stage_id": "default",
-                "stages" : [{"stage_id": "default", "description": "Be wary of Svidrigailov."}]
-            }
-        ],
-        "inventory_items": [],
-        "skills": { # Added skills for Dunya
-            "Observation": 2,
-            "Persuasion": 1
-        },
-        "schedule": {
-            "Morning": "Pulcheria's Lodgings",
-            "Afternoon": "Haymarket Square", 
-            "Evening": "Pulcheria's Lodgings",
-            "Night": "Pulcheria's Lodgings"
-        }
-    },
-    "Arkady Svidrigailov": {
-        "persona": "You are Arkady Svidrigailov from Dostoevsky's 'Crime and Punishment'. You are a sensualist, amoral, and enigmatic figure, haunted by his past and capable of both depravity and surprising acts of charity. You are often cynical, worldly, and your speech can be laced with double entendres or unsettling observations about the darker sides of human nature.",
-        "greeting": "Ah, a new face. Or an old one? St. Petersburg is so full of... possibilities. And ghosts. Don't you find?",
-        "default_location": "Tavern", 
-        "accessible_locations": [
-            "Tavern", "Haymarket Square", "Sonya's Room", "Pulcheria's Lodgings", "Voznesensky Bridge",
-            "Raskolnikov's Garret", "Katerina Ivanovna's Apartment"
-        ],
-        "objectives": [ 
-            {
-                "id": "pursue_dunya", "description": "Attempt to win over Dunya Raskolnikova, employing various means.",
-                "completed": False, "active": True, "current_stage_id": "default",
-                "stages" : [{"stage_id": "default", "description": "Consider your approach towards Dunya."}]
-            },
-            {
-                "id": "escape_ennui", "description": "Find some amusement or meaning to escape your profound boredom and past ghosts, perhaps through Raskolnikov or Dunya.",
-                "completed": False, "active": True, "current_stage_id": "default",
-                "stages" : [{"stage_id": "default", "description": "Seek distraction from your ennui."}]
+def load_characters_data(data_path='data/characters.json'):
+    """Loads character data from a JSON file."""
+    try:
+        with open(data_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        logging.error(f"Error: The characters data file was not found at {data_path}")
+        return {}
+    except json.JSONDecodeError:
+        logging.error(f"Error: The characters data file at {data_path} is not a valid JSON.")
+        return {}
 
-            },
-            {
-                "id": "final_reckoning", "description": "Confront the emptiness of his existence.",
-                "completed": False, "active": False, "current_stage_id": "default", 
-                "stages" : [{"stage_id": "default", "description": "The end approaches."}]
-            }
-        ],
-        "inventory_items": [{"name": "worn coin", "quantity": 100}],
-        "skills": { # Added skills for Svidrigailov
-            "Observation": 2,
-            "Persuasion": 2
-        },
-        "schedule": {
-            "Morning": "Tavern", 
-            "Afternoon": "Haymarket Square", 
-            "Evening": "Tavern", 
-            "Night": "Voznesensky Bridge" 
-        }
-    },
-     "Dmitri Razumikhin": {
-        "persona": "You are Dmitri Razumikhin from Dostoevsky's 'Crime and Punishment'. You are Raskolnikov's loyal friend, energetic, talkative, somewhat poor but resourceful and generally good-natured. You are practical and often try to help Raskolnikov, though sometimes bewildered by his behavior. Your speech is enthusiastic, direct, and sometimes a bit boisterous.",
-        "greeting": "Rodya! There you are! I was just thinking about you. You've been looking stranger than a three-legged dog lately. What's on your mind?",
-        "default_location": "Tavern", 
-        "accessible_locations": [
-            "Tavern", "Haymarket Square", "Raskolnikov's Garret", "Stairwell (Outside Raskolnikov's Garret)",
-            "Pulcheria's Lodgings", "Police Station (General Area)", "Sonya's Room", "Katerina Ivanovna's Apartment"
-        ],
-        "objectives": [ 
-            {
-                "id": "help_raskolnikov", "description": "Figure out what's wrong with Raskolnikov and help him get back on his feet.",
-                "completed": False, "active": True, "current_stage_id": "default",
-                "stages" : [{"stage_id": "default", "description": "Worry about Rodya and try to assist him."}]
-            },
-            {
-                "id": "support_dunya_pulcheria", "description": "Offer assistance and protection to Dunya and Pulcheria Alexandrovna.",
-                "completed": False, "active": True, "current_stage_id": "default",
-                "stages" : [{"stage_id": "default", "description": "Look out for Rodya's family."}]
-            }
-        ],
-        "inventory_items": [{"name": "worn coin", "quantity": 15}],
-        "npc_relationships": {
-            "Rodion Raskolnikov": 5,
-            "Dunya Raskolnikova": 2,
-            "Porfiry Petrovich": -1
-        },
-        "skills": { # Added skills for Razumikhin
-            "Observation": 1,
-            "Persuasion": 0
-        },
-        "schedule": {
-            "Morning": "Raskolnikov's Garret", 
-            "Afternoon": "Tavern", 
-            "Evening": "Pulcheria's Lodgings", 
-            "Night": "Tavern"
-        }
-    },
-    "Pulcheria Alexandrovna Raskolnikova": {
-        "persona": "You are Pulcheria Alexandrovna Raskolnikova, Rodion's mother. You are loving, anxious, and deeply devoted to your children, often to the point of idealizing them. You've traveled to St. Petersburg with Dunya out of concern for Rodion. Your speech is warm, motherly, but often reveals your underlying worries and fragile health.",
-        "greeting": "Rodya, my dear boy! Or... oh, excuse me. Hello. Have you seen my Rodya? I worry so.",
-        "default_location": "Pulcheria's Lodgings",
-        "accessible_locations": [
-            "Pulcheria's Lodgings", "Raskolnikov's Garret", "Haymarket Square", "Sonya's Room",
-            "Katerina Ivanovna's Apartment"
-        ],
-        "objectives": [ 
-            {
-                "id": "ensure_rodyas_wellbeing", "description": "Understand why Rodya is so troubled and ensure he is safe and well.",
-                "completed": False, "active": True, "current_stage_id": "default",
-                "stages" : [{"stage_id": "default", "description": "Be deeply concerned for Rodion's state."}]
-            },
-            {
-                "id": "see_dunya_settled", "description": "Hope for Dunya to find a secure and happy future.",
-                "completed": False, "active": True, "current_stage_id": "default",
-                "stages" : [{"stage_id": "default", "description": "Wish for Dunya's happiness and security."}]
-            }
-        ],
-        "inventory_items": [],
-        "schedule": {
-            "Morning": "Pulcheria's Lodgings",
-            "Afternoon": "Raskolnikov's Garret", 
-            "Evening": "Pulcheria's Lodgings",
-            "Night": "Pulcheria's Lodgings"
-        }
-    },
-    "Katerina Ivanovna Marmeladova": {
-        "persona": "You are Katerina Ivanovna Marmeladova, a proud, consumptive, and increasingly desperate woman, widow of Semyon Marmeladov and stepmother to Sonya. You cling to the remnants of a supposed aristocratic past, often erupting in histrionic fits of coughing, anger, and lamentation. Your speech is erratic, veering between haughty pronouncements, bitter complaints about poverty and injustice, and tender, sorrowful words for your children.",
-        "greeting": "Who are you to disturb a respectable, albeit unfortunate, family? Can't you see we are suffering? Oh, the indignity! The children are starving!",
-        "default_location": "Katerina Ivanovna's Apartment",
-        "accessible_locations": [
-            "Katerina Ivanovna's Apartment", "Haymarket Square", "Sonya's Room", "Tavern"
-        ],
-        "objectives": [ 
-            {
-                "id": "lament_fate", "description": "Express outrage and despair at her family's poverty and the injustices of the world.",
-                "completed": False, "active": True, "current_stage_id": "default",
-                "stages" : [{"stage_id": "default", "description": "Voice her grievances loudly and often."}]
-            },
-            {
-                "id": "care_for_children", "description": "Attempt to care for her young children (Polenka, Kolya, Lida) amidst growing illness and poverty.",
-                "completed": False, "active": True, "current_stage_id": "default",
-                "stages" : [{"stage_id": "default", "description": "Struggle to provide for her children."}]
-            },
-            {
-                "id": "memorial_dinner_for_marmeladov", "description": "Obsessively plan a grand (and financially ruinous) memorial dinner for Marmeladov.",
-                "completed": False, "active": False, "current_stage_id": "planning",
-                "stages": [
-                    {"stage_id": "planning", "description": "Frantically try to arrange a memorial dinner beyond her means."},
-                    {"stage_id": "dinner_chaos", "description": "The memorial dinner descends into chaos and further humiliation.", "is_ending_stage": True}
-                ]
-            }
-        ],
-        "inventory_items": [{"name": "tattered handkerchief", "quantity": 1}],
-        "schedule": { 
-            "Morning": "Katerina Ivanovna's Apartment",
-            "Afternoon": "Katerina Ivanovna's Apartment", 
-            "Evening": "Katerina Ivanovna's Apartment",
-            "Night": "Katerina Ivanovna's Apartment"
-        },
-        "apparent_state": "feverish and agitated" 
-    },
-    "Police Clerk Ilya": {
-        "persona": "You are Ilya, a junior police clerk. You are overworked, somewhat officious, and keen to follow procedure. You mostly deal with paperwork and minor complaints, often sighing about the chaos of the station. You address people formally.",
-        "greeting": "Yes? State your business, please. Quickly, I have much to attend to.",
-        "default_location": "Police Station (General Area)",
-        "accessible_locations": ["Police Station (General Area)", "Porfiry's Office"], 
-        "objectives": [
-            {
-                "id": "maintain_order", "description": "Try to keep the station's administrative tasks in order.",
-                "completed": False, "active": True, "current_stage_id": "default",
-                 "stages" : [{"stage_id": "default", "description": "Process paperwork and direct petitioners."}]
-            }
-        ],
-        "inventory_items": [],
-        "schedule": {
-            "Morning": "Police Station (General Area)",
-            "Afternoon": "Police Station (General Area)",
-            "Evening": "Police Station (General Area)",
-            "Night": "Police Station (General Area)" 
-        },
-        "apparent_state": "harried"
-    },
-    "Officer Volkov": {
-        "persona": "You are Officer Volkov, a seasoned but weary police officer. You've seen much in your time on the St. Petersburg streets and are generally cynical and taciturn. You might offer a gruff comment or a suspicious glance. You don't waste words.",
-        "greeting": "Hmph. What is it now?",
-        "default_location": "Police Station (General Area)",
-        "accessible_locations": ["Police Station (General Area)", "Haymarket Square"], 
-        "objectives": [
-            {
-                "id": "keep_peace", "description": "Maintain a semblance of order on the streets and in the station.",
-                "completed": False, "active": True, "current_stage_id": "default",
-                "stages" : [{"stage_id": "default", "description": "Observe and intervene if necessary."}]
-            }
-        ],
-        "inventory_items": [],
-        "schedule": {
-            "Morning": "Police Station (General Area)",
-            "Afternoon": "Haymarket Square", 
-            "Evening": "Police Station (General Area)",
-            "Night": "Haymarket Square" 
-        },
-        "apparent_state": "watchful"
-    }
-}
-
+CHARACTERS_DATA = load_characters_data()
 
 class Character:
     def __init__(self, name, persona, greeting, default_location, accessible_locations,
@@ -560,7 +187,7 @@ class Character:
         return char
 
     def add_to_inventory(self, item_name, quantity=1):
-        from game_config import DEFAULT_ITEMS 
+        from .game_config import DEFAULT_ITEMS
         if item_name not in DEFAULT_ITEMS:
             return False
 
@@ -586,7 +213,7 @@ class Character:
 
 
     def remove_from_inventory(self, item_name, quantity=1):
-        from game_config import DEFAULT_ITEMS
+        from .game_config import DEFAULT_ITEMS
         item_props = DEFAULT_ITEMS.get(item_name, {})
         is_stackable = item_props.get("stackable", False) or item_props.get("value") is not None
 
@@ -611,7 +238,7 @@ class Character:
         return False 
 
     def has_item(self, item_name, quantity=1):
-        from game_config import DEFAULT_ITEMS
+        from .game_config import DEFAULT_ITEMS
         item_props = DEFAULT_ITEMS.get(item_name, {})
         is_stackable = item_props.get("stackable", False) or item_props.get("value") is not None
 
@@ -624,7 +251,7 @@ class Character:
         return False
 
     def get_notable_carried_items_summary(self):
-        from game_config import DEFAULT_ITEMS
+        from .game_config import DEFAULT_ITEMS
         if not self.inventory:
             return "is not carrying anything of note."
         notable_items_list = []
@@ -653,17 +280,30 @@ class Character:
         if not self.inventory:
             return "You are carrying nothing."
         descriptions = []
-        from game_config import DEFAULT_ITEMS
+        from .game_config import DEFAULT_ITEMS
         for item_data in self.inventory:
-            item_name = item_data["name"]
-            item_props = DEFAULT_ITEMS.get(item_name, {})
-            is_stackable = item_props.get("stackable", False) or item_props.get("value") is not None
-            quantity = item_data.get("quantity", 1) if is_stackable else 1
+            original_item_name = item_data["name"]
+            clean_item_name = original_item_name
 
-            if is_stackable and quantity > 1 :
-                descriptions.append(f"{item_name} (x{quantity})")
+            command_suffix_marker = " use_effect_player:"
+
+            if command_suffix_marker in original_item_name:
+                parts = original_item_name.split(command_suffix_marker, 1)
+                potential_clean_name = parts[0]
+                if potential_clean_name in DEFAULT_ITEMS:
+                    clean_item_name = potential_clean_name
+
+            item_props = DEFAULT_ITEMS.get(clean_item_name, {})
+            is_stackable = item_props.get("stackable", False) or item_props.get("value") is not None
+
+            quantity = 1
+            if is_stackable:
+                quantity = item_data.get("quantity", 1)
+
+            if is_stackable and quantity > 1:
+                descriptions.append(f"{clean_item_name} (x{quantity})")
             else:
-                descriptions.append(item_name)
+                descriptions.append(clean_item_name)
         return "You are carrying: " + ", ".join(descriptions) + "."
 
     def add_to_history(self, other_char_name, speaker_name, text):

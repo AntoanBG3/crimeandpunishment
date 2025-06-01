@@ -1,6 +1,8 @@
 # event_manager.py
 import random
-from game_config import Colors, DEFAULT_ITEMS # For adding generated items
+from .game_config import (Colors, DEFAULT_ITEMS,
+                         STATIC_PLAYER_REFLECTIONS, STATIC_ANONYMOUS_NOTE_CONTENT,
+                         STATIC_STREET_LIFE_EVENTS, STATIC_NPC_NPC_INTERACTIONS)
 
 class EventManager:
     def __init__(self, game_ref):
@@ -110,7 +112,7 @@ class EventManager:
                 self.game.player_character.activate_objective("help_family")
             if not self.game.player_character.has_item("mother's letter"):
                 self.game.player_character.add_to_inventory("mother's letter")
-                self._print_color("The letter is now in your possession.", Colors.GREEN)
+                self.game._print_color("The letter is now in your possession.", Colors.GREEN)
             self.game._print_color("This news weighs heavily on your mind.", Colors.YELLOW)
 
             # --- Enhanced emotional impact ---
@@ -127,19 +129,25 @@ class EventManager:
 
             # Assuming get_objectives_summary is available and suitable for Gemini context
             objectives_summary = self.game._get_objectives_summary(self.game.player_character)
+            reflection_text = None
 
-            reflection_text = self.game.gemini_api.get_player_reflection(
-                player_char_obj=self.game.player_character,
-                current_location_name=self.game.current_location_name,
-                current_time_period=self.game.get_current_time_period(),
-                context_string=reflection_context,
-                objectives_summary=objectives_summary
-            )
+            if not self.game.low_ai_data_mode and self.game.gemini_api.model:
+                reflection_text = self.game.gemini_api.get_player_reflection(
+                    player_character=self.game.player_character,
+                    current_location_name=self.game.current_location_name,
+                    current_time_period=self.game.get_current_time_period(),
+                    context_text=reflection_context,
+                    active_objectives_summary=objectives_summary
+                )
 
-            if reflection_text and not reflection_text.startswith("(OOC:"):
+            if reflection_text is None or (isinstance(reflection_text, str) and reflection_text.startswith("(OOC:")) or self.game.low_ai_data_mode:
+                if STATIC_PLAYER_REFLECTIONS:
+                    reflection_text = random.choice(STATIC_PLAYER_REFLECTIONS)
+                else:
+                    reflection_text = "Your mind is a whirl of conflicting emotions and calculations." # Ultimate fallback
+                self.game._print_color(f"Your thoughts race: \"{reflection_text}\"", Colors.DIM) # Static in DIM
+            else: # AI success
                 self.game._print_color(f"Your thoughts race: \"{reflection_text}\"", Colors.CYAN)
-            else:
-                self.game._print_color("Your mind is a whirl of conflicting emotions and calculations.", Colors.CYAN)
             # --- End enhanced emotional impact ---
 
         self.game.last_significant_event_summary = "received a letter from his mother about Dunya."
@@ -162,17 +170,24 @@ class EventManager:
         note_subject = "a warning about being watched or known"
         note_tone = "ominous, slightly uneducated, and hurried"
         note_key_info = "Hints that Raskolnikov's recent unusual behavior or presence near certain places has been noticed. Does not directly name the crime."
+        note_text = None
+
+        if not self.game.low_ai_data_mode and self.game.gemini_api.model:
+            note_text = self.game.gemini_api.get_generated_text_document(
+                document_type="Anonymous Warning Note",
+                author_persona_hint="someone observant from the shadows, perhaps a minor official or a street dweller",
+                recipient_persona_hint="Rodion Raskolnikov",
+                subject_matter=note_subject,
+                desired_tone=note_tone,
+                key_info_to_include=note_key_info,
+                length_sentences=2
+            )
+
+        if note_text is None or (isinstance(note_text, str) and note_text.startswith("(OOC:")) or self.game.low_ai_data_mode:
+            note_text = STATIC_ANONYMOUS_NOTE_CONTENT # Direct use of the static string
+            # Optionally, add a log or slightly different handling for static note if needed
         
-        note_text = self.game.gemini_api.get_generated_text_document(
-            document_type="Anonymous Warning Note",
-            author_persona_hint="someone observant from the shadows, perhaps a minor official or a street dweller",
-            recipient_persona_hint="Rodion Raskolnikov",
-            subject_matter=note_subject,
-            desired_tone=note_tone,
-            key_info_to_include=note_key_info,
-            length_sentences=2
-        )
-        if note_text and not note_text.startswith("(OOC:"):
+        if note_text: # Check if note_text is not None or empty after potential fallback
             event_desc = f"Tucked into your doorframe (or perhaps slipped under your door), you find a hastily folded piece of paper. It's an anonymous note."
             self._print_event(event_desc)
             
@@ -182,11 +197,11 @@ class EventManager:
             # Ensure the base "Anonymous Note" is in DEFAULT_ITEMS with readable=True
             if "Anonymous Note" in DEFAULT_ITEMS:
                 self.game.dynamic_location_items.setdefault(self.game.current_location_name, []).append(note_item_instance)
-                self._print_color(f"An {Colors.GREEN}Anonymous Note{Colors.RESET} appears on the floor.", Colors.YELLOW)
+                self.game._print_color(f"An {Colors.GREEN}Anonymous Note{Colors.RESET} appears on the floor.", Colors.YELLOW) # Changed self to self.game
                 self.game.player_character.add_journal_entry("Note Found", f"Found an anonymous note: {note_text[:30]}...", self.game._get_current_game_time_period_str())
 
             else: # Fallback if item not defined well
-                 self._print_color(f"You find a strange note: \"{note_text}\"", Colors.YELLOW)
+                 self.game._print_color(f"You find a strange note: \"{note_text}\"", Colors.YELLOW) # Changed self to self.game
 
             if self.game.player_character:
                 self.game.player_character.add_player_memory(memory_type="event_found_anon_note", turn=self.game.game_time, content={"summary": "Found an ominous anonymous note."}, sentiment_impact=-1) # "Ominous" suggests negative sentiment
@@ -207,21 +222,35 @@ class EventManager:
         if self.game.player_character:
             player_context = f"while {self.game.player_character.name} (appearing {self.game.player_character.apparent_state}) is present"
 
-        description = self.game.gemini_api.get_street_life_event_description(
-            self.game.current_location_name,
-            self.game.get_current_time_period(),
-            player_context
-        )
-        if description and not description.startswith("(OOC:"):
+        description = None
+        if not self.game.low_ai_data_mode and self.game.gemini_api.model:
+            description = self.game.gemini_api.get_street_life_event_description(
+                self.game.current_location_name,
+                self.game.get_current_time_period(),
+                player_context
+            )
+
+        if description is None or (isinstance(description, str) and description.startswith("(OOC:")) or self.game.low_ai_data_mode:
+            if STATIC_STREET_LIFE_EVENTS:
+                description = random.choice(STATIC_STREET_LIFE_EVENTS)
+            else:
+                description = "The usual hustle and bustle of the Haymarket continues around you." # Ultimate fallback
+            # Print static description, perhaps with a different color or note
+            if description: # Ensure not None if list was empty
+                 self.game._print_color(f"\n{Colors.DIM}(Nearby, {description}){Colors.RESET}", Colors.DIM)
+        elif description: # AI success and not OOC
             self.game._print_color(f"\n{Colors.DIM}(Nearby, {description}){Colors.RESET}", Colors.DIM)
-            if self.game.player_character:
-                self.game.player_character.add_journal_entry("Observation", description, self.game._get_current_game_time_period_str())
+
+        # Common logic for adding to journal if a description was obtained
+        if description and self.game.player_character:
+            self.game.player_character.add_journal_entry("Observation", description, self.game._get_current_game_time_period_str())
 
         self.triggered_events.add("street_life_haymarket_recent")
 
 
     def check_and_trigger_events(self):
-        if self.game.game_time % 100 == 5: # Cooldown reset periodically
+        if self.game.game_time % 50 == 0: # Cooldown reset periodically
+            print(f"[DEBUG] EventManager: Checking event cooldowns at game time {self.game.game_time}")
             events_to_remove = {ev for ev in self.triggered_events if ev.endswith("_recent")}
             for ev_rem in events_to_remove: self.triggered_events.remove(ev_rem)
 
@@ -255,16 +284,26 @@ class EventManager:
                 return False
 
             self.game._print_color(f"\n{Colors.MAGENTA}Nearby, you overhear a brief exchange...{Colors.RESET}", Colors.MAGENTA)
+            interaction_text = None
 
-            interaction_text = self.game.gemini_api.get_npc_to_npc_interaction(
-                npc1, npc2,
-                self.game.current_location_name,
-                self.game.get_current_time_period(),
-                npc1_objectives_summary=self.game._get_objectives_summary(npc1), # Pass objectives
-                npc2_objectives_summary=self.game._get_objectives_summary(npc2)  # Pass objectives
-            )
+            if not self.game.low_ai_data_mode and self.game.gemini_api.model:
+                interaction_text = self.game.gemini_api.get_npc_to_npc_interaction(
+                    npc1, npc2,
+                    self.game.current_location_name,
+                    self.game.get_current_time_period(),
+                    npc1_objectives_summary=self.game._get_objectives_summary(npc1),
+                    npc2_objectives_summary=self.game._get_objectives_summary(npc2)
+                )
 
-            if interaction_text and not interaction_text.startswith("(OOC:"):
+            if interaction_text is None or (isinstance(interaction_text, str) and interaction_text.startswith("(OOC:")) or self.game.low_ai_data_mode:
+                if STATIC_NPC_NPC_INTERACTIONS:
+                    interaction_text = random.choice(STATIC_NPC_NPC_INTERACTIONS)
+                else:
+                    interaction_text = f"{npc1.name} and {npc2.name} exchange a few quiet words." # Ultimate fallback
+                # No specific color change for static here, just print it like AI would have.
+                # The (OOC:) check is handled, so it won't print that.
+
+            if interaction_text: # Check if not None from fallback
                 # Print the interaction first
                 lines = interaction_text.split('\n')
                 for line in lines:

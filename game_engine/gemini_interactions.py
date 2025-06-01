@@ -2,7 +2,13 @@
 import google.generativeai as genai
 import os
 import json
-from game_config import API_CONFIG_FILE, GEMINI_MODEL_NAME as DEFAULT_GEMINI_MODEL_NAME, Colors, GEMINI_API_KEY_ENV_VAR
+
+# --- Self-contained API Configuration Constants ---
+API_CONFIG_FILE = "gemini_config.json"
+GEMINI_API_KEY_ENV_VAR = "GEMINI_API_KEY"
+DEFAULT_GEMINI_MODEL_NAME = 'gemini-1.5-pro-latest' # Updated Default
+
+from .game_config import Colors
 
 class GeminiAPI:
     def __init__(self):
@@ -115,30 +121,58 @@ class GeminiAPI:
             return False
 
     def _ask_for_model_selection(self):
+        # DEFAULT_GEMINI_MODEL_NAME should be 'gemini-1.5-pro-latest' at file level
+
         self._print_color_func("\nPlease select which Gemini model to use:", Colors.CYAN)
-        # Using model IDs provided by the user
         models_map = {
-            "1": {"name": "Gemini 1.5 Flash", "id": "gemini-1.5-flash-latest"},
-            "2": {"name": "Gemini 1.5 Pro", "id": "gemini-1.5-pro-latest"},
-            "3": {"name": "Gemini 2.0 Flash (Default)", "id": DEFAULT_GEMINI_MODEL_NAME},
-            "4": {"name": "Gemini 2.5 Flash", "id": "gemini-2.5-flash-preview-04-17"}, # User-provided ID
-            "5": {"name": "Gemini 2.5 Pro", "id": "gemini-2.5-pro-preview-05-06"},   # User-provided ID
+            "1": {"name": "Gemini 1.5 Pro (Default)", "id": "gemini-1.5-pro-latest"}, # Assuming DEFAULT_GEMINI_MODEL_NAME is this
+            "2": {"name": "Gemini 2.0 Flash", "id": "gemini-2.0-flash"}
         }
-        for key, model_info in models_map.items():
-            self._print_color_func(f"{key}. {model_info['name']} (ID: {model_info['id']})", Colors.WHITE)
+
+        # Dynamically create the display map to ensure the default model from DEFAULT_GEMINI_MODEL_NAME is marked
+        display_map_for_prompt = {}
+        default_model_display_name = ""
+
+        for key, model_info_iter in models_map.items():
+            is_default = (model_info_iter["id"] == DEFAULT_GEMINI_MODEL_NAME)
+            display_name_iter = model_info_iter["name"]
+            if is_default:
+                # Remove existing "(Default)" then add it back to ensure only one is marked
+                display_name_iter = display_name_iter.replace(" (Default)", "") + " (Default)"
+                default_model_display_name = display_name_iter
+            display_map_for_prompt[key] = {"name": display_name_iter, "id": model_info_iter["id"]}
+
+
+        for key_prompt, model_info_prompt in display_map_for_prompt.items():
+            self._print_color_func(f"{key_prompt}. {model_info_prompt['name']} (ID: {model_info_prompt['id']})", Colors.WHITE)
         
         while True:
-            choice = self._input_color_func("Enter your choice (1-5, or press Enter for default): ", Colors.MAGENTA).strip()
+            # Adjust prompt for new number of choices
+            choice = self._input_color_func(f"Enter your choice (1-{len(display_map_for_prompt)}), or press Enter for default): ", Colors.MAGENTA).strip()
             if not choice: 
-                default_model_info = next(item for item in models_map.values() if item["id"] == DEFAULT_GEMINI_MODEL_NAME)
-                self._print_color_func(f"Using default model: {default_model_info['name']}", Colors.YELLOW)
-                return DEFAULT_GEMINI_MODEL_NAME
-            if choice in models_map:
-                self._print_color_func(f"You selected: {models_map[choice]['name']}", Colors.GREEN)
-                return models_map[choice]['id']
+                self._print_color_func(f"Using default model: {default_model_display_name}", Colors.YELLOW)
+                return DEFAULT_GEMINI_MODEL_NAME # This should be the ID 'gemini-1.5-pro-latest'
+            if choice in display_map_for_prompt: # Check against keys of display_map_for_prompt
+                self._print_color_func(f"You selected: {display_map_for_prompt[choice]['name']}", Colors.GREEN)
+                return display_map_for_prompt[choice]['id']
             else:
-                self._print_color_func("Invalid choice. Please enter a number from the list.", Colors.RED)
+                self._print_color_func(f"Invalid choice. Please enter a number from the list (1-{len(display_map_for_prompt)}).", Colors.RED)
 
+    def _prompt_for_low_ai_mode(self):
+        low_ai_choice_prompt = (
+            "\nEnable Low AI Data Mode? \n"
+            "(Reduces AI usage for less critical game content, using static descriptions instead. \n"
+            "Recommended if you have limited API quota or prefer less AI processing.)\n"
+            "Enter 'y' for yes, or 'n' for no (default is 'n'): "
+        )
+        low_ai_input = self._input_color_func(low_ai_choice_prompt, Colors.YELLOW).strip().lower()
+        low_ai_preference = (low_ai_input == 'y')
+
+        if low_ai_preference:
+            self._print_color_func("Low AI Data Mode will be ENABLED.", Colors.GREEN)
+        else:
+            self._print_color_func("Low AI Data Mode will be DISABLED (default).", Colors.GREEN)
+        return low_ai_preference
 
     def configure(self, print_func, input_func):
         self._print_color_func = print_func
@@ -186,10 +220,17 @@ class GeminiAPI:
                 if self._attempt_api_setup(key_to_try, key_source, model_to_attempt_first):
                     # If the key was from file, but the model selected by user (if asked) is different from file's pref,
                     # or if user selected a non-default model with ENV key, save choice.
-                    if key_source == "user input" or self.chosen_model_name != preferred_model_from_config: # This condition needs review for saving
-                         # Handled by asking to save after successful manual input or if model changed.
-                         pass # Saving is handled after successful manual input / validation.
-                    return 
+                    low_ai_pref = self._prompt_for_low_ai_mode()
+                    # Saving logic might need to consider if the model was from config and if it changed.
+                    # For now, if key from env and a non-default model was picked, or if model from file differs from current, prompt to save.
+                    if key_source != API_CONFIG_FILE or self.chosen_model_name != preferred_model_from_config :
+                         if key_source == f"environment variable '{GEMINI_API_KEY_ENV_VAR}'": # If key was from ENV, always ask to save this new combo
+                            save_choice = self._input_color_func(
+                                f"Save this key from ENV and model ('{self.chosen_model_name}') to {API_CONFIG_FILE}? (y/n): ",
+                                Colors.YELLOW).strip().lower()
+                            if save_choice == 'y':
+                                self.save_api_key_to_file(key_to_try)
+                    return {"api_configured": True, "low_ai_preference": low_ai_pref}
                 elif key_source == API_CONFIG_FILE:
                     self._rename_invalid_config_file(API_CONFIG_FILE, f"failed_setup_with_{model_to_attempt_first.replace('/','_')}")
             
@@ -213,7 +254,7 @@ class GeminiAPI:
             if manual_api_key_input.lower() == 'skip':
                 self._print_color_func("\nSkipping API key entry. Game will run with placeholder responses.", Colors.RED)
                 self.model = None 
-                return 
+                return {"api_configured": False, "low_ai_preference": False}
             
             try:
                 genai.configure(api_key=manual_api_key_input)
@@ -224,12 +265,13 @@ class GeminiAPI:
                  if retry_choice != 'y':
                      self._print_color_func("\nProceeding with placeholder responses.", Colors.RED)
                      self.model = None 
-                     return
+                     return {"api_configured": False, "low_ai_preference": False}
                  continue
 
             selected_model_id_manual = self._ask_for_model_selection()
 
             if self._attempt_api_setup(manual_api_key_input, "user input", selected_model_id_manual):
+                low_ai_pref = self._prompt_for_low_ai_mode()
                 save_choice = self._input_color_func(
                     f"Save this valid key and model ('{self.chosen_model_name}') to {API_CONFIG_FILE}? (y/n) (Not recommended if sharing project): ",
                     Colors.YELLOW
@@ -238,14 +280,14 @@ class GeminiAPI:
                     self.save_api_key_to_file(manual_api_key_input) 
                 else:
                     self._print_color_func(f"API key and model choice not saved for future sessions.", Colors.YELLOW)
-                return 
+                return {"api_configured": True, "low_ai_preference": low_ai_pref}
 
             self._print_color_func(f"The manually entered API key with model '{selected_model_id_manual}' failed validation.", Colors.RED)
             retry_choice = self._input_color_func("Try entering a different API key? (y/n): ", Colors.YELLOW).strip().lower()
             if retry_choice != 'y':
                 self._print_color_func("\nProceeding with placeholder responses.", Colors.RED)
                 self.model = None 
-                return
+                return {"api_configured": False, "low_ai_preference": False}
     
     def _generate_content_with_fallback(self, prompt, error_message_context="generating content"):
         if not self.model:
@@ -339,6 +381,7 @@ class GeminiAPI:
         For example, if you are close to completing an important objective, you might sound more confident or focused. If you are frustrated by a lack of progress on a key stage, this might color your words or make you less patient.
         Let this internal state subtly guide your responses.
         """
+        sanitized_player_dialogue = player_dialogue.replace('"', '\\"')
 
         prompt = f"""
         **Roleplay Mandate: Embody {npc_character.name} from Dostoevsky's "Crime and Punishment" with utmost fidelity.**
@@ -353,7 +396,7 @@ class GeminiAPI:
         ---
         {conversation_context if conversation_context else "No prior conversation in this session."}
         ---
-        **Player's Action:** {player_character.name} says to you: "{player_dialogue}"
+        **Player's Action:** {player_character.name} says to you: "{sanitized_player_dialogue}"
         **Your Task: Generate {npc_character.name}'s spoken response.**
         **Response Guidelines (Strict Adherence Required):**
         1.  **Authenticity.**
@@ -364,14 +407,30 @@ class GeminiAPI:
         6.  **Dialogue Only.**
         7.  **Handling Nonsense.**
         Respond now as {npc_character.name}:
-        """ # Shortened prompt guidelines for brevity in this example
+        """
         ai_text = self._generate_content_with_fallback(prompt, f"NPC dialogue for {npc_character.name}")
+
+        # Always add player's dialogue to history
+        npc_character.add_to_history(player_character.name, player_character.name, player_dialogue)
+        player_character.add_to_history(npc_character.name, player_character.name, player_dialogue)
+
         if not ai_text.startswith("(OOC:"):
-            npc_character.add_to_history(player_character.name, player_character.name, player_dialogue)
-            npc_character.add_to_history(player_character.name, npc_character.name, ai_text)
-            player_character.add_to_history(npc_character.name, player_character.name, player_dialogue)
-            player_character.add_to_history(npc_character.name, npc_character.name, ai_text)
-        return ai_text
+            # Clean/Normalize ai_text
+            processed_ai_text = ai_text.replace('\\"', '"')
+
+            # Strip one layer of surrounding quotes if present
+            if len(processed_ai_text) >= 2 and processed_ai_text.startswith('"') and processed_ai_text.endswith('"'):
+                processed_ai_text = processed_ai_text[1:-1]
+
+            final_ai_text = processed_ai_text
+
+            # Use cleaned text for NPC's part of history and return
+            npc_character.add_to_history(player_character.name, npc_character.name, final_ai_text)
+            player_character.add_to_history(npc_character.name, npc_character.name, final_ai_text)
+            return final_ai_text
+        else:
+            # For OOC messages, still return the OOC message, player history already added
+            return ai_text
 
     def get_player_reflection(self, player_character, current_location_name, current_time_period,
                               context_text, recent_interactions_summary="Nothing specific recently.",
