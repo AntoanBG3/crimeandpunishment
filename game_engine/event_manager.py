@@ -1,6 +1,6 @@
 # event_manager.py
 import random
-from game_config import Colors, DEFAULT_ITEMS # For adding generated items
+from .game_config import Colors, DEFAULT_ITEMS # For adding generated items
 
 class EventManager:
     def __init__(self, game_ref):

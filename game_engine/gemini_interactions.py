@@ -2,7 +2,13 @@
 import google.generativeai as genai
 import os
 import json
-from game_config import API_CONFIG_FILE, GEMINI_MODEL_NAME as DEFAULT_GEMINI_MODEL_NAME, Colors, GEMINI_API_KEY_ENV_VAR
+
+# --- Self-contained API Configuration Constants ---
+API_CONFIG_FILE = "gemini_config.json"
+GEMINI_API_KEY_ENV_VAR = "GEMINI_API_KEY"
+DEFAULT_GEMINI_MODEL_NAME = 'gemini-2.0-flash'
+
+from .game_config import Colors
 
 class GeminiAPI:
     def __init__(self):
