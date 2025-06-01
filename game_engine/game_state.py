@@ -687,6 +687,9 @@ class Game:
         except ValueError: return self.parse_action(raw_action_input)
 
     def _process_command(self, command, argument):
+        show_full_look_details = False
+        if command == "look" or command == "move to":
+            show_full_look_details = True
         action_taken_this_turn = True; time_to_advance = TIME_UNITS_PER_PLAYER_ACTION; show_atmospherics_this_turn = True
         if command == "quit": self._print_color("Exiting game. Goodbye.", Colors.MAGENTA); return False, False, 0, True
         elif command == "select_item":
@@ -694,7 +697,7 @@ class Game:
             secondary_action_input = self._input_color(f"What to do with {Colors.GREEN}{item_name_selected}{Colors.WHITE}? (e.g., look at, take, use, read, give to...) {PROMPT_ARROW}", Colors.WHITE).strip().lower()
 
             if secondary_action_input == "look at":
-                self._handle_look_command(item_name_selected) # _handle_look_command doesn't return action_taken flags
+                self._handle_look_command(item_name_selected, show_full_look_details) # _handle_look_command doesn't return action_taken flags
                 return True, True, TIME_UNITS_PER_PLAYER_ACTION, False
             elif secondary_action_input == "take":
                 action_taken, show_atmospherics = self._handle_take_command(item_name_selected)
@@ -736,7 +739,7 @@ class Game:
         elif command == "journal":
             if self.player_character: self._print_color(self.player_character.get_journal_summary(), Colors.CYAN)
             action_taken_this_turn = False; show_atmospherics_this_turn = False
-        elif command == "look": self._handle_look_command(argument)
+        elif command == "look": self._handle_look_command(argument, show_full_look_details)
         elif command == "inventory": self._handle_inventory_command(); action_taken_this_turn = False; show_atmospherics_this_turn = False
         elif command == "take": action_taken_this_turn, show_atmospherics_this_turn = self._handle_take_command(argument)
         elif command == "drop": action_taken_this_turn, show_atmospherics_this_turn = self._handle_drop_command(argument)
@@ -797,11 +800,12 @@ class Game:
             self._display_turn_feedback(show_atmospherics, command)
             if self._check_game_ending_conditions(): break
 
-    def _handle_look_command(self, argument):
+    def _handle_look_command(self, argument, show_full_look_details=False):
         self.numbered_actions_context.clear(); action_number = 1
         current_location_data = LOCATIONS_DATA.get(self.current_location_name)
         is_general_look = (argument is None or argument.lower() in ["around", ""])
         self.update_current_location_details(from_explicit_look_cmd=is_general_look)
+
         if argument and not is_general_look:
             target_to_look_at = argument.lower(); found_target = False
             for item_info in self.dynamic_location_items.get(self.current_location_name, []):
@@ -1011,49 +1015,51 @@ class Game:
                     found_target = True
             if not found_target: self._print_color(f"You don't see '{argument}' here to look at specifically.", Colors.RED)
             self._print_color(SEPARATOR_LINE, Colors.DIM)
-        self._print_color("", Colors.RESET)
-        self._print_color("--- People Here ---", Colors.YELLOW + Colors.BOLD); npcs_present_for_hint = False
-        if self.npcs_in_current_location:
-            for npc in self.npcs_in_current_location:
-                look_at_npc_display = f"Look at {npc.name}"; self.numbered_actions_context.append({'type': 'look_at_npc', 'target': npc.name, 'display': look_at_npc_display})
-                self._print_color(f"{action_number}. {look_at_npc_display}", Colors.YELLOW, end=""); print(f" (Appears: {npc.apparent_state}, Relationship: {self.get_relationship_text(npc.relationship_with_player)})"); action_number += 1; npcs_present_for_hint = True
-                talk_to_npc_display = f"Talk to {npc.name}"; self.numbered_actions_context.append({'type': 'talk', 'target': npc.name, 'display': talk_to_npc_display})
-                self._print_color(f"{action_number}. {talk_to_npc_display}", Colors.YELLOW); action_number += 1
-        else: self._print_color("You see no one else of note here.", Colors.DIM)
-        self._print_color("", Colors.RESET); self._print_color("--- Items Here ---", Colors.YELLOW + Colors.BOLD)
-        current_loc_items = self.dynamic_location_items.get(self.current_location_name, []); items_present_for_hint = False
-        if current_loc_items:
-            for item_info in current_loc_items:
-                item_name = item_info["name"]; item_qty = item_info.get("quantity", 1)
-                item_default_info = DEFAULT_ITEMS.get(item_name, {})
 
-                full_description = item_default_info.get('description', 'An undescribed item.')
+        if show_full_look_details:
+            self._print_color("", Colors.RESET)
+            self._print_color("--- People Here ---", Colors.YELLOW + Colors.BOLD); npcs_present_for_hint = False
+            if self.npcs_in_current_location:
+                for npc in self.npcs_in_current_location:
+                    look_at_npc_display = f"Look at {npc.name}"; self.numbered_actions_context.append({'type': 'look_at_npc', 'target': npc.name, 'display': look_at_npc_display})
+                    self._print_color(f"{action_number}. {look_at_npc_display}", Colors.YELLOW, end=""); print(f" (Appears: {npc.apparent_state}, Relationship: {self.get_relationship_text(npc.relationship_with_player)})"); action_number += 1; npcs_present_for_hint = True
+                    talk_to_npc_display = f"Talk to {npc.name}"; self.numbered_actions_context.append({'type': 'talk', 'target': npc.name, 'display': talk_to_npc_display})
+                    self._print_color(f"{action_number}. {talk_to_npc_display}", Colors.YELLOW); action_number += 1
+            else: self._print_color("You see no one else of note here.", Colors.DIM)
+            self._print_color("", Colors.RESET); self._print_color("--- Items Here ---", Colors.YELLOW + Colors.BOLD)
+            current_loc_items = self.dynamic_location_items.get(self.current_location_name, []); items_present_for_hint = False
+            if current_loc_items:
+                for item_info in current_loc_items:
+                    item_name = item_info["name"]; item_qty = item_info.get("quantity", 1)
+                    item_default_info = DEFAULT_ITEMS.get(item_name, {})
 
-                qty_str = ""
-                if (item_default_info.get("stackable") or item_default_info.get("value") is not None) and item_qty > 1:
-                    qty_str = f" (x{item_qty})"
+                    full_description = item_default_info.get('description', 'An undescribed item.')
 
-                item_display_line = f"{item_name}{qty_str} - {full_description}"
-                self._print_color(f"{action_number}. {item_display_line}", Colors.GREEN)
+                    qty_str = ""
+                    if (item_default_info.get("stackable") or item_default_info.get("value") is not None) and item_qty > 1:
+                        qty_str = f" (x{item_qty})"
 
-                self.numbered_actions_context.append({
-                    'type': 'select_item', # Changed from 'item_reference'
-                    'target': item_name,
-                    'display': item_name
-                })
-                action_number += 1
-                items_present_for_hint = True
-        else:
-            self._print_color("No loose items of interest here.", Colors.DIM)
-        self._print_color("", Colors.RESET); self._print_color("--- Exits ---", Colors.BLUE + Colors.BOLD); has_accessible_exits = False
-        if current_location_data and current_location_data.get("exits"):
-            for exit_target_loc, exit_desc in current_location_data["exits"].items():
-                display_text = f"{exit_desc} (to {exit_target_loc})"; self.numbered_actions_context.append({'type': 'move', 'target': exit_target_loc, 'description': exit_desc, 'display': display_text})
-                self._print_color(f"{action_number}. {display_text}", Colors.BLUE); action_number += 1; has_accessible_exits = True
-        if not has_accessible_exits: self._print_color("There are no obvious exits from here.", Colors.DIM)
-        self._print_color("", Colors.RESET)
-        if items_present_for_hint: self._print_color("(Hint: You can 'take [item name]', 'look at [item name]', or use a number to interact with items.)", Colors.DIM)
-        if npcs_present_for_hint: self._print_color("(Hint: You can 'talk to [npc name]', 'look at [npc name]', or use a number to interact with people.)", Colors.DIM)
+                    item_display_line = f"{item_name}{qty_str} - {full_description}"
+                    self._print_color(f"{action_number}. {item_display_line}", Colors.GREEN)
+
+                    self.numbered_actions_context.append({
+                        'type': 'select_item', # Changed from 'item_reference'
+                        'target': item_name,
+                        'display': item_name
+                    })
+                    action_number += 1
+                    items_present_for_hint = True
+            else:
+                self._print_color("No loose items of interest here.", Colors.DIM)
+            self._print_color("", Colors.RESET); self._print_color("--- Exits ---", Colors.BLUE + Colors.BOLD); has_accessible_exits = False
+            if current_location_data and current_location_data.get("exits"):
+                for exit_target_loc, exit_desc in current_location_data["exits"].items():
+                    display_text = f"{exit_desc} (to {exit_target_loc})"; self.numbered_actions_context.append({'type': 'move', 'target': exit_target_loc, 'description': exit_desc, 'display': display_text})
+                    self._print_color(f"{action_number}. {display_text}", Colors.BLUE); action_number += 1; has_accessible_exits = True
+            if not has_accessible_exits: self._print_color("There are no obvious exits from here.", Colors.DIM)
+            self._print_color("", Colors.RESET)
+            if items_present_for_hint: self._print_color("(Hint: You can 'take [item name]', 'look at [item name]', or use a number to interact with items.)", Colors.DIM)
+            if npcs_present_for_hint: self._print_color("(Hint: You can 'talk to [npc name]', 'look at [npc name]', or use a number to interact with people.)", Colors.DIM)
 
     def _handle_status_command(self):
         if not self.player_character: self._print_color("No player character loaded.", Colors.RED); return
