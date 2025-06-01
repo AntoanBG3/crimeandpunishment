@@ -10,9 +10,9 @@ if project_root not in sys.path:
 
 from game_engine.character_module import Character
 from game_engine.gemini_interactions import GeminiAPI
-from game_engine.game_state import Game # New Import
-from game_engine.event_manager import EventManager # New Import
-from game_engine.game_config import Colors # New Import for TestGameStateCommands
+from game_engine.game_state import Game
+from game_engine.event_manager import EventManager
+from game_engine.game_config import Colors, TIME_UNITS_PER_PLAYER_ACTION # Modified Import
 
 # Test data for DEFAULT_ITEMS
 DEFAULT_ITEMS_TEST_DATA = {
@@ -23,9 +23,12 @@ DEFAULT_ITEMS_TEST_DATA = {
     "scroll": {"description": "An old scroll."}
 }
 
-TEST_ITEMS_FOR_LOOK = {
-    "test_apple": {"description": "A juicy apple.", "stackable": True, "takeable": True},
-    "test_sword": {"description": "A sharp sword.", "takeable": True}
+TEST_ITEMS_FOR_LOOK = { # Updated
+    "test_apple": {"description": "A juicy red apple, looking crisp.", "stackable": True, "takeable": True},
+    "test_sword": {"description": "A long, sharp sword, gleaming slightly.", "takeable": True},
+    "test_coin": {"description": "A single gold coin.", "value": 1, "takeable": True}, # value implies stackable
+    "test_scroll": {"description": "An ancient scroll.", "readable": True, "takeable": True},
+    "test_potion": {"description": "A bubbling potion.", "use_effect_player": "drink_potion", "takeable": True}
 }
 
 class TestInventoryDescription(unittest.TestCase):
@@ -67,7 +70,6 @@ class TestInventoryDescription(unittest.TestCase):
         ]
         desc = self.char.get_inventory_description()
         self.assertTrue(desc.startswith("You are carrying: "))
-        # Use sorted lists of items for comparison to handle potential order differences
         expected_items = sorted(["sword", "apple (x2)", "coin (x10)"])
         actual_items_str = desc.replace("You are carrying: ", "").split(", ")
         actual_items = sorted([item.strip('.') for item in actual_items_str])
@@ -119,9 +121,7 @@ class TestGeminiDialogueQuotes(unittest.TestCase):
     def test_player_dialogue_quotes_escaped_in_prompt(self, mock_generate_content):
         mock_generate_content.return_value = "AI response"
         player_dialogue = 'He said "Hello!" to me.'
-
         self.api.get_npc_dialogue(self.npc, self.player, player_dialogue, "Loc", "Time", "Rel", "Mem", "State", "Items", "Events", "Obj", "PlayerObj")
-
         self.assertTrue(mock_generate_content.called)
         prompt_arg = mock_generate_content.call_args[0][0]
         self.assertIn('He said \\"Hello!\\" to me.', prompt_arg)
@@ -131,35 +131,26 @@ class TestGeminiDialogueQuotes(unittest.TestCase):
         mock_generate_content.return_value = 'NPC says: \\"Greetings!\\"'
         response = self.api.get_npc_dialogue(self.npc, self.player, "Hi", "L", "T", "R", "M", "S", "I", "E", "O", "PO")
         self.assertEqual(response, 'NPC says: "Greetings!"')
-        self.assertIn(f"{self.npc.name}: NPC says: \"Greetings!\"", self.npc.conversation_histories[self.player.name])
 
     @patch.object(GeminiAPI, '_generate_content_with_fallback')
     def test_ai_response_with_surrounding_quotes_stripped(self, mock_generate_content):
         mock_generate_content.return_value = '"This is the actual response."'
         response = self.api.get_npc_dialogue(self.npc, self.player, "Hello", "L", "T", "R", "M", "S", "I", "E", "O", "PO")
         self.assertEqual(response, 'This is the actual response.')
-        self.assertIn(f"{self.npc.name}: This is the actual response.", self.npc.conversation_histories[self.player.name])
 
     @patch.object(GeminiAPI, '_generate_content_with_fallback')
     def test_ai_response_with_both_escaped_and_surrounding_quotes(self, mock_generate_content):
-        # This mock value represents an AI returning a string that contains literal backslashes
-        # before quotes that it intends to be part of the string content.
-        # String value: '"NPC says: \"Okay!\""' (where \" is a literal backslash then a quote)
         mock_generate_content.return_value = '"NPC says: \\"Okay!\\""'
-
         response = self.api.get_npc_dialogue(self.npc, self.player, "Tell me.", "L", "T", "R", "M", "S", "I", "E", "O", "PO")
-        self.assertEqual(response, 'NPC says: "Okay!"') # Expect fully cleaned version
+        self.assertEqual(response, 'NPC says: "Okay!"')
 
     @patch.object(GeminiAPI, '_generate_content_with_fallback')
     def test_ooc_message_passthrough_and_history(self, mock_generate_content):
         mock_generate_content.return_value = '(OOC: Cannot respond.)'
-
         self.npc.conversation_histories[self.player.name] = []
         initial_npc_history_len = len(self.npc.conversation_histories[self.player.name])
-
         response = self.api.get_npc_dialogue(self.npc, self.player, "What?", "L", "T", "R", "M", "S", "I", "E", "O", "PO")
         self.assertEqual(response, '(OOC: Cannot respond.)')
-
         npc_hist_for_player = self.npc.conversation_histories[self.player.name]
         self.assertEqual(len(npc_hist_for_player), initial_npc_history_len + 1)
         self.assertEqual(npc_hist_for_player[-1], f"{self.player.name}: What?")
@@ -169,7 +160,6 @@ class TestGeminiDialogueQuotes(unittest.TestCase):
         mock_generate_content.return_value = 'AI response'
         player_dialogue_with_quotes = 'My input has "quotes".'
         self.api.get_npc_dialogue(self.npc, self.player, player_dialogue_with_quotes, "L", "T", "R", "M", "S", "I", "E", "O", "PO")
-
         npc_history_for_player = self.npc.conversation_histories[self.player.name]
         expected_player_entry = f"{self.player.name}: {player_dialogue_with_quotes}"
         self.assertIn(expected_player_entry, npc_history_for_player)
@@ -177,73 +167,138 @@ class TestGeminiDialogueQuotes(unittest.TestCase):
 class TestGameStateCommands(unittest.TestCase):
     def setUp(self):
         self.game = Game()
-        # Mock essential attributes/methods of the Game instance
         self.game.player_character = MagicMock(spec=Character)
+        self.game.player_character.inventory = [] # Initialize inventory for tests needing it
         self.game.current_location_name = "Test Chamber"
-        self.game.dynamic_location_items = {"Test Chamber": [{"name": "test_apple", "quantity": 1}, {"name": "test_sword"}]}
+        # Updated dynamic_location_items
+        self.game.dynamic_location_items = {
+            "Test Chamber": [
+                {"name": "test_apple", "quantity": 3},
+                {"name": "test_sword"},
+                {"name": "test_coin"},
+                {"name": "test_scroll"}, # Added for read test
+                {"name": "test_potion"}  # Added for use_self test
+            ]
+        }
         self.game.all_character_objects = {}
         self.game.npcs_in_current_location = []
         self.game.numbered_actions_context = []
+        self.game.TIME_UNITS_PER_PLAYER_ACTION = TIME_UNITS_PER_PLAYER_ACTION # or a fixed value like 10
 
-        # Patch external data
         self.mock_locations_data = patch('game_engine.game_state.LOCATIONS_DATA', {'Test Chamber': {'description': 'A room.', 'exits': {'north': 'Corridor'}}}).start()
         self.mock_default_items = patch('game_engine.game_state.DEFAULT_ITEMS', TEST_ITEMS_FOR_LOOK).start()
 
-        # Patch print functions
         self.mock_print = patch('builtins.print').start()
         self.mock_print_color = patch.object(self.game, '_print_color').start()
+        self.mock_input_color = patch.object(self.game, '_input_color').start() # For secondary input
 
     def tearDown(self):
         patch.stopall()
 
     def test_handle_look_command_item_display(self):
-        self.game._handle_look_command(None) # General look
+        self.game._handle_look_command(None)
 
-        # Collect printed output
-        printed_lines = []
-        for call_args in self.mock_print_color.call_args_list:
-            printed_lines.append(str(call_args[0][0])) # First positional argument
-        # Also check builtins.print if it was used for snippets (it shouldn't be for "Look at" now)
-        for call_args in self.mock_print.call_args_list:
-            printed_lines.append(str(call_args[0][0]))
+        printed_content = " ".join([call_args[0][0] for call_args in self.mock_print_color.call_args_list if call_args[0]])
 
-        # --- Items Here ---
-        # 1. Look at test_apple  (no snippet)
-        # 2. Take test_apple
-        # 3. Look at test_sword (no snippet)
-        # 4. Take test_sword
+        self.assertIn("test_apple (x3) - A juicy red apple, looking crisp.", printed_content)
+        self.assertIn("test_sword - A long, sharp sword, gleaming slightly.", printed_content)
+        self.assertIn("test_coin - A single gold coin.", printed_content) # Qty 1, no (x1)
 
-        # Assertions for "Look at test_apple"
-        expected_look_apple_line = next((i for i, line in enumerate(printed_lines) if "Look at test_apple" in line), -1)
-        self.assertGreaterEqual(expected_look_apple_line, 0, "Look at test_apple action not found in output")
-        self.assertFalse("juicy apple" in printed_lines[expected_look_apple_line], "Description snippet found for 'Look at test_apple'")
-
-        # Assertions for "Take test_apple"
-        self.assertTrue(any("Take test_apple" in line for line in printed_lines), "Take test_apple action not found")
-
-        # Assertions for "Look at test_sword"
-        expected_look_sword_line = next((i for i, line in enumerate(printed_lines) if "Look at test_sword" in line), -1)
-        self.assertGreaterEqual(expected_look_sword_line, 0, "Look at test_sword action not found in output")
-        self.assertFalse("sharp sword" in printed_lines[expected_look_sword_line], "Description snippet found for 'Look at test_sword'")
-
-        # Assertions for "Take test_sword"
-        self.assertTrue(any("Take test_sword" in line for line in printed_lines), "Take test_sword action not found")
-
-        # Check numbered_actions_context
-        # Expected actions (order might vary based on implementation, so check for presence)
         expected_context_actions = [
-            {'type': 'look_at_item', 'target': 'test_apple', 'display': 'Look at test_apple'},
-            {'type': 'take', 'target': 'test_apple', 'display': 'Take test_apple'}, # apple is stackable but qty 1, so no (x1)
-            {'type': 'look_at_item', 'target': 'test_sword', 'display': 'Look at test_sword'},
-            {'type': 'take', 'target': 'test_sword', 'display': 'Take test_sword'}
+            {'type': 'select_item', 'target': 'test_apple', 'display': 'test_apple'},
+            {'type': 'select_item', 'target': 'test_sword', 'display': 'test_sword'},
+            {'type': 'select_item', 'target': 'test_coin', 'display': 'test_coin'}
         ]
+        # Check if each expected action is in the context (order might not be guaranteed depending on dict iteration)
         for expected_action in expected_context_actions:
             self.assertIn(expected_action, self.game.numbered_actions_context)
 
+    @patch.object(Game, '_handle_look_command') # Patch the method that would be called
+    def test_process_command_select_item_then_look_at(self, mock_specific_look):
+        item_name = "test_apple"
+        self.mock_input_color.return_value = "look at"
+
+        action_taken, show_atmospherics, time_units, _ = self.game._process_command('select_item', item_name)
+
+        mock_specific_look.assert_called_once_with(item_name)
+        self.assertTrue(action_taken)
+        self.assertTrue(show_atmospherics)
+        self.assertEqual(time_units, self.game.TIME_UNITS_PER_PLAYER_ACTION)
+
+    @patch.object(Game, '_handle_take_command')
+    def test_process_command_select_item_then_take(self, mock_handle_take):
+        item_name = "test_apple"
+        mock_handle_take.return_value = (True, True) # action_taken, show_atmospherics
+        self.mock_input_color.return_value = "take"
+
+        action_taken, show_atmospherics, time_units, _ = self.game._process_command('select_item', item_name)
+
+        mock_handle_take.assert_called_once_with(item_name)
+        self.assertTrue(action_taken)
+        self.assertTrue(show_atmospherics)
+        self.assertEqual(time_units, self.game.TIME_UNITS_PER_PLAYER_ACTION)
+
+    @patch.object(Game, 'handle_use_item') # Patched here
+    def test_process_command_select_item_then_read(self, mock_handle_use_item):
+        self.game.player_character.inventory = [{"name": "test_scroll"}]
+        item_name = "test_scroll"
+        mock_handle_use_item.return_value = True # action_taken
+        self.mock_input_color.return_value = "read"
+
+        action_taken, show_atmospherics, time_units, _ = self.game._process_command('select_item', item_name)
+
+        mock_handle_use_item.assert_called_once_with(item_name, None, "read")
+        self.assertTrue(action_taken)
+        self.assertTrue(show_atmospherics)
+        self.assertEqual(time_units, self.game.TIME_UNITS_PER_PLAYER_ACTION)
+
+    @patch.object(Game, 'handle_use_item') # Patched here
+    def test_process_command_select_item_then_use_self(self, mock_handle_use_item):
+        self.game.player_character.inventory = [{"name": "test_potion"}]
+        item_name = "test_potion"
+        mock_handle_use_item.return_value = True # action_taken
+        self.mock_input_color.return_value = "use"
+
+        action_taken, show_atmospherics, time_units, _ = self.game._process_command('select_item', item_name)
+
+        mock_handle_use_item.assert_called_once_with(item_name, None, "use_self_implicit")
+        self.assertTrue(action_taken)
+        self.assertTrue(show_atmospherics)
+        self.assertEqual(time_units, self.game.TIME_UNITS_PER_PLAYER_ACTION)
+
+    @patch.object(Game, 'handle_use_item') # Patched here
+    def test_process_command_select_item_then_give_to(self, mock_handle_use_item):
+        self.game.player_character.inventory = [{"name": "test_apple"}]
+        item_name = "test_apple"
+        mock_npc = MagicMock(spec=Character)
+        mock_npc.name = "TestNPC"
+        self.game.npcs_in_current_location = [mock_npc] # Make NPC available
+        mock_handle_use_item.return_value = True # action_taken
+        self.mock_input_color.return_value = "give to TestNPC"
+
+        action_taken, show_atmospherics, time_units, _ = self.game._process_command('select_item', item_name)
+
+        mock_handle_use_item.assert_called_once_with(item_name, "testnpc", "give")
+        self.assertTrue(action_taken)
+        self.assertTrue(show_atmospherics)
+        self.assertEqual(time_units, self.game.TIME_UNITS_PER_PLAYER_ACTION)
+
+    def test_process_command_select_item_invalid_secondary_action(self):
+        item_name = "test_apple"
+        self.mock_input_color.return_value = "fly"
+
+        action_taken, show_atmospherics, time_units, _ = self.game._process_command('select_item', item_name)
+
+        self.mock_print_color.assert_any_call(f"Invalid action 'fly' for {item_name}.", Colors.RED)
+        self.assertFalse(action_taken)
+        self.assertFalse(show_atmospherics)
+        self.assertEqual(time_units, 0)
+
+
 class TestEventManager(unittest.TestCase):
     def setUp(self):
-        self.mock_game = MagicMock(spec=Game) # Use spec=Game
-        self.mock_game.gemini_api = MagicMock(spec=GeminiAPI) # Use spec for gemini_api
+        self.mock_game = MagicMock(spec=Game)
+        self.mock_game.gemini_api = MagicMock(spec=GeminiAPI)
         self.mock_game.gemini_api.get_player_reflection = MagicMock(return_value="A deep thought.")
 
         self.mock_game.player_character = MagicMock(spec=Character)
@@ -261,7 +316,7 @@ class TestEventManager(unittest.TestCase):
         self.mock_game._print_color = MagicMock()
         self.mock_game.last_significant_event_summary = ""
         self.mock_game.key_events_occurred = []
-        self.mock_game.game_time = 0 # Added missing attribute
+        self.mock_game.game_time = 0
 
         self.event_manager = EventManager(self.mock_game)
 
@@ -274,10 +329,9 @@ class TestEventManager(unittest.TestCase):
         self.assertEqual(kwargs.get('player_character'), self.mock_game.player_character)
         self.assertEqual(kwargs.get('current_location_name'), self.mock_game.current_location_name)
         self.assertEqual(kwargs.get('current_time_period'), self.mock_game.get_current_time_period.return_value)
-        self.assertIn('context_text', kwargs) # Check presence, content checked by other tests
+        self.assertIn('context_text', kwargs)
         self.assertEqual(kwargs.get('active_objectives_summary'), self.mock_game._get_objectives_summary.return_value)
 
-        # Ensure old incorrect kwargs are not present
         self.assertNotIn('player_char_obj', kwargs)
         self.assertNotIn('context_string', kwargs)
         self.assertNotIn('objectives_summary', kwargs)

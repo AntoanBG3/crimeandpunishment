@@ -619,12 +619,51 @@ class Game:
                 elif action_type == 'take': return 'take', target
                 elif action_type == 'look_at_item': return 'look', target
                 elif action_type == 'look_at_npc': return 'look', target
+                elif action_info['type'] == 'select_item': return ('select_item', action_info['target'])
             else: return self.parse_action(raw_action_input)
         except ValueError: return self.parse_action(raw_action_input)
 
     def _process_command(self, command, argument):
         action_taken_this_turn = True; time_to_advance = TIME_UNITS_PER_PLAYER_ACTION; show_atmospherics_this_turn = True
         if command == "quit": self._print_color("Exiting game. Goodbye.", Colors.MAGENTA); return False, False, 0, True
+        elif command == "select_item":
+            item_name_selected = argument
+            secondary_action_input = self._input_color(f"What to do with {Colors.GREEN}{item_name_selected}{Colors.WHITE}? (e.g., look at, take, use, read, give to...) {PROMPT_ARROW}", Colors.WHITE).strip().lower()
+
+            if secondary_action_input == "look at":
+                self._handle_look_command(item_name_selected) # _handle_look_command doesn't return action_taken flags
+                return True, True, TIME_UNITS_PER_PLAYER_ACTION, False
+            elif secondary_action_input == "take":
+                action_taken, show_atmospherics = self._handle_take_command(item_name_selected)
+                time_units = TIME_UNITS_PER_PLAYER_ACTION if action_taken else 0
+                return action_taken, show_atmospherics, time_units, False
+            elif secondary_action_input == "read":
+                action_taken = self.handle_use_item(item_name_selected, None, "read")
+                time_units = TIME_UNITS_PER_PLAYER_ACTION if action_taken else 0
+                return action_taken, True, time_units, False
+            elif secondary_action_input == "use":
+                action_taken = self.handle_use_item(item_name_selected, None, "use_self_implicit")
+                time_units = TIME_UNITS_PER_PLAYER_ACTION if action_taken else 0
+                return action_taken, True, time_units, False
+            elif secondary_action_input.startswith("give to "):
+                target_npc_name = secondary_action_input.replace("give to ", "").strip()
+                if not target_npc_name:
+                    self._print_color("Who do you want to give it to?", Colors.RED)
+                    return False, False, 0, False
+                action_taken = self.handle_use_item(item_name_selected, target_npc_name, "give")
+                time_units = TIME_UNITS_PER_PLAYER_ACTION if action_taken else 0
+                return action_taken, True, time_units, False
+            elif secondary_action_input.startswith("use on "):
+                target_for_use = secondary_action_input.replace("use on ", "").strip()
+                if not target_for_use:
+                    self._print_color("What do you want to use it on?", Colors.RED)
+                    return False, False, 0, False
+                action_taken = self.handle_use_item(item_name_selected, target_for_use, "use_on")
+                time_units = TIME_UNITS_PER_PLAYER_ACTION if action_taken else 0
+                return action_taken, True, time_units, False
+            else:
+                self._print_color(f"Invalid action '{secondary_action_input}' for {item_name_selected}.", Colors.RED)
+                return False, False, 0, False
         elif command == "save": self.save_game(); action_taken_this_turn = False; show_atmospherics_this_turn = False
         elif command == "load":
             if self.load_game(): show_atmospherics_this_turn = True
@@ -808,27 +847,28 @@ class Game:
                 self._print_color(f"{action_number}. {talk_to_npc_display}", Colors.YELLOW); action_number += 1
         else: self._print_color("You see no one else of note here.", Colors.DIM)
         self._print_color("", Colors.RESET); self._print_color("--- Items Here ---", Colors.YELLOW + Colors.BOLD)
-        current_loc_items = self.dynamic_location_items.get(self.current_location_name, []); items_present_for_hint = False # items_present_for_hint needs to be initialized before loop
+        current_loc_items = self.dynamic_location_items.get(self.current_location_name, []); items_present_for_hint = False
         if current_loc_items:
             for item_info in current_loc_items:
                 item_name = item_info["name"]; item_qty = item_info.get("quantity", 1)
-                item_default_info = DEFAULT_ITEMS.get(item_name, {});
-                # desc_snippet is no longer used in this part of the listing
-                qty_str = f" (x{item_qty})" if (item_default_info.get("stackable") or item_default_info.get("value") is not None) and item_qty > 1 else ""
+                item_default_info = DEFAULT_ITEMS.get(item_name, {})
 
-                look_at_display = f"Look at {item_name}"
-                # Ensure 'display' in numbered_actions_context for 'look_at_item' does not include qty_str unless desired for that specific hint
-                self.numbered_actions_context.append({'type': 'look_at_item', 'target': item_name, 'display': look_at_display})
-                self._print_color(f"{action_number}. {look_at_display}", Colors.GREEN) # Removed: end="" and print(f" - {desc_snippet}...")
+                full_description = item_default_info.get('description', 'An undescribed item.')
+
+                qty_str = ""
+                if (item_default_info.get("stackable") or item_default_info.get("value") is not None) and item_qty > 1:
+                    qty_str = f" (x{item_qty})"
+
+                item_display_line = f"{item_name}{qty_str} - {full_description}"
+                self._print_color(f"{action_number}. {item_display_line}", Colors.GREEN)
+
+                self.numbered_actions_context.append({
+                    'type': 'select_item', # Changed from 'item_reference'
+                    'target': item_name,
+                    'display': item_name
+                })
                 action_number += 1
-                items_present_for_hint = True # Moved items_present_for_hint assignment here
-
-                if item_default_info.get("takeable", False):
-                    take_display = f"Take {item_name}"
-                    # 'display' in context should include qty_str if the action implies quantity
-                    self.numbered_actions_context.append({'type': 'take', 'target': item_name, 'display': f"Take {item_name}{qty_str}"})
-                    self._print_color(f"{action_number}. {take_display}{qty_str}", Colors.GREEN)
-                    action_number += 1
+                items_present_for_hint = True
         else:
             self._print_color("No loose items of interest here.", Colors.DIM)
         self._print_color("", Colors.RESET); self._print_color("--- Exits ---", Colors.BLUE + Colors.BOLD); has_accessible_exits = False
