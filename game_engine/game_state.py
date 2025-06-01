@@ -558,7 +558,16 @@ class Game:
         return True
 
     def _initialize_game(self):
-        self.gemini_api.configure(self._print_color, self._input_color)
+        # Call configure and get results
+        config_results = self.gemini_api.configure(self._print_color, self._input_color)
+
+        # Set low_ai_data_mode based on user's choice during configuration
+        # Defaults to False if 'low_ai_preference' is not in results or if API config was skipped.
+        self.low_ai_data_mode = config_results.get("low_ai_preference", False)
+
+        # The GeminiAPI.configure method already prints the Low AI Mode status upon selection.
+        # No need for an additional print here unless desired for game-level confirmation.
+
         self._print_color("\n--- Crime and Punishment: A Text Adventure ---", Colors.CYAN + Colors.BOLD)
         self._print_color("Type 'load' to load a saved game, or press Enter to start a new game.", Colors.MAGENTA)
         initial_action = self._input_color(f"{PROMPT_ARROW}", Colors.WHITE).strip().lower()

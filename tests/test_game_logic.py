@@ -573,6 +573,9 @@ from game_engine.game_config import (
     STATIC_ANONYMOUS_NOTE_CONTENT, STATIC_STREET_LIFE_EVENTS,
     STATIC_NPC_NPC_INTERACTIONS
 )
+# Import constant for TestGeminiAPIConfiguration
+from game_engine.gemini_interactions import GEMINI_API_KEY_ENV_VAR
+
 
 # Mock CHARACTERS_DATA for TestLowAIMode setup
 TEST_CHAR_DATA_FOR_LOW_AI = {
@@ -640,6 +643,7 @@ class TestLowAIMode(unittest.TestCase):
 
         # Common mocks
         self.mock_print_color = patch.object(self.game, '_print_color').start()
+        self.mock_input_color = patch.object(self.game, '_input_color').start() # Added this
         self.mock_random_choice = patch('random.choice').start()
 
     def tearDown(self):
@@ -840,6 +844,223 @@ class TestLowAIMode(unittest.TestCase):
         self.game.gemini_api.get_atmospheric_details.assert_called_once()
         self.mock_print_color.assert_any_call(f"\n{ai_generated_detail}", Colors.CYAN)
 
+    # --- Tests for Game._initialize_game() ---
+    @patch.object(Game, 'load_all_characters') # Mock to prevent full character setup
+    @patch.object(Game, 'select_player_character') # Mock to prevent interactive player selection
+    @patch.object(Game, 'update_current_location_details')
+    @patch.object(Game, 'display_atmospheric_details')
+    @patch.object(Game, 'display_help')
+    def test_initialize_game_sets_low_ai_mode_from_configure_yes(self, mock_disp_help, mock_disp_atm, mock_upd_loc, mock_sel_player, mock_load_chars):
+        # Mock configure to return Low AI Mode = True
+        self.game.gemini_api.configure = MagicMock(return_value={"api_configured": True, "low_ai_preference": True})
+        # Mock input for "load or new game" prompt to select new game
+        self.mock_input_color.return_value = ""
+        mock_sel_player.return_value = True # Ensure select_player_character indicates success
+
+        self.game._initialize_game()
+        self.assertTrue(self.game.low_ai_data_mode)
+
+    @patch.object(Game, 'load_all_characters')
+    @patch.object(Game, 'select_player_character')
+    @patch.object(Game, 'update_current_location_details')
+    @patch.object(Game, 'display_atmospheric_details')
+    @patch.object(Game, 'display_help')
+    def test_initialize_game_sets_low_ai_mode_from_configure_no(self, mock_disp_help, mock_disp_atm, mock_upd_loc, mock_sel_player, mock_load_chars):
+        self.game.gemini_api.configure = MagicMock(return_value={"api_configured": True, "low_ai_preference": False})
+        self.mock_input_color.return_value = ""
+        mock_sel_player.return_value = True
+
+        self.game._initialize_game()
+        self.assertFalse(self.game.low_ai_data_mode)
+
+    @patch.object(Game, 'load_all_characters')
+    @patch.object(Game, 'select_player_character')
+    @patch.object(Game, 'update_current_location_details')
+    @patch.object(Game, 'display_atmospheric_details')
+    @patch.object(Game, 'display_help')
+    def test_initialize_game_low_ai_mode_defaults_false_if_api_skipped(self, mock_disp_help, mock_disp_atm, mock_upd_loc, mock_sel_player, mock_load_chars):
+        self.game.gemini_api.configure = MagicMock(return_value={"api_configured": False, "low_ai_preference": False})
+        self.mock_input_color.return_value = ""
+        mock_sel_player.return_value = True
+
+        self.game._initialize_game()
+        self.assertFalse(self.game.low_ai_data_mode)
+
+    @patch.object(Game, 'load_game')
+    @patch.object(Game, 'select_player_character') # Still need to mock this if load_game fails or is bypassed
+    @patch.object(Game, 'load_all_characters')
+    @patch.object(Game, 'update_current_location_details')
+    @patch.object(Game, 'display_atmospheric_details')
+    @patch.object(Game, 'display_help')
+    def test_initialize_game_load_game_overrides_configure_low_ai_pref(self, mock_disp_help, mock_disp_atm, mock_upd_loc, mock_load_chars_init, mock_sel_player, mock_load_game_method):
+        # Simulate that configure() suggests Low AI Mode = False
+        self.game.gemini_api.configure = MagicMock(return_value={"api_configured": True, "low_ai_preference": False})
+
+        # Simulate user typing "load"
+        self.mock_input_color.return_value = "load"
+
+        # Configure mock for self.game.load_game()
+        def side_effect_load_game():
+            self.game.low_ai_data_mode = True # Simulate that loaded game had True for low_ai
+            # Simulate other necessary attributes being set by load_game for _initialize_game to proceed
+            self.game.player_character = self.game.all_character_objects["TestPlayer"] # Use player from setUp
+            self.game.player_character.is_player = True
+            self.game.current_location_name = "Test Chamber"
+            return True # Indicate load was successful
+
+        mock_load_game_method.side_effect = side_effect_load_game
+
+        initialization_successful = self.game._initialize_game()
+        self.assertTrue(initialization_successful, "_initialize_game should return True on successful load.")
+        self.assertTrue(self.game.low_ai_data_mode, "low_ai_data_mode should be True (from loaded game).")
+        mock_load_game_method.assert_called_once()
+
+
+class TestGeminiAPIConfiguration(unittest.TestCase):
+    def setUp(self):
+        self.api = GeminiAPI()
+        self.mock_print_func = MagicMock()
+        self.mock_input_func = MagicMock()
+
+        # Assign directly to the internal attributes used by configure
+        self.api._print_color_func = self.mock_print_func
+        self.api._input_color_func = self.mock_input_func
+
+        # Patch methods within the GeminiAPI instance or its module
+        self.patch_attempt_api_setup = patch.object(self.api, '_attempt_api_setup')
+        self.mock_attempt_api_setup = self.patch_attempt_api_setup.start()
+
+        self.patch_os_path_exists = patch('game_engine.gemini_interactions.os.path.exists')
+        self.mock_os_path_exists = self.patch_os_path_exists.start()
+
+        self.patch_open = patch('game_engine.gemini_interactions.open', new_callable=unittest.mock.mock_open)
+        self.mock_open_file = self.patch_open.start()
+
+        self.patch_os_getenv = patch('game_engine.gemini_interactions.os.getenv')
+        self.mock_os_getenv = self.patch_os_getenv.start()
+
+        # Default mock behaviors
+        self.mock_os_getenv.return_value = None # No ENV key by default
+        self.mock_os_path_exists.return_value = False # No config file by default
+        # self.mock_attempt_api_setup.return_value = False # API setup fails by default - will set per test
+
+    def tearDown(self):
+        patch.stopall()
+
+    def _configure_mock_attempt_api_setup_success(self):
+        def mock_setup(api_key, source, model_id):
+            self.api.chosen_model_name = model_id
+            self.api.model = MagicMock() # Simulate model instance being set
+            return True
+        self.mock_attempt_api_setup.side_effect = mock_setup
+
+    def test_ask_for_model_selection_updated_options_and_default(self):
+        # This test focuses on the behavior of _ask_for_model_selection,
+        # which is called by configure. We'll trigger it via configure.
+        self.mock_os_getenv.return_value = "dummy_env_api_key" # Simulate API key from ENV
+        self._configure_mock_attempt_api_setup_success()
+
+        # User presses Enter for default model, then 'n' for Low AI mode, then 'n' for saving ENV key combo
+        self.mock_input_func.side_effect = ["", "n", "n"]
+
+        self.api.configure(self.mock_print_func, self.mock_input_func)
+
+        # Check that the correct model options were printed
+        # Example: self.mock_print_func.assert_any_call("1. Gemini 1.5 Pro (Default) (ID: gemini-1.5-pro-latest)", Colors.WHITE)
+        # Need to iterate through calls to find the specific prints for model selection
+        model_prompt_calls = []
+        for call_args in self.mock_print_func.call_args_list:
+            args, _ = call_args
+            if args and isinstance(args[0], str) and "Gemini 1.5 Pro (Default)" in args[0]:
+                model_prompt_calls.append(args[0])
+            if args and isinstance(args[0], str) and "Gemini 2.0 Flash" in args[0]:
+                model_prompt_calls.append(args[0])
+
+        self.assertIn("1. Gemini 1.5 Pro (Default) (ID: gemini-1.5-pro-latest)", "\n".join(model_prompt_calls))
+        self.assertIn("2. Gemini 2.0 Flash (ID: gemini-2.0-flash)", "\n".join(model_prompt_calls))
+
+        # Check that the input prompt was for choices 1-2
+        input_prompt_found = False
+        for call_args in self.mock_input_func.call_args_list:
+            args, _ = call_args
+            if args and isinstance(args[0], str) and "(1-2), or press Enter for default): " in args[0]:
+                input_prompt_found = True
+                break
+        self.assertTrue(input_prompt_found, "Input prompt for 1-2 choices not found.")
+
+        self.assertEqual(self.api.chosen_model_name, 'gemini-1.5-pro-latest')
+
+    def test_configure_select_second_model_successfully(self):
+        self.mock_os_getenv.return_value = "dummy_env_api_key" # Simulate API key from ENV
+        self._configure_mock_attempt_api_setup_success()
+        # Input: "2" for model, "n" for Low AI, "n" for saving ENV key combo
+        self.mock_input_func.side_effect = ["2", "n", "n"]
+
+        self.api.configure(self.mock_print_func, self.mock_input_func)
+        self.assertEqual(self.api.chosen_model_name, 'gemini-2.0-flash')
+        self.mock_attempt_api_setup.assert_called_with("dummy_env_api_key", f"environment variable '{GEMINI_API_KEY_ENV_VAR}'", 'gemini-2.0-flash')
+
+    def test_configure_successful_api_setup_prompts_low_ai_mode_yes(self):
+        # Simulate manual API key input path
+        self.mock_os_getenv.return_value = None
+        self.mock_os_path_exists.return_value = False # No config file
+
+        # Inputs: "dummy_api_key", "" (for default model), "y" (for low AI), "n" (for save key)
+        self.mock_input_func.side_effect = ["dummy_api_key", "", "y", "n"]
+        self._configure_mock_attempt_api_setup_success()
+
+        config_result = self.api.configure(self.mock_print_func, self.mock_input_func)
+
+        low_ai_prompt_found = False
+        low_ai_enabled_msg_found = False
+        for call_args in self.mock_input_func.call_args_list:
+            args, _ = call_args
+            if args and isinstance(args[0], str) and "Enable Low AI Data Mode?" in args[0]:
+                low_ai_prompt_found = True
+                break
+        for call_args in self.mock_print_func.call_args_list:
+            args, _ = call_args
+            if args and isinstance(args[0], str) and "Low AI Data Mode will be ENABLED." in args[0]:
+                low_ai_enabled_msg_found = True
+                break
+
+        self.assertTrue(low_ai_prompt_found, "Low AI mode prompt not found.")
+        self.assertTrue(low_ai_enabled_msg_found, "Low AI Mode ENABLED message not found.")
+        self.assertEqual(config_result, {"api_configured": True, "low_ai_preference": True})
+        self.assertIsNotNone(self.api.model)
+
+    def test_configure_successful_api_setup_prompts_low_ai_mode_no(self):
+        self.mock_os_getenv.return_value = None
+        self.mock_os_path_exists.return_value = False
+        # Inputs: "dummy_api_key", "" (default model), "n" (low AI), "n" (save key)
+        self.mock_input_func.side_effect = ["dummy_api_key", "", "n", "n"]
+        self._configure_mock_attempt_api_setup_success()
+
+        config_result = self.api.configure(self.mock_print_func, self.mock_input_func)
+
+        disabled_msg_found = False
+        for call_args in self.mock_print_func.call_args_list:
+            args, _ = call_args
+            if args and isinstance(args[0], str) and "Low AI Data Mode will be DISABLED (default)." in args[0]:
+                disabled_msg_found = True
+                break
+        self.assertTrue(disabled_msg_found, "Low AI Mode DISABLED message not found.")
+        self.assertEqual(config_result, {"api_configured": True, "low_ai_preference": False})
+
+    def test_configure_skip_api_returns_low_ai_false(self):
+        self.mock_os_getenv.return_value = None
+        self.mock_os_path_exists.return_value = False
+        self.mock_input_func.return_value = "skip" # User types 'skip' for API key
+
+        config_result = self.api.configure(self.mock_print_func, self.mock_input_func)
+        self.assertEqual(config_result, {"api_configured": False, "low_ai_preference": False})
+        self.assertIsNone(self.api.model)
+
+
+# This is the end of TestGeminiAPIConfiguration, the next tests will be pasted into TestLowAIMode.
+
+# --- Tests for Game._initialize_game() within TestLowAIMode ---
+# The following methods are moved to TestLowAIMode class below
 
 if __name__ == '__main__':
     unittest.main(argv=['first-arg-is-ignored'], exit=False)
