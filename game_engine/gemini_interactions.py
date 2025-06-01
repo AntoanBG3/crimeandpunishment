@@ -345,6 +345,7 @@ class GeminiAPI:
         For example, if you are close to completing an important objective, you might sound more confident or focused. If you are frustrated by a lack of progress on a key stage, this might color your words or make you less patient.
         Let this internal state subtly guide your responses.
         """
+        sanitized_player_dialogue = player_dialogue.replace('"', '\\"')
 
         prompt = f"""
         **Roleplay Mandate: Embody {npc_character.name} from Dostoevsky's "Crime and Punishment" with utmost fidelity.**
@@ -359,7 +360,7 @@ class GeminiAPI:
         ---
         {conversation_context if conversation_context else "No prior conversation in this session."}
         ---
-        **Player's Action:** {player_character.name} says to you: "{player_dialogue}"
+        **Player's Action:** {player_character.name} says to you: "{sanitized_player_dialogue}"
         **Your Task: Generate {npc_character.name}'s spoken response.**
         **Response Guidelines (Strict Adherence Required):**
         1.  **Authenticity.**
@@ -370,14 +371,30 @@ class GeminiAPI:
         6.  **Dialogue Only.**
         7.  **Handling Nonsense.**
         Respond now as {npc_character.name}:
-        """ # Shortened prompt guidelines for brevity in this example
+        """
         ai_text = self._generate_content_with_fallback(prompt, f"NPC dialogue for {npc_character.name}")
+
+        # Always add player's dialogue to history
+        npc_character.add_to_history(player_character.name, player_character.name, player_dialogue)
+        player_character.add_to_history(npc_character.name, player_character.name, player_dialogue)
+
         if not ai_text.startswith("(OOC:"):
-            npc_character.add_to_history(player_character.name, player_character.name, player_dialogue)
-            npc_character.add_to_history(player_character.name, npc_character.name, ai_text)
-            player_character.add_to_history(npc_character.name, player_character.name, player_dialogue)
-            player_character.add_to_history(npc_character.name, npc_character.name, ai_text)
-        return ai_text
+            # Clean/Normalize ai_text
+            processed_ai_text = ai_text.replace('\\"', '"')
+
+            # Strip one layer of surrounding quotes if present
+            if len(processed_ai_text) >= 2 and processed_ai_text.startswith('"') and processed_ai_text.endswith('"'):
+                processed_ai_text = processed_ai_text[1:-1]
+
+            final_ai_text = processed_ai_text
+
+            # Use cleaned text for NPC's part of history and return
+            npc_character.add_to_history(player_character.name, npc_character.name, final_ai_text)
+            player_character.add_to_history(npc_character.name, npc_character.name, final_ai_text)
+            return final_ai_text
+        else:
+            # For OOC messages, still return the OOC message, player history already added
+            return ai_text
 
     def get_player_reflection(self, player_character, current_location_name, current_time_period,
                               context_text, recent_interactions_summary="Nothing specific recently.",

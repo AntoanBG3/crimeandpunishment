@@ -282,15 +282,29 @@ class Character:
         descriptions = []
         from .game_config import DEFAULT_ITEMS
         for item_data in self.inventory:
-            item_name = item_data["name"]
-            item_props = DEFAULT_ITEMS.get(item_name, {})
-            is_stackable = item_props.get("stackable", False) or item_props.get("value") is not None
-            quantity = item_data.get("quantity", 1) if is_stackable else 1
+            original_item_name = item_data["name"]
+            clean_item_name = original_item_name
 
-            if is_stackable and quantity > 1 :
-                descriptions.append(f"{item_name} (x{quantity})")
+            command_suffix_marker = " use_effect_player:"
+
+            if command_suffix_marker in original_item_name:
+                parts = original_item_name.split(command_suffix_marker, 1)
+                potential_clean_name = parts[0]
+                # If suffix is present, always use the potential_clean_name for display
+                # and for property lookup (which will default to {} if not in DEFAULT_ITEMS)
+                clean_item_name = potential_clean_name
+
+            item_props = DEFAULT_ITEMS.get(clean_item_name, {})
+            is_stackable = item_props.get("stackable", False) or item_props.get("value") is not None
+
+            quantity = 1
+            if is_stackable:
+                quantity = item_data.get("quantity", 1)
+
+            if is_stackable and quantity > 1:
+                descriptions.append(f"{clean_item_name} (x{quantity})")
             else:
-                descriptions.append(item_name)
+                descriptions.append(clean_item_name)
         return "You are carrying: " + ", ".join(descriptions) + "."
 
     def add_to_history(self, other_char_name, speaker_name, text):
