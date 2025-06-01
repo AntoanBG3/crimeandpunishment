@@ -32,8 +32,8 @@ Step into the tormented mind of Rodion Raskolnikov, the saintly Sonya Marmeladov
 
 1.  **Clone the Repository:**
     ```bash
-    git clone https://github.com/AntoanBG3/crimeandpunishment.git
-    cd https://github.com/AntoanBG3/crimeandpunishment.git
+    git clone [https://github.com/AntoanBG3/crimeandpunishment.git](https://github.com/AntoanBG3/crimeandpunishment.git)
+    cd crimeandpunishment
     ```
 2.  **Create a Virtual Environment (Recommended):**
     ```bash
@@ -42,15 +42,18 @@ Step into the tormented mind of Rodion Raskolnikov, the saintly Sonya Marmeladov
     ```
 3.  **Install Dependencies:**
     ```bash
-    pip install -r requirements.txt 
+    pip install -r requirements.txt
     ```
     This will install `google-generativeai` and `blessed`.
 4.  **Set Up Your Gemini API Key:**
     The game requires a Google Gemini API key. It will search in this order:
     * **Environment Variable (Most Secure):** Set `GEMINI_API_KEY` to your API key.
-    * **Configuration File (`gemini_config.json`):** In the root directory, create `gemini_config.json` with:
+    * **Configuration File (`gemini_config.json`):** In the root directory, create `gemini_config.json`. The game can store both your API key and preferred model in this file. If you create it manually, it can look like this:
         ```json
-        {"gemini_api_key": "YOUR_ACTUAL_API_KEY_HERE"}
+        {
+            "gemini_api_key": "YOUR_ACTUAL_API_KEY_HERE",
+            "chosen_model_name": "gemini-2.0-flash" // Or your preferred model
+        }
         ```
     * **Manual Input:** If no key is found, the game will prompt you at startup.
 
