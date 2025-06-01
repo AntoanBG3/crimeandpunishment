@@ -808,18 +808,29 @@ class Game:
                 self._print_color(f"{action_number}. {talk_to_npc_display}", Colors.YELLOW); action_number += 1
         else: self._print_color("You see no one else of note here.", Colors.DIM)
         self._print_color("", Colors.RESET); self._print_color("--- Items Here ---", Colors.YELLOW + Colors.BOLD)
-        current_loc_items = self.dynamic_location_items.get(self.current_location_name, []); items_present_for_hint = False
+        current_loc_items = self.dynamic_location_items.get(self.current_location_name, []); items_present_for_hint = False # items_present_for_hint needs to be initialized before loop
         if current_loc_items:
             for item_info in current_loc_items:
                 item_name = item_info["name"]; item_qty = item_info.get("quantity", 1)
-                item_default_info = DEFAULT_ITEMS.get(item_name, {}); desc_snippet = item_default_info.get('description', 'an item')[:40]
+                item_default_info = DEFAULT_ITEMS.get(item_name, {});
+                # desc_snippet is no longer used in this part of the listing
                 qty_str = f" (x{item_qty})" if (item_default_info.get("stackable") or item_default_info.get("value") is not None) and item_qty > 1 else ""
-                look_at_display = f"Look at {item_name}"; self.numbered_actions_context.append({'type': 'look_at_item', 'target': item_name, 'display': look_at_display})
-                self._print_color(f"{action_number}. {look_at_display}", Colors.GREEN, end=""); print(f" - {desc_snippet}..."); action_number += 1; items_present_for_hint = True
+
+                look_at_display = f"Look at {item_name}"
+                # Ensure 'display' in numbered_actions_context for 'look_at_item' does not include qty_str unless desired for that specific hint
+                self.numbered_actions_context.append({'type': 'look_at_item', 'target': item_name, 'display': look_at_display})
+                self._print_color(f"{action_number}. {look_at_display}", Colors.GREEN) # Removed: end="" and print(f" - {desc_snippet}...")
+                action_number += 1
+                items_present_for_hint = True # Moved items_present_for_hint assignment here
+
                 if item_default_info.get("takeable", False):
-                    take_display = f"Take {item_name}"; self.numbered_actions_context.append({'type': 'take', 'target': item_name, 'display': take_display})
-                    self._print_color(f"{action_number}. {take_display}{qty_str}", Colors.GREEN); action_number += 1
-        else: self._print_color("No loose items of interest here.", Colors.DIM)
+                    take_display = f"Take {item_name}"
+                    # 'display' in context should include qty_str if the action implies quantity
+                    self.numbered_actions_context.append({'type': 'take', 'target': item_name, 'display': f"Take {item_name}{qty_str}"})
+                    self._print_color(f"{action_number}. {take_display}{qty_str}", Colors.GREEN)
+                    action_number += 1
+        else:
+            self._print_color("No loose items of interest here.", Colors.DIM)
         self._print_color("", Colors.RESET); self._print_color("--- Exits ---", Colors.BLUE + Colors.BOLD); has_accessible_exits = False
         if current_location_data and current_location_data.get("exits"):
             for exit_target_loc, exit_desc in current_location_data["exits"].items():

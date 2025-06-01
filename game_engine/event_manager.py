@@ -110,7 +110,7 @@ class EventManager:
                 self.game.player_character.activate_objective("help_family")
             if not self.game.player_character.has_item("mother's letter"):
                 self.game.player_character.add_to_inventory("mother's letter")
-                self._print_color("The letter is now in your possession.", Colors.GREEN)
+                self.game._print_color("The letter is now in your possession.", Colors.GREEN)
             self.game._print_color("This news weighs heavily on your mind.", Colors.YELLOW)
 
             # --- Enhanced emotional impact ---
@@ -129,11 +129,11 @@ class EventManager:
             objectives_summary = self.game._get_objectives_summary(self.game.player_character)
 
             reflection_text = self.game.gemini_api.get_player_reflection(
-                player_char_obj=self.game.player_character,
+                player_character=self.game.player_character,
                 current_location_name=self.game.current_location_name,
                 current_time_period=self.game.get_current_time_period(),
-                context_string=reflection_context,
-                objectives_summary=objectives_summary
+                context_text=reflection_context,
+                active_objectives_summary=objectives_summary
             )
 
             if reflection_text and not reflection_text.startswith("(OOC:"):
