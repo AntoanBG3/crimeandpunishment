@@ -32,7 +32,7 @@ Step into the tormented mind of Rodion Raskolnikov, the saintly Sonya Marmeladov
 
 1.  **Clone the Repository:**
     ```bash
-    git clone [https://github.com/AntoanBG3/crimeandpunishment.git](https://github.com/AntoanBG3/crimeandpunishment.git)
+    git clone https://github.com/AntoanBG3/crimeandpunishment.git
     cd crimeandpunishment
     ```
 2.  **Create a Virtual Environment (Recommended):**
