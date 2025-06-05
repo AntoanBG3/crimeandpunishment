@@ -16,6 +16,8 @@ build/
 dist/
 *.egg-info/
 *.spec
+test_game_flow.sh
+
 
 # User-generated configuration and save files
 # These should not be in version control.
