@@ -1150,7 +1150,18 @@ class Game:
                     if taken_item_props.get("readable"): self._print_color(f"(Hint: You can now 'read {taken_item_name}'.)", Colors.DIM)
                     elif taken_item_props.get("use_effect_player") and taken_item_name != "worn coin": self._print_color(f"(Hint: You can try to 'use {taken_item_name}'.)", Colors.DIM)
                     return True, True
-                else: self._print_color(f"Failed to add {item_found_in_loc['name']} to inventory.", Colors.RED); return False, True
+                else:
+                    # Check if the failure was due to trying to take a non-stackable item already possessed
+                    item_name_failed_to_add = item_found_in_loc["name"]
+                    item_props_failed = DEFAULT_ITEMS.get(item_name_failed_to_add, {})
+                    is_non_stackable_unique = not item_props_failed.get("stackable", False) and item_props_failed.get("value") is None
+
+                    if is_non_stackable_unique and self.player_character.has_item(item_name_failed_to_add):
+                        self._print_color(f"You cannot carry another '{item_name_failed_to_add}'.", Colors.YELLOW)
+                    else:
+                        # Generic failure message if not the specific non-stackable case
+                        self._print_color(f"Failed to add {item_name_failed_to_add} to inventory.", Colors.RED)
+                    return False, True # Action was attempted (hence True for show_atmospherics) but failed
             else: self._print_color(f"You can't take the {item_found_in_loc['name']}.", Colors.YELLOW); return False, True
         else: self._print_color(f"You don't see any '{item_to_take_name}' here to take.", Colors.RED); return False, False
 
@@ -1231,7 +1242,7 @@ class Game:
             self.current_conversation_log = []; MAX_CONVERSATION_LOG_LINES = 20
             self._print_color(f"\nYou approach {Colors.YELLOW}{target_npc.name}{Colors.RESET} (appears {target_npc.apparent_state}).", Colors.WHITE)
             should_print_static_greeting = True
-            if self.player_character.name == "Rodion Raskolnikov" and target_npc.name == "Dmitri Razumikhin": should_print_static_greeting = False
+            # Removed specific condition for Raskolnikov and Razumikhin
             if should_print_static_greeting and hasattr(target_npc, 'greeting') and target_npc.greeting:
                  initial_greeting_text = f"{target_npc.name}: \"{target_npc.greeting}\""; self._print_color(f"{target_npc.name}: ", Colors.YELLOW, end=""); print(f"\"{target_npc.greeting}\"")
                  self.current_conversation_log.append(initial_greeting_text)
@@ -1512,19 +1523,74 @@ class Game:
         self.advance_time(TIME_UNITS_PER_PLAYER_ACTION); return True, True
 
     def _handle_give_item(self, item_to_use_name, item_props, target_name_input):
-        if item_to_use_name == "worn coin":
-            target_npc = next((npc for npc in self.npcs_in_current_location if npc.name.lower().startswith(target_name_input.lower())), None)
-            if target_npc:
-                if self.player_character.remove_from_inventory("worn coin", 1):
-                    self._print_color(f"You offer a coin to {target_npc.name}.", Colors.WHITE)
-                    relationship_text = self.get_relationship_text(target_npc.relationship_with_player)
-                    reaction = self.gemini_api.get_npc_dialogue(target_npc, self.player_character, f"(Offers a coin out of {random.choice(['pity', 'a sudden impulse', 'a desire to help', 'unease'])}.)", self.current_location_name, self.get_current_time_period(), relationship_text, target_npc.get_player_memory_summary(self.game_time), self.player_character.apparent_state, self.player_character.get_notable_carried_items_summary(), self._get_recent_events_summary(), self._get_objectives_summary(target_npc), self._get_objectives_summary(self.player_character))
-                    self._print_color(f"{target_npc.name}: \"{reaction}\"", Colors.YELLOW); target_npc.relationship_with_player += 1
-                    target_npc.add_player_memory(memory_type="received_item", turn=self.game_time, content={"item_name": item_to_use_name, "quantity": 1, "from_player": True}, sentiment_impact=1)
-                    self.last_significant_event_summary = f"gave a coin to {target_npc.name}."; return True
-                else: self._print_color("You rummage through your pockets but find no coins to give.", Colors.RED); return False
-            else: self._print_color(f"You don't see '{target_name_input}' here to give a coin to.", Colors.RED); return False
-        else: self._print_color(f"You can't give the {item_to_use_name} in this way.", Colors.YELLOW); return False
+        target_npc = next((npc for npc in self.npcs_in_current_location if npc.name.lower().startswith(target_name_input.lower())), None)
+
+        if not target_npc:
+            self._print_color(f"You don't see '{target_name_input}' here to give anything to.", Colors.RED)
+            return False
+
+        # Check if player has the item (using a generic quantity of 1 for now)
+        # More sophisticated quantity handling could be added if items become stackable in a way that 'give' needs to respect.
+        if not self.player_character.has_item(item_to_use_name, quantity=1):
+            self._print_color(f"You don't have {item_to_use_name} to give.", Colors.RED)
+            return False
+
+        # Attempt to remove the item from player's inventory
+        if self.player_character.remove_from_inventory(item_to_use_name, 1):
+            # Add item to NPC's inventory
+            target_npc.add_to_inventory(item_to_use_name, 1) # Assuming quantity 1 for now
+
+            self._print_color(f"You give the {item_to_use_name} to {target_npc.name}.", Colors.WHITE)
+
+            # Generate NPC reaction using Gemini API
+            relationship_text = self.get_relationship_text(target_npc.relationship_with_player)
+            dialogue_prompt = f"(Player gives {item_to_use_name} to NPC. Player expects a reaction.)"
+
+            reaction = None
+            if not self.low_ai_data_mode and self.gemini_api.model:
+                reaction = self.gemini_api.get_npc_dialogue(
+                    target_npc, self.player_character, dialogue_prompt,
+                    self.current_location_name, self.get_current_time_period(), relationship_text,
+                    target_npc.get_player_memory_summary(self.game_time), self.player_character.apparent_state,
+                    self.player_character.get_notable_carried_items_summary(), self._get_recent_events_summary(),
+                    self._get_objectives_summary(target_npc), self._get_objectives_summary(self.player_character)
+                )
+
+            if reaction is None or (isinstance(reaction, str) and reaction.startswith("(OOC:")) or self.low_ai_data_mode :
+                # Fallback static reaction if AI fails or low_ai_mode
+                static_reactions = [
+                    f"Oh, for me? Thank you for the {item_to_use_name}.",
+                    f"A {item_to_use_name}? How thoughtful of you.",
+                    f"I appreciate you giving me this {item_to_use_name}.",
+                    f"Thank you, this {item_to_use_name} is noted."
+                ]
+                reaction = random.choice(static_reactions)
+                self._print_color(f"{target_npc.name}: \"{reaction}\" {Colors.DIM}(Static reaction){Colors.RESET}", Colors.YELLOW)
+            else: # AI Success
+                 self._print_color(f"{target_npc.name}: \"{reaction}\"", Colors.YELLOW)
+
+
+            # Update NPC's relationship with the player (e.g., a slight increase)
+            target_npc.relationship_with_player += 1 # Simple increment, can be more nuanced
+
+            # Add a memory to the NPC about receiving the item
+            target_npc.add_player_memory(
+                memory_type="received_item",
+                turn=self.game_time,
+                content={"item_name": item_to_use_name, "quantity": 1, "from_player": True, "context": "player_gave_item"},
+                sentiment_impact=1 # Generally positive for receiving an item
+            )
+
+            self.last_significant_event_summary = f"gave {item_to_use_name} to {target_npc.name}."
+            return True
+        else:
+            # This case should ideally be caught by has_item, but as a fallback
+            self._print_color(f"You find you don't actually have {item_to_use_name} to give after all.", Colors.RED)
+            return False
+
+        # Fallback for any other unhandled case (though the logic above should cover most)
+        self._print_color(f"You can't give the {item_to_use_name} in this way.", Colors.YELLOW)
+        return False
 
     def handle_use_item(self, item_name_input, target_name_input=None, interaction_type="use_self_implicit"):
         if not self.player_character: self._print_color("Cannot use items: Player character not set.", Colors.RED); return False
