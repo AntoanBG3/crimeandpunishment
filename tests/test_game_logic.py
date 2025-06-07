@@ -206,7 +206,14 @@ class TestGameStateCommands(unittest.TestCase):
     def setUp(self):
         self.game = Game()
         self.game.player_character = MagicMock(spec=Character)
+        self.game.player_character.name = "TestPlayer" # Fix for AttributeError
         self.game.player_character.inventory = []
+        # Add defaults for attributes/methods needed in get_npc_dialogue context
+        self.game.player_character.apparent_state = "normal"
+        self.game.player_character.get_notable_carried_items_summary = MagicMock(return_value="nothing notable.")
+        self.game.player_character.get_objectives_summary = MagicMock(return_value="No specific objectives.")
+        self.game.player_character.conversation_histories = {} # Ensure this exists
+
         self.game.current_location_name = "Test Chamber"
         self.game.dynamic_location_items = {
             "Test Chamber": [
@@ -319,6 +326,284 @@ class TestGameStateCommands(unittest.TestCase):
         self.assertFalse(action_taken)
         self.assertFalse(show_atmospherics)
         self.assertEqual(time_units, 0)
+
+    # --- Tests for _handle_take_command ---
+    TEST_ITEMS_FOR_TAKE = {
+        "unique_sword": {"description": "A unique blade.", "takeable": True, "stackable": False},
+        "apple": {"description": "A simple fruit.", "takeable": True, "stackable": True},
+        "coin": {"description": "A gold piece.", "takeable": True, "value": 1}
+    }
+
+    @patch.dict('game_engine.game_state.DEFAULT_ITEMS', TEST_ITEMS_FOR_TAKE, clear=True)
+    def test_take_non_stackable_already_has(self):
+        self.game.player_character.inventory = [{"name": "unique_sword"}]
+        self.game.dynamic_location_items[self.game.current_location_name] = [{"name": "unique_sword"}]
+        self.game.player_character.add_to_inventory = MagicMock(return_value=False)
+        self.game.player_character.has_item = MagicMock(return_value=True) # Player already has it
+
+        action_taken, show_atmospherics = self.game._handle_take_command("unique_sword")
+
+        self.assertFalse(action_taken)
+        self.assertTrue(show_atmospherics)
+        self.mock_print_color.assert_any_call("You cannot carry another 'unique_sword'.", Colors.YELLOW)
+        self.game.player_character.add_to_inventory.assert_called_once_with("unique_sword", 1)
+
+    @patch.dict('game_engine.game_state.DEFAULT_ITEMS', TEST_ITEMS_FOR_TAKE, clear=True)
+    def test_take_non_stackable_does_not_have(self):
+        self.game.player_character.inventory = []
+        self.game.dynamic_location_items[self.game.current_location_name] = [{"name": "unique_sword"}]
+        self.game.player_character.add_to_inventory = MagicMock(return_value=True)
+        self.game.player_character.has_item = MagicMock(return_value=False) # Player does not have it initially
+
+        action_taken, show_atmospherics = self.game._handle_take_command("unique_sword")
+
+        self.assertTrue(action_taken)
+        self.assertTrue(show_atmospherics)
+        self.mock_print_color.assert_any_call("You take the unique_sword.", Colors.GREEN)
+        # Ensure the specific "cannot carry" message was NOT printed
+        for call_args in self.mock_print_color.call_args_list:
+            self.assertNotEqual(call_args[0][0], "You cannot carry another 'unique_sword'.")
+        self.game.player_character.add_to_inventory.assert_called_once_with("unique_sword", 1)
+
+    @patch.dict('game_engine.game_state.DEFAULT_ITEMS', TEST_ITEMS_FOR_TAKE, clear=True)
+    def test_take_stackable_item(self):
+        self.game.player_character.inventory = [{"name": "apple", "quantity": 1}]
+        self.game.dynamic_location_items[self.game.current_location_name] = [{"name": "apple", "quantity": 1}]
+        self.game.player_character.add_to_inventory = MagicMock(return_value=True)
+        self.game.player_character.has_item = MagicMock(return_value=True) # Player has some apples
+
+        action_taken, show_atmospherics = self.game._handle_take_command("apple")
+
+        self.assertTrue(action_taken)
+        self.assertTrue(show_atmospherics)
+        self.mock_print_color.assert_any_call("You take the apple.", Colors.GREEN)
+        for call_args in self.mock_print_color.call_args_list:
+            self.assertNotEqual(call_args[0][0], "You cannot carry another 'apple'.")
+        self.game.player_character.add_to_inventory.assert_called_once_with("apple", 1)
+
+    @patch.dict('game_engine.game_state.DEFAULT_ITEMS', TEST_ITEMS_FOR_TAKE, clear=True)
+    def test_take_item_with_value_behaves_stackable(self):
+        self.game.player_character.inventory = [{"name": "coin", "quantity": 1}]
+        self.game.dynamic_location_items[self.game.current_location_name] = [{"name": "coin", "quantity": 1}]
+        self.game.player_character.add_to_inventory = MagicMock(return_value=True)
+        # has_item mock isn't strictly necessary here as the logic branches on add_to_inventory's return primarily
+
+        action_taken, show_atmospherics = self.game._handle_take_command("coin")
+
+        self.assertTrue(action_taken)
+        self.assertTrue(show_atmospherics)
+        self.mock_print_color.assert_any_call("You take the coin.", Colors.GREEN) # Corrected assertion
+        for call_args in self.mock_print_color.call_args_list:
+            self.assertNotEqual(call_args[0][0], "You cannot carry another 'coin'.")
+        self.game.player_character.add_to_inventory.assert_called_once_with("coin", 1)
+
+
+    @patch.dict('game_engine.game_state.DEFAULT_ITEMS', TEST_ITEMS_FOR_TAKE, clear=True)
+    def test_take_add_to_inventory_fails_generic(self):
+        self.game.player_character.inventory = []
+        self.game.dynamic_location_items[self.game.current_location_name] = [{"name": "apple", "quantity": 1}]
+        self.game.player_character.add_to_inventory = MagicMock(return_value=False)
+        self.game.player_character.has_item = MagicMock(return_value=False) # Does not have the item
+
+        action_taken, show_atmospherics = self.game._handle_take_command("apple")
+
+        self.assertFalse(action_taken)
+        self.assertTrue(show_atmospherics)
+        self.mock_print_color.assert_any_call("Failed to add apple to inventory.", Colors.RED)
+        for call_args in self.mock_print_color.call_args_list:
+            self.assertNotEqual(call_args[0][0], "You cannot carry another 'apple'.")
+        self.game.player_character.add_to_inventory.assert_called_once_with("apple", 1)
+
+    def test_razumikhin_standard_greeting_for_raskolnikov(self):
+        # Setup Player
+        self.game.player_character.name = "Rodion Raskolnikov"
+        # Mock player attributes needed for get_npc_dialogue context
+        self.game.player_character.apparent_state = "brooding"
+        self.game.player_character.get_notable_carried_items_summary = MagicMock(return_value="nothing notable.")
+        self.game.player_character.get_inventory_description = MagicMock(return_value="carrying a few kopeks.")
+
+
+        # Setup NPC Dmitri Razumikhin
+        mock_razumikhin = MagicMock(spec=Character)
+        mock_razumikhin.name = "Dmitri Razumikhin"
+        mock_razumikhin.greeting = "Ah, Rodya, old friend! What brings you here?"
+        mock_razumikhin.apparent_state = "cheerful"
+        mock_razumikhin.relationship_with_player = 5 # Positive relationship
+        mock_razumikhin.conversation_histories = {} # Initialize conversation histories
+        mock_razumikhin.update_relationship = MagicMock()
+        mock_razumikhin.add_player_memory = MagicMock()
+        mock_razumikhin.get_player_memory_summary = MagicMock(return_value="Fond memories.")
+        mock_razumikhin.get_objective_by_id = MagicMock(return_value=None)
+        # Mock methods needed for get_npc_dialogue context for NPC
+        mock_razumikhin.get_objectives_summary = MagicMock(return_value="Just trying to help friends.")
+
+
+        self.game.npcs_in_current_location = [mock_razumikhin]
+        self.game.all_character_objects["Dmitri Razumikhin"] = mock_razumikhin
+
+        # Mock Gemini API for subsequent dialogue
+        self.game.gemini_api.model = MagicMock() # Ensure API model is considered available
+        self.game.gemini_api.get_npc_dialogue = MagicMock(return_value="Just thinking, Razumikhin. Just thinking.")
+        # Mock game methods that provide context to get_npc_dialogue
+        self.game.get_relationship_text = MagicMock(return_value="positive")
+        self.game._get_recent_events_summary = MagicMock(return_value="The usual St. Petersburg gloom.")
+        self.game._get_objectives_summary = MagicMock(return_value="Survive.") # For player
+        self.game.get_current_time_period = MagicMock(return_value="Evening")
+        self.game.player_character.current_location = self.game.current_location_name # Ensure player has a location
+
+
+        # Mock input to end conversation immediately
+        self.mock_input_color.side_effect = ["Hello there!", "Farewell"] # Allow one exchange
+
+        # Action
+        self.game._handle_talk_to_command("Dmitri Razumikhin")
+
+        # Assertions
+        # Check that the NPC's name was printed with _print_color(..., end="")
+        self.mock_print_color.assert_any_call(f"{mock_razumikhin.name}: ", Colors.YELLOW, end="")
+        # Check that the NPC's greeting was printed with print()
+        self.mock_print.assert_any_call(f"\"{mock_razumikhin.greeting}\"")
+
+        # Assert that Gemini API was called for the conversation part
+        self.game.gemini_api.get_npc_dialogue.assert_called_once()
+        # Verify some key context arguments passed to get_npc_dialogue
+        dialogue_args, dialogue_kwargs = self.game.gemini_api.get_npc_dialogue.call_args
+        self.assertEqual(dialogue_args[0], mock_razumikhin) # target_npc is the first positional arg
+        self.assertEqual(dialogue_args[1], self.game.player_character) # player_character is the second
+        self.assertEqual(dialogue_args[2], "Hello there!") # player_dialogue_input is the third
+
+
+    # --- Tests for _handle_give_item ---
+    @patch('game_engine.game_state.DEFAULT_ITEMS', {
+        "test_apple": {"description": "A simple apple.", "stackable": True, "takeable": True, "value": 5}, # value makes it stackable
+        "test_book": {"description": "An old book.", "takeable": True} # Non-stackable by default if no value
+    })
+    def test_give_item_successfully(self):
+        # Setup player inventory
+        self.game.player_character.inventory = [{"name": "test_apple", "quantity": 1}]
+        # Mock remove_from_inventory to check it's called and simulate success
+        self.game.player_character.remove_from_inventory = MagicMock(return_value=True)
+        self.game.player_character.has_item = MagicMock(return_value=True) # Player has the item
+        # Ensure player_character has attributes needed for dialogue context
+        self.game.player_character.name = "TestPlayerGive" # Specific name for clarity if needed
+        self.game.player_character.apparent_state = "generous"
+        self.game.player_character.get_notable_carried_items_summary = MagicMock(return_value="an apple")
+        self.game.player_character.get_objectives_summary = MagicMock(return_value="To give an apple.")
+
+
+        # Setup NPC
+        mock_npc = MagicMock(spec=Character)
+        mock_npc.name = "TestNPC"
+        mock_npc.inventory = []
+        mock_npc.relationship_with_player = 0
+        mock_npc.add_to_inventory = MagicMock(return_value=True) # Simulate successful add to NPC inv
+        mock_npc.add_player_memory = MagicMock()
+        mock_npc.get_player_memory_summary = MagicMock(return_value="No memories.")
+        mock_npc.get_objectives_summary = MagicMock(return_value="To receive an apple.") # Corrected: get_objectives_summary
+        self.game.npcs_in_current_location = [mock_npc]
+
+        # Mock Gemini API & Game context methods
+        self.game.gemini_api.get_npc_dialogue = MagicMock(return_value="Oh, thank you for the apple!")
+        self.game.gemini_api.model = MagicMock() # Ensure model is truthy
+        self.game.low_ai_data_mode = False
+        self.game.get_current_time_period = MagicMock(return_value="Afternoon")
+        self.game._get_recent_events_summary = MagicMock(return_value="Nothing much.")
+        # Mock _get_objectives_summary on game instance for the player if not using player.get_objectives_summary directly
+        # For this test, player_character.get_objectives_summary is mocked above.
+        # If self.game._get_objectives_summary(self.player_character) is used, that needs mocking on game.
+        # Assuming get_npc_dialogue calls self.game._get_objectives_summary(character)
+        self.game._get_objectives_summary = MagicMock(side_effect=lambda char: char.get_objectives_summary())
+
+
+        # Action: Player gives "test_apple" to "TestNPC"
+        success = self.game.handle_use_item("test_apple", "TestNPC", "give")
+
+        # Assertions
+        self.assertTrue(success)
+        self.game.player_character.remove_from_inventory.assert_called_once_with("test_apple", 1)
+        mock_npc.add_to_inventory.assert_called_once_with("test_apple", 1)
+        self.game.gemini_api.get_npc_dialogue.assert_called_once()
+        dialogue_args, dialogue_kwargs = self.game.gemini_api.get_npc_dialogue.call_args
+        # player_dialogue_input is the 3rd positional arg (index 2)
+        self.assertEqual(dialogue_args[2], "(Player gives test_apple to NPC. Player expects a reaction.)")
+
+        self.mock_print_color.assert_any_call(f"You give the test_apple to {mock_npc.name}.", Colors.WHITE)
+        self.mock_print_color.assert_any_call(f"{mock_npc.name}: \"Oh, thank you for the apple!\"", Colors.YELLOW)
+        self.assertEqual(mock_npc.relationship_with_player, 1)
+        mock_npc.add_player_memory.assert_called_once()
+        args, kwargs = mock_npc.add_player_memory.call_args
+        self.assertEqual(kwargs.get('memory_type'), "received_item")
+        self.assertEqual(kwargs.get('content', {}).get('item_name'), "test_apple")
+        self.assertEqual(kwargs.get('content', {}).get('quantity'), 1)
+        self.assertTrue(kwargs.get('content', {}).get('from_player'))
+        self.assertEqual(self.game.last_significant_event_summary, f"gave test_apple to {mock_npc.name}.")
+
+    @patch('game_engine.game_state.DEFAULT_ITEMS', {"test_banana": {"description": "A ripe banana."}})
+    def test_give_item_player_does_not_have(self):
+        self.game.player_character.inventory = [] # Player has nothing
+        self.game.player_character.has_item = MagicMock(return_value=False) # Explicitly mock has_item
+
+        mock_npc = MagicMock(spec=Character); mock_npc.name = "TestNPC"
+        mock_npc.inventory = []; mock_npc.add_player_memory = MagicMock()
+        self.game.npcs_in_current_location = [mock_npc]
+        self.game.gemini_api.get_npc_dialogue = MagicMock()
+
+        success = self.game.handle_use_item("test_banana", "TestNPC", "give")
+
+        self.assertFalse(success)
+        self.mock_print_color.assert_any_call("You don't have 'test_banana' to give.", Colors.RED)
+        self.assertEqual(len(mock_npc.inventory), 0) # NPC inventory unchanged
+        self.game.gemini_api.get_npc_dialogue.assert_not_called()
+        mock_npc.add_player_memory.assert_not_called()
+
+    @patch('game_engine.game_state.DEFAULT_ITEMS', {"test_orange": {"description": "A juicy orange."}})
+    def test_give_item_npc_not_found(self):
+        self.game.player_character.inventory = [{"name": "test_orange", "quantity": 1}]
+        self.game.player_character.has_item = MagicMock(return_value=True)
+        self.game.npcs_in_current_location = [] # NPC not here
+
+        self.game.gemini_api.get_npc_dialogue = MagicMock()
+
+        success = self.game.handle_use_item("test_orange", "MissingNPC", "give")
+
+        self.assertFalse(success)
+        self.mock_print_color.assert_any_call("You don't see 'MissingNPC' here to give anything to.", Colors.RED)
+        self.assertEqual(len(self.game.player_character.inventory), 1) # Player inventory unchanged
+        self.game.gemini_api.get_npc_dialogue.assert_not_called()
+
+    @patch('game_engine.game_state.DEFAULT_ITEMS', {
+        "test_pear": {"description": "A green pear.", "stackable": True, "takeable": True, "value": 3}
+    })
+    @patch('random.choice') # To make static fallback predictable
+    def test_give_item_static_fallback_low_ai_mode(self, mock_random_choice):
+        self.game.player_character.inventory = [{"name": "test_pear", "quantity": 1}]
+        self.game.player_character.remove_from_inventory = MagicMock(return_value=True)
+        self.game.player_character.has_item = MagicMock(return_value=True)
+
+        mock_npc = MagicMock(spec=Character); mock_npc.name = "TestNPC"
+        mock_npc.inventory = []; mock_npc.relationship_with_player = 0
+        mock_npc.add_to_inventory = MagicMock(return_value=True)
+        mock_npc.add_player_memory = MagicMock()
+        mock_npc.get_player_memory_summary = MagicMock(return_value="No memories.")
+        mock_npc.get_objective_summary = MagicMock(return_value="No objectives.")
+        self.game.npcs_in_current_location = [mock_npc]
+
+        self.game.low_ai_data_mode = True # Enable Low AI mode
+        self.game.gemini_api.get_npc_dialogue = MagicMock() # This should not be called
+
+        static_reaction_choice = "Oh, for me? Thank you for the test_pear."
+        mock_random_choice.return_value = static_reaction_choice
+
+        success = self.game.handle_use_item("test_pear", "TestNPC", "give")
+
+        self.assertTrue(success)
+        self.game.player_character.remove_from_inventory.assert_called_once_with("test_pear", 1)
+        mock_npc.add_to_inventory.assert_called_once_with("test_pear", 1)
+        self.game.gemini_api.get_npc_dialogue.assert_not_called() # Gemini API should not be called in low AI mode
+        self.mock_print_color.assert_any_call(f"{mock_npc.name}: \"{static_reaction_choice}\" {Colors.DIM}(Static reaction){Colors.RESET}", Colors.YELLOW)
+        self.assertEqual(mock_npc.relationship_with_player, 1)
+        mock_npc.add_player_memory.assert_called_once()
+
 
 class TestEventManager(unittest.TestCase):
     def setUp(self):
