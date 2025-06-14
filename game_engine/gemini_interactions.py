@@ -238,6 +238,7 @@ class GeminiAPI:
                     # The specific user-facing success message for config file is in _attempt_api_setup
                     # Log the successful usage here for clarity in `configure` flow
                     if key_source == API_CONFIG_FILE:
+                         self._print_color_func(f"Using API key and model preference ('{self.chosen_model_name}') from '{API_CONFIG_FILE}'.", Colors.GREEN)
                          game_logger.info(f"Using API key and model preference ('{self.chosen_model_name}') from '{API_CONFIG_FILE}' after successful setup.")
 
                     low_ai_pref = self._prompt_for_low_ai_mode()
