@@ -9,39 +9,36 @@ GEMINI_API_KEY_ENV_VAR = "GEMINI_API_KEY"
 DEFAULT_GEMINI_MODEL_NAME = 'gemini-1.5-pro-latest' # Updated Default
 
 from .game_config import Colors
+from .logging_utility import game_logger
 
 class GeminiAPI:
     def __init__(self):
         self.model = None
         self.chosen_model_name = DEFAULT_GEMINI_MODEL_NAME # Initialize with default
-        self._print_color_func = lambda text, color, end="\n": print(f"{color}{text}{Colors.RESET}", end=end)
-        self._input_color_func = lambda prompt, color: input(f"{color}{prompt}{Colors.RESET}")
+        self._print_color_func = lambda text, color, end="\n": print(f"{color}{text}{Colors.RESET}", end=end) # Default, will be set by Game
+        self._input_color_func = lambda prompt, color: input(f"{color}{prompt}{Colors.RESET}") # Default, will be set by Game
 
-    def _log_message(self, text, color, end="\n"):
-        if hasattr(self, '_print_color_func') and callable(self._print_color_func):
-            self._print_color_func(text, color, end=end)
-        else:
-            print(f"{text}")
+    # Removed _log_message method, will use game_logger directly or _print_color_func
 
     def load_api_key_from_file(self):
         try:
             if os.path.exists(API_CONFIG_FILE):
                 with open(API_CONFIG_FILE, 'r') as f:
                     config = json.load(f)
-                    # Return just the key, model preference is handled separately now
                     return config.get("gemini_api_key")
         except Exception as e:
-            self._log_message(f"Could not load API key from {API_CONFIG_FILE}: {e}", Colors.RED)
+            game_logger.error(f"Could not load API key from {API_CONFIG_FILE}: {e}", exc_info=True)
         return None
 
     def save_api_key_to_file(self, api_key):
         try:
-            # When saving, also save the currently chosen model name for persistence
             with open(API_CONFIG_FILE, 'w') as f:
                 json.dump({"gemini_api_key": api_key, "chosen_model_name": self.chosen_model_name}, f)
-            self._log_message(f"API key and chosen model ({self.chosen_model_name}) saved to {API_CONFIG_FILE}.", Colors.MAGENTA)
+            self._print_color_func(f"API key and chosen model ({self.chosen_model_name}) saved to {API_CONFIG_FILE}.", Colors.MAGENTA)
+            game_logger.info(f"API key and chosen model ({self.chosen_model_name}) saved to {API_CONFIG_FILE}.")
         except Exception as e:
-            self._log_message(f"Could not save API key/model to {API_CONFIG_FILE}: {e}", Colors.RED)
+            self._print_color_func(f"Could not save API key/model to {API_CONFIG_FILE}: {e}", Colors.RED)
+            game_logger.error(f"Could not save API key/model to {API_CONFIG_FILE}: {e}", exc_info=True)
 
     def _rename_invalid_config_file(self, config_file_path, suffix="invalid_key"):
         if os.path.exists(config_file_path):
@@ -49,12 +46,14 @@ class GeminiAPI:
                 invalid_file_name = config_file_path + f".{suffix}"
                 os.rename(config_file_path, invalid_file_name)
                 self._print_color_func(f"Renamed potentially problematic {config_file_path} to {invalid_file_name}.", Colors.YELLOW)
+                game_logger.warning(f"Renamed potentially problematic {config_file_path} to {invalid_file_name}.")
             except OSError as ose:
                 self._print_color_func(f"Could not rename {config_file_path}: {ose}", Colors.YELLOW)
+                game_logger.error(f"Could not rename {config_file_path}: {ose}", exc_info=True)
 
     def _attempt_api_setup(self, api_key, source, model_to_use):
         if not api_key:
-            self._log_message(f"Internal: _attempt_api_setup called with no API key from {source}.", Colors.RED)
+            game_logger.error(f"Internal: _attempt_api_setup called with no API key from {source}.")
             self.model = None
             return False
             
@@ -62,18 +61,22 @@ class GeminiAPI:
             genai.configure(api_key=api_key)
         except Exception as e_config:
             self._print_color_func(f"Error configuring Gemini API (genai.configure using key from {source}): {e_config}", Colors.RED)
+            game_logger.error(f"Error configuring Gemini API (genai.configure using key from {source}): {e_config}", exc_info=True)
             self.model = None
             return False
 
         try:
-            model_instance = genai.GenerativeModel(model_to_use) # Use the passed model_to_use
+            model_instance = genai.GenerativeModel(model_to_use)
         except Exception as model_e:
             self._print_color_func(f"Error instantiating Gemini model '{model_to_use}' (key from {source}): {model_e}", Colors.RED)
             self._print_color_func(f"The API key might be valid, but there's an issue with model '{model_to_use}' (e.g., name, access permissions).", Colors.YELLOW)
+            game_logger.error(f"Error instantiating Gemini model '{model_to_use}' (key from {source}): {model_e}", exc_info=True)
+            game_logger.warning(f"The API key might be valid, but there's an issue with model '{model_to_use}' (e.g., name, access permissions).")
             self.model = None
             return False
 
         self._print_color_func(f"Verifying API key from {source} with model '{model_to_use}'...", Colors.MAGENTA)
+        game_logger.info(f"Verifying API key from {source} with model '{model_to_use}'...")
         try:
             safety_settings = [
                 {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
@@ -89,8 +92,9 @@ class GeminiAPI:
 
             if hasattr(test_response, 'text') and 'test' in test_response.text.lower():
                 self._print_color_func(f"API key from {source} verified successfully for model '{model_to_use}'.", Colors.GREEN)
+                game_logger.info(f"API key from {source} verified successfully for model '{model_to_use}'.")
                 self.model = model_instance
-                self.chosen_model_name = model_to_use # Confirm the successfully validated model
+                self.chosen_model_name = model_to_use
                 return True
             else:
                 feedback_text = "Unknown issue during verification."
@@ -101,22 +105,30 @@ class GeminiAPI:
                 else:
                     feedback_text = f"API key test call returned unexpected text: '{test_response.text[:50]}...'"
                 self._print_color_func(f"API key verification with model '{model_to_use}' (key from {source}) failed: {feedback_text}", Colors.RED)
+                game_logger.warning(f"API key verification with model '{model_to_use}' (key from {source}) failed: {feedback_text}")
                 self.model = None
                 return False
         except Exception as e_test:
             self._print_color_func(f"Error during API key verification call (from {source}, model '{model_to_use}'): {e_test}", Colors.RED)
+            game_logger.error(f"Error during API key verification call (from {source}, model '{model_to_use}'): {e_test}", exc_info=True)
             error_str = str(e_test).lower()
             auth_keywords = [
-                "api key not valid", "permission_denied", "authentication_failed", 
-                "invalid api key", "credential is invalid", "unauthenticated", 
-                "api_key_invalid", "user_location_invalid" 
+                "api key not valid", "permission_denied", "authentication_failed",
+                "invalid api key", "credential is invalid", "unauthenticated",
+                "api_key_invalid", "user_location_invalid"
             ]
-            grpc_permission_denied = hasattr(e_test, 'grpc_status_code') and e_test.grpc_status_code == 7
+            grpc_permission_denied = hasattr(e_test, 'grpc_status_code') and e_test.grpc_status_code == 7 # type: ignore
             is_auth_error = grpc_permission_denied or any(keyword in error_str for keyword in auth_keywords)
+
+            log_msg_key_invalid = f"The API key from '{source}' appears invalid or lacks permissions for model '{model_to_use}'/region."
+            log_msg_unexpected_err = f"Unexpected error during verification with model '{model_to_use}'."
+
             if is_auth_error:
-                self._print_color_func(f"The API key from '{source}' appears invalid or lacks permissions for model '{model_to_use}'/region.", Colors.RED)
+                self._print_color_func(log_msg_key_invalid, Colors.RED)
+                game_logger.warning(log_msg_key_invalid)
             else:
-                self._print_color_func(f"Unexpected error during verification with model '{model_to_use}'.", Colors.YELLOW)
+                self._print_color_func(log_msg_unexpected_err, Colors.YELLOW)
+                game_logger.warning(log_msg_unexpected_err)
             self.model = None
             return False
 
@@ -186,7 +198,8 @@ class GeminiAPI:
 
         env_key = os.getenv(GEMINI_API_KEY_ENV_VAR)
         if env_key:
-            self._log_message(f"Found API key in environment variable '{GEMINI_API_KEY_ENV_VAR}'.", Colors.YELLOW)
+            self._print_color_func(f"Found API key in environment variable '{GEMINI_API_KEY_ENV_VAR}'.", Colors.YELLOW)
+            game_logger.info(f"Found API key in environment variable '{GEMINI_API_KEY_ENV_VAR}'.")
             key_to_try = env_key
             key_source = f"environment variable '{GEMINI_API_KEY_ENV_VAR}'"
         
@@ -197,49 +210,62 @@ class GeminiAPI:
                         config = json.load(f)
                         file_key_data = config.get("gemini_api_key")
                         if file_key_data:
-                            self._log_message(f"Found API key in config file '{API_CONFIG_FILE}'.", Colors.YELLOW)
+                            self._print_color_func(f"Found API key in config file '{API_CONFIG_FILE}'.", Colors.YELLOW)
+                            game_logger.info(f"Found API key in config file '{API_CONFIG_FILE}'.")
                             key_to_try = file_key_data
                             key_source = API_CONFIG_FILE
                             preferred_model_from_config = config.get("chosen_model_name", DEFAULT_GEMINI_MODEL_NAME)
                             if preferred_model_from_config != DEFAULT_GEMINI_MODEL_NAME:
-                                 self._log_message(f"Loaded preferred model '{preferred_model_from_config}' from config.", Colors.YELLOW)
+                                 self._print_color_func(f"Loaded preferred model '{preferred_model_from_config}' from config.", Colors.YELLOW)
+                                 game_logger.info(f"Loaded preferred model '{preferred_model_from_config}' from config.")
                 except Exception as e:
-                    self._log_message(f"Error reading config file {API_CONFIG_FILE}: {e}", Colors.YELLOW)
-                    # Proceed as if file didn't have a valid key or model
+                    self._print_color_func(f"Error reading config file {API_CONFIG_FILE}: {e}", Colors.YELLOW) # User feedback
+                    game_logger.error(f"Error reading config file {API_CONFIG_FILE}: {e}", exc_info=True)
             else:
-                self._log_message(f"Config file '{API_CONFIG_FILE}' not found.", Colors.DIM)
+                # This is the logic from the previous modification (remove log message for missing config)
+                # Now adding game_logger.info for this case.
+                game_logger.info(f"Config file '{API_CONFIG_FILE}' not found. Proceeding to manual key input if needed.")
+                pass
 
         if key_to_try:
-            try: # Test genai.configure() first
+            try:
                 genai.configure(api_key=key_to_try)
-                self._log_message(f"genai.configure() successful with key from {key_source}.", Colors.GREEN)
+                game_logger.info(f"genai.configure() successful with key from {key_source}.")
                 
-                # If key from env, ask for model. If key from file, use preferred_model_from_config then try setup.
                 model_to_attempt_first = preferred_model_from_config if key_source == API_CONFIG_FILE else self._ask_for_model_selection()
 
                 if self._attempt_api_setup(key_to_try, key_source, model_to_attempt_first):
-                    # If the key was from file, but the model selected by user (if asked) is different from file's pref,
-                    # or if user selected a non-default model with ENV key, save choice.
+                    # The specific user-facing success message for config file is in _attempt_api_setup
+                    # Log the successful usage here for clarity in `configure` flow
+                    if key_source == API_CONFIG_FILE:
+                         game_logger.info(f"Using API key and model preference ('{self.chosen_model_name}') from '{API_CONFIG_FILE}' after successful setup.")
+
                     low_ai_pref = self._prompt_for_low_ai_mode()
-                    # Saving logic might need to consider if the model was from config and if it changed.
-                    # For now, if key from env and a non-default model was picked, or if model from file differs from current, prompt to save.
-                    if key_source != API_CONFIG_FILE or self.chosen_model_name != preferred_model_from_config :
-                         if key_source == f"environment variable '{GEMINI_API_KEY_ENV_VAR}'": # If key was from ENV, always ask to save this new combo
-                            save_choice = self._input_color_func(
-                                f"Save this key from ENV and model ('{self.chosen_model_name}') to {API_CONFIG_FILE}? (y/n): ",
-                                Colors.YELLOW).strip().lower()
-                            if save_choice == 'y':
-                                self.save_api_key_to_file(key_to_try)
+
+                    if key_source == f"environment variable '{GEMINI_API_KEY_ENV_VAR}'":
+                        save_choice = self._input_color_func(
+                            f"Save this key from ENV and model ('{self.chosen_model_name}') to {API_CONFIG_FILE}? (y/n): ",
+                            Colors.YELLOW).strip().lower()
+                        if save_choice == 'y':
+                            self.save_api_key_to_file(key_to_try)
+                    elif key_source == API_CONFIG_FILE and self.chosen_model_name != preferred_model_from_config:
+                        self._print_color_func(f"Model preference changed from '{preferred_model_from_config}' to '{self.chosen_model_name}'. Updating config file.", Colors.YELLOW)
+                        game_logger.info(f"Model preference changed from '{preferred_model_from_config}' to '{self.chosen_model_name}'. Updating config file.")
+                        self.save_api_key_to_file(key_to_try)
+
                     return {"api_configured": True, "low_ai_preference": low_ai_pref}
                 elif key_source == API_CONFIG_FILE:
                     self._rename_invalid_config_file(API_CONFIG_FILE, f"failed_setup_with_{model_to_attempt_first.replace('/','_')}")
+                    game_logger.warning(f"API key from {key_source} with model {model_to_attempt_first} failed setup. Renamed config.")
             
             except Exception as e_initial_config:
                 self._print_color_func(f"Error initially configuring Gemini API with key from {key_source}: {e_initial_config}", Colors.RED)
+                game_logger.error(f"Error initially configuring Gemini API with key from {key_source}: {e_initial_config}", exc_info=True)
                 if key_source == API_CONFIG_FILE:
                      self._rename_invalid_config_file(API_CONFIG_FILE, "initial_config_error")
             
             self._print_color_func(f"API key from {key_source} (with model '{preferred_model_from_config if key_source == API_CONFIG_FILE else 'user choice'}') failed validation or setup.", Colors.YELLOW)
+            game_logger.warning(f"API key from {key_source} (with model '{preferred_model_from_config if key_source == API_CONFIG_FILE else 'user choice'}') failed validation or setup. Proceeding to manual input.")
 
         while True:
             manual_api_key_input = self._input_color_func(
@@ -253,17 +279,20 @@ class GeminiAPI:
 
             if manual_api_key_input.lower() == 'skip':
                 self._print_color_func("\nSkipping API key entry. Game will run with placeholder responses.", Colors.RED)
+                game_logger.info("User chose to skip API key entry.")
                 self.model = None 
                 return {"api_configured": False, "low_ai_preference": False}
             
             try:
                 genai.configure(api_key=manual_api_key_input)
-                self._log_message(f"genai.configure() successful with manually entered key.", Colors.GREEN)
+                game_logger.info("genai.configure() successful with manually entered key.")
             except Exception as e_manual_initial_config:
                  self._print_color_func(f"Error initially configuring Gemini API with manually entered key: {e_manual_initial_config}", Colors.RED)
+                 game_logger.error(f"Error initially configuring Gemini API with manually entered key: {e_manual_initial_config}", exc_info=True)
                  retry_choice = self._input_color_func("Invalid API key format or initial error. Try again? (y/n): ", Colors.YELLOW).strip().lower()
                  if retry_choice != 'y':
                      self._print_color_func("\nProceeding with placeholder responses.", Colors.RED)
+                     game_logger.info("User chose not to retry manual API key entry after initial error.")
                      self.model = None 
                      return {"api_configured": False, "low_ai_preference": False}
                  continue
@@ -280,17 +309,21 @@ class GeminiAPI:
                     self.save_api_key_to_file(manual_api_key_input) 
                 else:
                     self._print_color_func(f"API key and model choice not saved for future sessions.", Colors.YELLOW)
+                    game_logger.info("User chose not to save manually entered API key and model choice.")
                 return {"api_configured": True, "low_ai_preference": low_ai_pref}
 
             self._print_color_func(f"The manually entered API key with model '{selected_model_id_manual}' failed validation.", Colors.RED)
+            game_logger.warning(f"The manually entered API key with model '{selected_model_id_manual}' failed validation.")
             retry_choice = self._input_color_func("Try entering a different API key? (y/n): ", Colors.YELLOW).strip().lower()
             if retry_choice != 'y':
                 self._print_color_func("\nProceeding with placeholder responses.", Colors.RED)
+                game_logger.info("User chose not to retry manual API key entry after validation failure.")
                 self.model = None 
                 return {"api_configured": False, "low_ai_preference": False}
     
     def _generate_content_with_fallback(self, prompt, error_message_context="generating content"):
         if not self.model:
+            game_logger.warning(f"Gemini API not configured or key invalid. Cannot fulfill request for {error_message_context}.")
             return f"(OOC: Gemini API not configured or key invalid. Cannot fulfill request for {error_message_context}.)"
         try:
             safety_settings=[
@@ -315,24 +348,24 @@ class GeminiAPI:
                 
                 refusal_phrases = ["cannot fulfill", "unable to provide", "cannot generate", "not able to create", "i am unable to"]
                 if hasattr(response, 'text') and response.text and any(phrase in response.text.lower() for phrase in refusal_phrases):
-                     self._log_message(f"Warning: Gemini returned a refusal-like response for {error_message_context}.{block_reason_str} Prompt: {prompt[:200]}...", Colors.YELLOW)
+                     game_logger.warning(f"Gemini returned a refusal-like response for {error_message_context}.{block_reason_str} Prompt: {prompt[:200]}...")
                      return f"(OOC: My thoughts on this are restricted at the moment.{block_reason_str})"
 
-                self._log_message(f"Warning: Gemini returned an empty or non-text response for {error_message_context}.{block_reason_str} Model: {self.chosen_model_name}. Prompt: {prompt[:200]}...", Colors.YELLOW)
+                game_logger.warning(f"Gemini returned an empty or non-text response for {error_message_context}.{block_reason_str} Model: {self.chosen_model_name}. Prompt: {prompt[:200]}...")
                 return f"(OOC: My thoughts on this are unclear or restricted at the moment.{block_reason_str})"
             return response.text.strip()
         except Exception as e:
-            self._log_message(f"Error calling Gemini API for {error_message_context} using model {self.chosen_model_name}: {e}", Colors.RED)
+            game_logger.error(f"Error calling Gemini API for {error_message_context} using model {self.chosen_model_name}: {e}", exc_info=True)
             block_reason = None
-            # Look for block reason in the exception response if available (some errors wrap the response)
-            if hasattr(e, 'response') and hasattr(e.response, 'prompt_feedback') and hasattr(e.response.prompt_feedback, 'block_reason'):
-                block_reason = e.response.prompt_feedback.block_reason
+            if hasattr(e, 'response') and hasattr(e.response, 'prompt_feedback') and hasattr(e.response.prompt_feedback, 'block_reason'): # type: ignore
+                block_reason = e.response.prompt_feedback.block_reason # type: ignore
             
             if block_reason:
-                self._log_message(f"Blocked due to: {block_reason}", Colors.YELLOW)
+                game_logger.warning(f"Gemini API call blocked for {error_message_context} due to: {block_reason}")
                 return f"(OOC: My response was blocked: {block_reason})"
             
-            if hasattr(e, 'grpc_status_code') and e.grpc_status_code == 7: 
+            if hasattr(e, 'grpc_status_code') and e.grpc_status_code == 7: # type: ignore
+                 game_logger.error(f"Gemini API key error (Permission Denied) for {error_message_context}.")
                  return f"(OOC: API key error - Permission Denied. My thoughts are muddled.)"
             return f"(OOC: My thoughts are... muddled due to an error: {str(e)[:100]}...)"
 

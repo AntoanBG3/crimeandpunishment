@@ -861,7 +861,7 @@ from game_engine.game_config import (
     STATIC_NPC_NPC_INTERACTIONS
 )
 # Import constant for TestGeminiAPIConfiguration
-from game_engine.gemini_interactions import GEMINI_API_KEY_ENV_VAR
+from game_engine.gemini_interactions import GEMINI_API_KEY_ENV_VAR, API_CONFIG_FILE, DEFAULT_GEMINI_MODEL_NAME
 
 
 # Mock CHARACTERS_DATA for TestLowAIMode setup
@@ -1342,6 +1342,91 @@ class TestGeminiAPIConfiguration(unittest.TestCase):
         config_result = self.api.configure(self.mock_print_func, self.mock_input_func)
         self.assertEqual(config_result, {"api_configured": False, "low_ai_preference": False})
         self.assertIsNone(self.api.model)
+
+    def test_configure_uses_valid_config_file_and_skips_manual_prompt(self):
+        self.mock_os_getenv.return_value = None # No ENV key
+        self.mock_os_path_exists.side_effect = lambda path: path == API_CONFIG_FILE
+
+        mock_config_data = '{"gemini_api_key": "file_key_works", "chosen_model_name": "gemini-1.5-pro-latest"}'
+        self.mock_open_file.return_value.read.return_value = mock_config_data
+
+        # Ensure _attempt_api_setup is mocked for success with file_key_works and its model
+        def mock_attempt_setup_for_file(api_key, source, model_id):
+            if api_key == "file_key_works" and model_id == "gemini-1.5-pro-latest":
+                self.api.chosen_model_name = model_id
+                self.api.model = MagicMock()
+                return True
+            return False
+        self.mock_attempt_api_setup.side_effect = mock_attempt_setup_for_file
+
+        # User input: "n" (for Low AI mode)
+        # No input for saving should be prompted as the key is from file and model matches.
+        self.mock_input_func.side_effect = ["n"]
+
+        config_result = self.api.configure(self.mock_print_func, self.mock_input_func)
+
+        # Check for the specific success message
+        log_message_found = any(
+            call_args[0][0] == f"Using API key and model preference ('gemini-1.5-pro-latest') from '{API_CONFIG_FILE}'."
+            and call_args[0][1] == Colors.GREEN
+            for call_args in self.mock_print_func.call_args_list
+        )
+        self.assertTrue(log_message_found, "Log message for using config file not found or incorrect.")
+
+        # Assert that manual API key prompt was NOT called
+        manual_key_prompt_called = any(
+            "Please enter your Gemini API key" in call_args[0][0]
+            for call_args in self.mock_input_func.call_args_list
+        )
+        self.assertFalse(manual_key_prompt_called, "Manual API key prompt should not have been called.")
+
+        # Assert Low AI mode prompt was called
+        low_ai_prompt_called = any(
+            "Enable Low AI Data Mode?" in call_args[0][0]
+            for call_args in self.mock_input_func.call_args_list
+        )
+        self.assertTrue(low_ai_prompt_called, "Low AI mode prompt should have been called.")
+
+        self.assertEqual(config_result, {"api_configured": True, "low_ai_preference": False})
+        self.assertIsNotNone(self.api.model)
+        # Check that save_api_key_to_file was not called because model preference matched
+        # This requires save_api_key_to_file to be a mock or spied upon.
+        # For now, we rely on the logic not prompting for save.
+
+    def test_configure_no_config_file_silent_and_prompts_manual_key(self):
+        self.mock_os_getenv.return_value = None # No ENV key
+        self.mock_os_path_exists.return_value = False # Config file does not exist
+
+        # User input: "manual_key", "" (default model), "y" (Low AI mode), "n" (don't save)
+        self.mock_input_func.side_effect = ["manual_key_works", "", "y", "n"]
+
+        # Mock _attempt_api_setup for success with manual_key_works and default model
+        def mock_attempt_setup_for_manual(api_key, source, model_id):
+            if api_key == "manual_key_works" and model_id == DEFAULT_GEMINI_MODEL_NAME: # Use direct import
+                self.api.chosen_model_name = model_id
+                self.api.model = MagicMock()
+                return True
+            return False
+        self.mock_attempt_api_setup.side_effect = mock_attempt_setup_for_manual
+
+        config_result = self.api.configure(self.mock_print_func, self.mock_input_func)
+
+        # Assert that "Config file 'gemini_config.json' not found." was NOT printed
+        config_not_found_msg_printed = any(
+            f"Config file '{API_CONFIG_FILE}' not found." in call_args[0][0]
+            for call_args in self.mock_print_func.call_args_list
+        )
+        self.assertFalse(config_not_found_msg_printed, "Log message for config file not found should NOT be present.")
+
+        # Assert that manual API key prompt WAS called
+        manual_key_prompt_called = any(
+            "Please enter your Gemini API key" in call_args[0][0]
+            for call_args in self.mock_input_func.call_args_list
+        )
+        self.assertTrue(manual_key_prompt_called, "Manual API key prompt should have been called.")
+
+        self.assertEqual(config_result, {"api_configured": True, "low_ai_preference": True})
+        self.assertIsNotNone(self.api.model)
 
 
 # This is the end of TestGeminiAPIConfiguration, the next tests will be pasted into TestLowAIMode.

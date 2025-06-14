@@ -1,0 +1,5 @@
+# Ignore all log files
+*.log
+
+# Ignore other common logging outputs if any
+*.txt
