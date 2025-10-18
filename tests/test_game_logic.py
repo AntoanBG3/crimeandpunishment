@@ -1258,8 +1258,8 @@ class TestGeminiAPIConfiguration(unittest.TestCase):
         # Check that the correct model options were printed
         model_prompt_calls = [args[0] for args, _ in self.mock_print_func.call_args_list if args and isinstance(args[0], str)]
 
-        self.assertTrue(any("Gemini 1.5 Pro (ID: gemini-1.5-pro-latest)" in call for call in model_prompt_calls))
-        self.assertTrue(any("Gemini 2.0 Flash (Default) (ID: gemini-2.0-flash)" in call for call in model_prompt_calls))
+        self.assertTrue(any("Gemini 2.5 Pro (Default) (ID: gemini-2.5-pro)" in call for call in model_prompt_calls))
+        self.assertTrue(any("Gemini Flash Latest (ID: gemini-flash-latest)" in call for call in model_prompt_calls))
 
         # Check that the input prompt was for choices 1-2
         input_prompt_found = False
@@ -1270,7 +1270,7 @@ class TestGeminiAPIConfiguration(unittest.TestCase):
                 break
         self.assertTrue(input_prompt_found, "Input prompt for 1-2 choices not found.")
 
-        self.assertEqual(self.api.chosen_model_name, 'gemini-2.0-flash')
+        self.assertEqual(self.api.chosen_model_name, 'gemini-2.5-pro')
 
     def test_configure_select_first_model_successfully(self):
         self.mock_os_getenv.return_value = None # No ENV key
@@ -1279,8 +1279,8 @@ class TestGeminiAPIConfiguration(unittest.TestCase):
         self.mock_input_func.side_effect = ["dummy_manual_key", "1", "n", "n"]
 
         self.api.configure(self.mock_print_func, self.mock_input_func)
-        self.assertEqual(self.api.chosen_model_name, 'gemini-1.5-pro-latest')
-        self.mock_attempt_api_setup.assert_called_with("dummy_manual_key", "user input", 'gemini-1.5-pro-latest')
+        self.assertEqual(self.api.chosen_model_name, 'gemini-2.5-pro')
+        self.mock_attempt_api_setup.assert_called_with("dummy_manual_key", "user input", 'gemini-2.5-pro')
 
     def test_configure_successful_api_setup_prompts_low_ai_mode_yes(self):
         # Simulate manual API key input path
