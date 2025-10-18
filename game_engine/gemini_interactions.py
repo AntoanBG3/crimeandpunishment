@@ -82,7 +82,7 @@ class GeminiAPI:
                 {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
             ]
             test_response = model_instance.generate_content(
-                "Respond with only the word 'test' if this works.",
+                "This is a test of the API. Please respond with the word 'test' to confirm.",
                 generation_config=genai.types.GenerationConfig(candidate_count=1, max_output_tokens=5),
                 safety_settings=safety_settings
             )
@@ -97,7 +97,14 @@ class GeminiAPI:
                 if hasattr(test_response, 'prompt_feedback') and hasattr(test_response.prompt_feedback, 'block_reason') and test_response.prompt_feedback.block_reason:
                     feedback_text = f"Blocked due to: {test_response.prompt_feedback.block_reason}."
                 elif not hasattr(test_response, 'text') or not test_response.text:
-                    feedback_text = "API key test call returned an empty or non-text response."
+                    try:
+                        if test_response.candidates:
+                            finish_reason = test_response.candidates[0].finish_reason
+                            feedback_text = f"API key test call returned an empty or non-text response. Finish reason: {finish_reason}"
+                        else:
+                            feedback_text = "API key test call returned an empty or non-text response and no candidates."
+                    except (AttributeError, IndexError):
+                        feedback_text = "API key test call returned an empty or non-text response."
                 else:
                     feedback_text = f"API key test call returned unexpected text: '{test_response.text[:50]}...'"
                 self._print_color_func(f"API key verification with model '{model_to_use}' (key from {source}) failed: {feedback_text}", Colors.RED)
