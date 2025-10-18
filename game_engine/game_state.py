@@ -205,33 +205,45 @@ class Game:
                 static_data_copy.get("schedule", {}))
         self.initialize_dynamic_location_items()
 
-    def select_player_character(self):
+    def select_player_character(self, non_interactive=False):
         self._print_color("\n--- Choose Your Character ---", Colors.CYAN + Colors.BOLD)
         playable_character_names = [name for name, data in CHARACTERS_DATA.items() if not data.get("non_playable", False)]
         if not playable_character_names:
-            self._print_color("Error: No playable characters defined!", Colors.RED); return False
-        for i, name in enumerate(playable_character_names):
-            print(f"{Colors.MAGENTA}{i + 1}. {Colors.WHITE}{name}{Colors.RESET}")
-        while True:
-            try:
-                choice_str = self._input_color("Enter the number of your choice: ", Colors.MAGENTA)
-                if not choice_str: continue
-                choice = int(choice_str) - 1
-                if 0 <= choice < len(playable_character_names):
-                    chosen_name = playable_character_names[choice]
-                    if chosen_name in self.all_character_objects:
-                        self.player_character = self.all_character_objects[chosen_name]
-                        self.player_character.is_player = True
-                        self.current_location_name = self.player_character.default_location
-                        self.player_character.current_location = self.current_location_name
-                        self.current_location_description_shown_this_visit = False
-                        self._print_color(f"\nYou are playing as {Colors.GREEN}{self.player_character.name}{Colors.RESET}.", Colors.WHITE)
-                        self._print_color(f"You start in: {Colors.CYAN}{self.current_location_name}{Colors.RESET}", Colors.WHITE)
-                        self._print_color(f"Your current state appears: {Colors.YELLOW}{self.player_character.apparent_state}{Colors.RESET}.", Colors.WHITE)
-                        return True
-                    else: self._print_color(f"Error: Character '{chosen_name}' not found in loaded objects.", Colors.RED); return False
-                else: self._print_color("Invalid choice. Please enter a number from the list.", Colors.RED)
-            except ValueError: self._print_color("Invalid input. Please enter a number.", Colors.RED)
+            self._print_color("Error: No playable characters defined!", Colors.RED)
+            return False
+
+        if non_interactive:
+            chosen_name = playable_character_names[0]
+            self._print_color(f"Automatically selecting character: {chosen_name}", Colors.YELLOW)
+        else:
+            for i, name in enumerate(playable_character_names):
+                print(f"{Colors.MAGENTA}{i + 1}. {Colors.WHITE}{name}{Colors.RESET}")
+            while True:
+                try:
+                    choice_str = self._input_color("Enter the number of your choice: ", Colors.MAGENTA)
+                    if not choice_str: continue
+                    choice = int(choice_str) - 1
+                    if 0 <= choice < len(playable_character_names):
+                        chosen_name = playable_character_names[choice]
+                        break
+                    else:
+                        self._print_color("Invalid choice. Please enter a number from the list.", Colors.RED)
+                except ValueError:
+                    self._print_color("Invalid input. Please enter a number.", Colors.RED)
+
+        if chosen_name in self.all_character_objects:
+            self.player_character = self.all_character_objects[chosen_name]
+            self.player_character.is_player = True
+            self.current_location_name = self.player_character.default_location
+            self.player_character.current_location = self.current_location_name
+            self.current_location_description_shown_this_visit = False
+            self._print_color(f"\nYou are playing as {Colors.GREEN}{self.player_character.name}{Colors.RESET}.", Colors.WHITE)
+            self._print_color(f"You start in: {Colors.CYAN}{self.current_location_name}{Colors.RESET}", Colors.WHITE)
+            self._print_color(f"Your current state appears: {Colors.YELLOW}{self.player_character.apparent_state}{Colors.RESET}.", Colors.WHITE)
+            return True
+        else:
+            self._print_color(f"Error: Character '{chosen_name}' not found in loaded objects.", Colors.RED)
+            return False
 
     def update_npc_locations_by_schedule(self):
         current_time_period = self.get_current_time_period()
@@ -561,23 +573,35 @@ class Game:
         # Call configure and get results
         config_results = self.gemini_api.configure(self._print_color, self._input_color)
 
-        # Set low_ai_data_mode based on user's choice during configuration
-        # Defaults to False if 'low_ai_preference' is not in results or if API config was skipped.
-        self.low_ai_data_mode = config_results.get("low_ai_preference", False)
-
         # The GeminiAPI.configure method already prints the Low AI Mode status upon selection.
         # No need for an additional print here unless desired for game-level confirmation.
 
         self._print_color("\n--- Crime and Punishment: A Text Adventure ---", Colors.CYAN + Colors.BOLD)
-        self._print_color("Type 'load' to load a saved game, or press Enter to start a new game.", Colors.MAGENTA)
-        initial_action = self._input_color(f"{PROMPT_ARROW}", Colors.WHITE).strip().lower()
+
         game_loaded_successfully = False
-        if initial_action == "load":
-            if self.load_game(): game_loaded_successfully = True
-            else: self._print_color("Failed to load game. Starting a new game instead.", Colors.YELLOW)
-        if not game_loaded_successfully:
+        # Non-interactive mode: Automatically start a new game if GEMINI_API_KEY is set
+        if os.getenv("GEMINI_API_KEY"):
+            self._print_color("Starting a new game...", Colors.MAGENTA)
+            self.low_ai_data_mode = config_results.get("low_ai_preference", False)
             self.load_all_characters()
-            if not self.select_player_character(): self._print_color("Critical Error: Could not initialize player character. Exiting.", Colors.RED); return False
+            if not self.select_player_character(non_interactive=True):
+                self._print_color("Critical Error: Could not initialize player character. Exiting.", Colors.RED)
+                return False
+        else:
+            self._print_color("Type 'load' to load a saved game, or press Enter to start a new game.", Colors.MAGENTA)
+            initial_action = self._input_color(f"{PROMPT_ARROW}", Colors.WHITE).strip().lower()
+            if initial_action == "load":
+                if self.load_game():
+                    game_loaded_successfully = True
+                else:
+                    self._print_color("Failed to load game. Starting a new game instead.", Colors.YELLOW)
+
+            if not game_loaded_successfully:
+                self.low_ai_data_mode = config_results.get("low_ai_preference", False)
+                self.load_all_characters()
+                if not self.select_player_character():
+                    self._print_color("Critical Error: Could not initialize player character. Exiting.", Colors.RED)
+                    return False
         if not self.player_character or not self.current_location_name: self._print_color("Game initialization failed critically. Exiting.", Colors.RED); return False
         if not game_loaded_successfully:
             self.update_current_location_details(from_explicit_look_cmd=False); self.display_atmospheric_details()

@@ -6,7 +6,7 @@ import json
 # --- Self-contained API Configuration Constants ---
 API_CONFIG_FILE = "gemini_config.json"
 GEMINI_API_KEY_ENV_VAR = "GEMINI_API_KEY"
-DEFAULT_GEMINI_MODEL_NAME = 'gemini-1.5-pro-latest' # Updated Default
+DEFAULT_GEMINI_MODEL_NAME = 'gemini-2.0-flash' # Updated Default
 
 from .game_config import Colors
 
@@ -125,8 +125,8 @@ class GeminiAPI:
 
         self._print_color_func("\nPlease select which Gemini model to use:", Colors.CYAN)
         models_map = {
-            "1": {"name": "Gemini 1.5 Pro (Default)", "id": "gemini-1.5-pro-latest"}, # Assuming DEFAULT_GEMINI_MODEL_NAME is this
-            "2": {"name": "Gemini 2.0 Flash", "id": "gemini-2.0-flash"}
+            "1": {"name": "Gemini 1.5 Pro", "id": "gemini-1.5-pro-latest"},
+            "2": {"name": "Gemini 2.0 Flash (Default)", "id": "gemini-2.0-flash"}
         }
 
         # Dynamically create the display map to ensure the default model from DEFAULT_GEMINI_MODEL_NAME is marked
@@ -210,36 +210,36 @@ class GeminiAPI:
                 self._log_message(f"Config file '{API_CONFIG_FILE}' not found.", Colors.DIM)
 
         if key_to_try:
-            try: # Test genai.configure() first
-                genai.configure(api_key=key_to_try)
-                self._log_message(f"genai.configure() successful with key from {key_source}.", Colors.GREEN)
-                
-                # If key from env, ask for model. If key from file, use preferred_model_from_config then try setup.
-                model_to_attempt_first = preferred_model_from_config if key_source == API_CONFIG_FILE else self._ask_for_model_selection()
+            # If the API key is from an environment variable, run non-interactively.
+            if key_source == f"environment variable '{GEMINI_API_KEY_ENV_VAR}'":
+                self._log_message(f"Attempting non-interactive setup with model '{DEFAULT_GEMINI_MODEL_NAME}'...", Colors.YELLOW)
+                if self._attempt_api_setup(key_to_try, key_source, DEFAULT_GEMINI_MODEL_NAME):
+                    self._log_message("Non-interactive setup successful.", Colors.GREEN)
+                    return {"api_configured": True, "low_ai_preference": False}
+                else:
+                    self._log_message("Non-interactive setup with environment variable failed. The game will run with placeholder responses.", Colors.RED)
+                    self.model = None
+                    return {"api_configured": False, "low_ai_preference": False}
+            else:  # This else handles the case where the key is from the config file.
+                try:
+                    genai.configure(api_key=key_to_try)
+                    self._log_message(f"genai.configure() successful with key from {key_source}.", Colors.GREEN)
 
-                if self._attempt_api_setup(key_to_try, key_source, model_to_attempt_first):
-                    # If the key was from file, but the model selected by user (if asked) is different from file's pref,
-                    # or if user selected a non-default model with ENV key, save choice.
-                    low_ai_pref = self._prompt_for_low_ai_mode()
-                    # Saving logic might need to consider if the model was from config and if it changed.
-                    # For now, if key from env and a non-default model was picked, or if model from file differs from current, prompt to save.
-                    if key_source != API_CONFIG_FILE or self.chosen_model_name != preferred_model_from_config :
-                         if key_source == f"environment variable '{GEMINI_API_KEY_ENV_VAR}'": # If key was from ENV, always ask to save this new combo
-                            save_choice = self._input_color_func(
-                                f"Save this key from ENV and model ('{self.chosen_model_name}') to {API_CONFIG_FILE}? (y/n): ",
-                                Colors.YELLOW).strip().lower()
-                            if save_choice == 'y':
-                                self.save_api_key_to_file(key_to_try)
-                    return {"api_configured": True, "low_ai_preference": low_ai_pref}
-                elif key_source == API_CONFIG_FILE:
-                    self._rename_invalid_config_file(API_CONFIG_FILE, f"failed_setup_with_{model_to_attempt_first.replace('/','_')}")
-            
-            except Exception as e_initial_config:
-                self._print_color_func(f"Error initially configuring Gemini API with key from {key_source}: {e_initial_config}", Colors.RED)
-                if key_source == API_CONFIG_FILE:
-                     self._rename_invalid_config_file(API_CONFIG_FILE, "initial_config_error")
-            
-            self._print_color_func(f"API key from {key_source} (with model '{preferred_model_from_config if key_source == API_CONFIG_FILE else 'user choice'}') failed validation or setup.", Colors.YELLOW)
+                    model_to_attempt_first = preferred_model_from_config
+                    if self._attempt_api_setup(key_to_try, key_source, model_to_attempt_first):
+                        low_ai_pref = self._prompt_for_low_ai_mode()
+                        if self.chosen_model_name != preferred_model_from_config:
+                            self.save_api_key_to_file(key_to_try)
+                        return {"api_configured": True, "low_ai_preference": low_ai_pref}
+                    elif key_source == API_CONFIG_FILE:
+                        self._rename_invalid_config_file(API_CONFIG_FILE, f"failed_setup_with_{model_to_attempt_first.replace('/','_')}")
+                
+                except Exception as e_initial_config:
+                    self._print_color_func(f"Error initially configuring Gemini API with key from {key_source}: {e_initial_config}", Colors.RED)
+                    if key_source == API_CONFIG_FILE:
+                        self._rename_invalid_config_file(API_CONFIG_FILE, "initial_config_error")
+
+                self._print_color_func(f"API key from {key_source} (with model '{preferred_model_from_config}') failed validation or setup.", Colors.YELLOW)
 
         while True:
             manual_api_key_input = self._input_color_func(
