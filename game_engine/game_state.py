@@ -1465,15 +1465,20 @@ class Game:
             self._print_color(f"You don't see '{target_name_input}' here to give anything to.", Colors.RED)
             return False
 
+        # Check if player has the item (using a generic quantity of 1 for now)
+        # More sophisticated quantity handling could be added if items become stackable in a way that 'give' needs to respect.
         if not self.player_character.has_item(item_to_use_name, quantity=1):
             self._print_color(f"You don't have {item_to_use_name} to give.", Colors.RED)
             return False
 
+        # Attempt to remove the item from player's inventory
         if self.player_character.remove_from_inventory(item_to_use_name, 1):
-            target_npc.add_to_inventory(item_to_use_name, 1)
+            # Add item to NPC's inventory
+            target_npc.add_to_inventory(item_to_use_name, 1) # Assuming quantity 1 for now
 
             self._print_color(f"You give the {item_to_use_name} to {target_npc.name}.", Colors.WHITE)
 
+            # Generate NPC reaction using Gemini API
             relationship_text = self.get_relationship_text(target_npc.relationship_with_player)
             dialogue_prompt = f"(Player gives {item_to_use_name} to NPC. Player expects a reaction.)"
 
@@ -1488,6 +1493,7 @@ class Game:
                 )
 
             if reaction is None or (isinstance(reaction, str) and reaction.startswith("(OOC:")) or self.low_ai_data_mode :
+                # Fallback static reaction if AI fails or low_ai_mode
                 static_reactions = [
                     f"Oh, for me? Thank you for the {item_to_use_name}.",
                     f"A {item_to_use_name}? How thoughtful of you.",
@@ -1496,24 +1502,29 @@ class Game:
                 ]
                 reaction = random.choice(static_reactions)
                 self._print_color(f"{target_npc.name}: \"{reaction}\" {Colors.DIM}(Static reaction){Colors.RESET}", Colors.YELLOW)
-            else:
+            else: # AI Success
                  self._print_color(f"{target_npc.name}: \"{reaction}\"", Colors.YELLOW)
 
-            target_npc.relationship_with_player += 1
 
+            # Update NPC's relationship with the player (e.g., a slight increase)
+            target_npc.relationship_with_player += 1 # Simple increment, can be more nuanced
+
+            # Add a memory to the NPC about receiving the item
             target_npc.add_player_memory(
                 memory_type="received_item",
                 turn=self.game_time,
                 content={"item_name": item_to_use_name, "quantity": 1, "from_player": True, "context": "player_gave_item"},
-                sentiment_impact=1
+                sentiment_impact=1 # Generally positive for receiving an item
             )
 
             self.last_significant_event_summary = f"gave {item_to_use_name} to {target_npc.name}."
             return True
         else:
+            # This case should ideally be caught by has_item, but as a fallback
             self._print_color(f"You find you don't actually have {item_to_use_name} to give after all.", Colors.RED)
             return False
 
+        # Fallback for any other unhandled case (though the logic above should cover most)
         self._print_color(f"You can't give the {item_to_use_name} in this way.", Colors.YELLOW)
         return False
 
