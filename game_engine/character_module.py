@@ -16,11 +16,10 @@ def load_characters_data(data_path='data/characters.json'):
         logging.error(f"Error: The characters data file at {data_path} is not a valid JSON.")
         return {}
 
-CHARACTERS_DATA = load_characters_data()
 
 class Character:
     def __init__(self, name, persona, greeting, default_location, accessible_locations,
-                 objectives=None, inventory_items=None, schedule=None, npc_relationships=None, skills_data=None, is_player=False):
+                 objectives=None, inventory_items=None, schedule=None, npc_relationships=None, skills_data=None, is_player=False, apparent_state="normal"):
         self.name = name
         self.persona = persona
         self.greeting = greeting
@@ -66,7 +65,7 @@ class Character:
 
         self.inventory = [copy.deepcopy(item) for item in inventory_items] if inventory_items else []
         self.schedule = schedule if schedule else {}
-        self.apparent_state = CHARACTERS_DATA.get(name, {}).get("apparent_state", "normal")
+        self.apparent_state = apparent_state
 
 
     def add_journal_entry(self, entry_type, text_content, game_day_time_period_str):
@@ -103,6 +102,8 @@ class Character:
     def from_dict(cls, data, static_char_data):
         static_char_data_safe = static_char_data if static_char_data is not None else {}
         
+        apparent_state = data.get("apparent_state", static_char_data_safe.get("apparent_state", "normal"))
+
         char = cls(
             name=data["name"], 
             persona=static_char_data_safe.get("persona", "A mysterious figure."),
@@ -114,7 +115,8 @@ class Character:
             schedule=static_char_data_safe.get("schedule", {}),
             npc_relationships=static_char_data_safe.get("npc_relationships", {}), 
             skills_data=static_char_data_safe.get("skills", {}),
-            is_player=data.get("is_player", False) 
+            is_player=data.get("is_player", False),
+            apparent_state=apparent_state
         )
         
         char.current_location = data.get("current_location", char.default_location)
@@ -122,7 +124,6 @@ class Character:
         char.memory_about_player = data.get("memory_about_player", []) # Ensures backward compatibility
         char.journal_entries = data.get("journal_entries", []) 
         char.relationship_with_player = data.get("relationship_with_player", 0)
-        char.apparent_state = data.get("apparent_state", static_char_data_safe.get("apparent_state", "normal"))
 
         saved_npc_relationships = data.get("npc_relationships")
         if saved_npc_relationships is not None:
