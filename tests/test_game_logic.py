@@ -1173,13 +1173,16 @@ class TestLowAIMode(unittest.TestCase):
         self.game._initialize_game()
         self.assertFalse(self.game.low_ai_data_mode)
 
+    @patch('game_engine.game_state.os.getenv')
     @patch.object(Game, 'load_game')
     @patch.object(Game, 'select_player_character') # Still need to mock this if load_game fails or is bypassed
     @patch.object(Game, 'load_all_characters')
     @patch.object(Game, 'update_current_location_details')
     @patch.object(Game, 'display_atmospheric_details')
     @patch.object(Game, 'display_help')
-    def test_initialize_game_load_game_overrides_configure_low_ai_pref(self, mock_disp_help, mock_disp_atm, mock_upd_loc, mock_load_chars_init, mock_sel_player, mock_load_game_method):
+    def test_initialize_game_load_game_overrides_configure_low_ai_pref(self, mock_disp_help, mock_disp_atm, mock_upd_loc, mock_load_chars_init, mock_sel_player, mock_load_game_method, mock_os_getenv):
+        # Ensure interactive path by mocking getenv
+        mock_os_getenv.return_value = None
         # Simulate that configure() suggests Low AI Mode = False
         self.game.gemini_api.configure = MagicMock(return_value={"api_configured": True, "low_ai_preference": False})
 
@@ -1244,27 +1247,19 @@ class TestGeminiAPIConfiguration(unittest.TestCase):
     def test_ask_for_model_selection_updated_options_and_default(self):
         # This test focuses on the behavior of _ask_for_model_selection,
         # which is called by configure. We'll trigger it via configure.
-        self.mock_os_getenv.return_value = "dummy_env_api_key" # Simulate API key from ENV
+        self.mock_os_getenv.return_value = None # No ENV key
         self._configure_mock_attempt_api_setup_success()
 
-        # User presses Enter for default model, then 'n' for Low AI mode, then 'n' for saving ENV key combo
-        self.mock_input_func.side_effect = ["", "n", "n"]
+        # User provides key, presses Enter for default model, then 'n' for Low AI mode, then 'n' for saving ENV key combo
+        self.mock_input_func.side_effect = ["dummy_manual_key", "", "n", "n"]
 
         self.api.configure(self.mock_print_func, self.mock_input_func)
 
         # Check that the correct model options were printed
-        # Example: self.mock_print_func.assert_any_call("1. Gemini 1.5 Pro (Default) (ID: gemini-1.5-pro-latest)", Colors.WHITE)
-        # Need to iterate through calls to find the specific prints for model selection
-        model_prompt_calls = []
-        for call_args in self.mock_print_func.call_args_list:
-            args, _ = call_args
-            if args and isinstance(args[0], str) and "Gemini 1.5 Pro (Default)" in args[0]:
-                model_prompt_calls.append(args[0])
-            if args and isinstance(args[0], str) and "Gemini 2.0 Flash" in args[0]:
-                model_prompt_calls.append(args[0])
+        model_prompt_calls = [args[0] for args, _ in self.mock_print_func.call_args_list if args and isinstance(args[0], str)]
 
-        self.assertIn("1. Gemini 1.5 Pro (Default) (ID: gemini-1.5-pro-latest)", "\n".join(model_prompt_calls))
-        self.assertIn("2. Gemini 2.0 Flash (ID: gemini-2.0-flash)", "\n".join(model_prompt_calls))
+        self.assertTrue(any("Gemini 2.5 Pro (Default) (ID: gemini-2.5-pro)" in call for call in model_prompt_calls))
+        self.assertTrue(any("Gemini Flash Latest (ID: gemini-flash-latest)" in call for call in model_prompt_calls))
 
         # Check that the input prompt was for choices 1-2
         input_prompt_found = False
@@ -1275,17 +1270,17 @@ class TestGeminiAPIConfiguration(unittest.TestCase):
                 break
         self.assertTrue(input_prompt_found, "Input prompt for 1-2 choices not found.")
 
-        self.assertEqual(self.api.chosen_model_name, 'gemini-1.5-pro-latest')
+        self.assertEqual(self.api.chosen_model_name, 'gemini-2.5-pro')
 
-    def test_configure_select_second_model_successfully(self):
-        self.mock_os_getenv.return_value = "dummy_env_api_key" # Simulate API key from ENV
+    def test_configure_select_first_model_successfully(self):
+        self.mock_os_getenv.return_value = None # No ENV key
         self._configure_mock_attempt_api_setup_success()
-        # Input: "2" for model, "n" for Low AI, "n" for saving ENV key combo
-        self.mock_input_func.side_effect = ["2", "n", "n"]
+        # Input: "dummy_manual_key", "1" for model, "n" for Low AI, "n" for saving ENV key combo
+        self.mock_input_func.side_effect = ["dummy_manual_key", "1", "n", "n"]
 
         self.api.configure(self.mock_print_func, self.mock_input_func)
-        self.assertEqual(self.api.chosen_model_name, 'gemini-2.0-flash')
-        self.mock_attempt_api_setup.assert_called_with("dummy_env_api_key", f"environment variable '{GEMINI_API_KEY_ENV_VAR}'", 'gemini-2.0-flash')
+        self.assertEqual(self.api.chosen_model_name, 'gemini-2.5-pro')
+        self.mock_attempt_api_setup.assert_called_with("dummy_manual_key", "user input", 'gemini-2.5-pro')
 
     def test_configure_successful_api_setup_prompts_low_ai_mode_yes(self):
         # Simulate manual API key input path

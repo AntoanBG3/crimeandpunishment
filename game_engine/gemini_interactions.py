@@ -6,7 +6,7 @@ import json
 # --- Self-contained API Configuration Constants ---
 API_CONFIG_FILE = "gemini_config.json"
 GEMINI_API_KEY_ENV_VAR = "GEMINI_API_KEY"
-DEFAULT_GEMINI_MODEL_NAME = 'gemini-1.5-pro-latest' # Updated Default
+DEFAULT_GEMINI_MODEL_NAME = 'gemini-2.5-pro' # Updated Default
 
 from .game_config import Colors
 
@@ -82,7 +82,7 @@ class GeminiAPI:
                 {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
             ]
             test_response = model_instance.generate_content(
-                "Respond with only the word 'test' if this works.",
+                "This is a test of the API. Please respond with the word 'test' to confirm.",
                 generation_config=genai.types.GenerationConfig(candidate_count=1, max_output_tokens=5),
                 safety_settings=safety_settings
             )
@@ -97,7 +97,14 @@ class GeminiAPI:
                 if hasattr(test_response, 'prompt_feedback') and hasattr(test_response.prompt_feedback, 'block_reason') and test_response.prompt_feedback.block_reason:
                     feedback_text = f"Blocked due to: {test_response.prompt_feedback.block_reason}."
                 elif not hasattr(test_response, 'text') or not test_response.text:
-                    feedback_text = "API key test call returned an empty or non-text response."
+                    try:
+                        if test_response.candidates:
+                            finish_reason = test_response.candidates[0].finish_reason
+                            feedback_text = f"API key test call returned an empty or non-text response. Finish reason: {finish_reason}"
+                        else:
+                            feedback_text = "API key test call returned an empty or non-text response and no candidates."
+                    except (AttributeError, IndexError):
+                        feedback_text = "API key test call returned an empty or non-text response."
                 else:
                     feedback_text = f"API key test call returned unexpected text: '{test_response.text[:50]}...'"
                 self._print_color_func(f"API key verification with model '{model_to_use}' (key from {source}) failed: {feedback_text}", Colors.RED)
@@ -121,12 +128,12 @@ class GeminiAPI:
             return False
 
     def _ask_for_model_selection(self):
-        # DEFAULT_GEMINI_MODEL_NAME should be 'gemini-1.5-pro-latest' at file level
+        # DEFAULT_GEMINI_MODEL_NAME should be 'gemini-2.5-pro' at file level
 
         self._print_color_func("\nPlease select which Gemini model to use:", Colors.CYAN)
         models_map = {
-            "1": {"name": "Gemini 1.5 Pro (Default)", "id": "gemini-1.5-pro-latest"}, # Assuming DEFAULT_GEMINI_MODEL_NAME is this
-            "2": {"name": "Gemini 2.0 Flash", "id": "gemini-2.0-flash"}
+            "1": {"name": "Gemini 2.5 Pro (Default)", "id": "gemini-2.5-pro"},
+            "2": {"name": "Gemini Flash Latest", "id": "gemini-flash-latest"}
         }
 
         # Dynamically create the display map to ensure the default model from DEFAULT_GEMINI_MODEL_NAME is marked
@@ -151,7 +158,7 @@ class GeminiAPI:
             choice = self._input_color_func(f"Enter your choice (1-{len(display_map_for_prompt)}), or press Enter for default): ", Colors.MAGENTA).strip()
             if not choice: 
                 self._print_color_func(f"Using default model: {default_model_display_name}", Colors.YELLOW)
-                return DEFAULT_GEMINI_MODEL_NAME # This should be the ID 'gemini-1.5-pro-latest'
+                return DEFAULT_GEMINI_MODEL_NAME # This should be the ID 'gemini-2.5-pro'
             if choice in display_map_for_prompt: # Check against keys of display_map_for_prompt
                 self._print_color_func(f"You selected: {display_map_for_prompt[choice]['name']}", Colors.GREEN)
                 return display_map_for_prompt[choice]['id']
@@ -174,73 +181,54 @@ class GeminiAPI:
             self._print_color_func("Low AI Data Mode will be DISABLED (default).", Colors.GREEN)
         return low_ai_preference
 
-    def configure(self, print_func, input_func):
-        self._print_color_func = print_func
-        self._input_color_func = input_func
-        self._print_color_func("\n--- Gemini API Key Configuration ---", Colors.MAGENTA)
-
-        key_to_try = None
-        key_source = None
-        # Attempt to load preferred model from config if available with a key
-        preferred_model_from_config = DEFAULT_GEMINI_MODEL_NAME 
-
+    def _handle_env_key(self):
         env_key = os.getenv(GEMINI_API_KEY_ENV_VAR)
         if env_key:
             self._log_message(f"Found API key in environment variable '{GEMINI_API_KEY_ENV_VAR}'.", Colors.YELLOW)
-            key_to_try = env_key
-            key_source = f"environment variable '{GEMINI_API_KEY_ENV_VAR}'"
-        
-        if not key_to_try:
-            if os.path.exists(API_CONFIG_FILE):
-                try:
-                    with open(API_CONFIG_FILE, 'r') as f:
-                        config = json.load(f)
-                        file_key_data = config.get("gemini_api_key")
-                        if file_key_data:
-                            self._log_message(f"Found API key in config file '{API_CONFIG_FILE}'.", Colors.YELLOW)
-                            key_to_try = file_key_data
-                            key_source = API_CONFIG_FILE
-                            preferred_model_from_config = config.get("chosen_model_name", DEFAULT_GEMINI_MODEL_NAME)
-                            if preferred_model_from_config != DEFAULT_GEMINI_MODEL_NAME:
-                                 self._log_message(f"Loaded preferred model '{preferred_model_from_config}' from config.", Colors.YELLOW)
-                except Exception as e:
-                    self._log_message(f"Error reading config file {API_CONFIG_FILE}: {e}", Colors.YELLOW)
-                    # Proceed as if file didn't have a valid key or model
+            self._log_message(f"Attempting non-interactive setup with model '{DEFAULT_GEMINI_MODEL_NAME}'...", Colors.YELLOW)
+            if self._attempt_api_setup(env_key, f"environment variable '{GEMINI_API_KEY_ENV_VAR}'", DEFAULT_GEMINI_MODEL_NAME):
+                self._log_message("Non-interactive setup successful.", Colors.GREEN)
+                return {"api_configured": True, "low_ai_preference": False}
             else:
-                self._log_message(f"Config file '{API_CONFIG_FILE}' not found.", Colors.DIM)
+                self._log_message("Non-interactive setup with environment variable failed. The game will run with placeholder responses.", Colors.RED)
+                self.model = None
+                return {"api_configured": False, "low_ai_preference": False}
+        return None
 
-        if key_to_try:
-            try: # Test genai.configure() first
+    def _handle_config_file_key(self):
+        if os.path.exists(API_CONFIG_FILE):
+            try:
+                with open(API_CONFIG_FILE, 'r') as f:
+                    config = json.load(f)
+                key_to_try = config.get("gemini_api_key")
+                if not key_to_try:
+                    return None
+                
+                key_source = API_CONFIG_FILE
+                preferred_model_from_config = config.get("chosen_model_name", DEFAULT_GEMINI_MODEL_NAME)
+                self._log_message(f"Found API key in config file '{API_CONFIG_FILE}'.", Colors.YELLOW)
+                if preferred_model_from_config != DEFAULT_GEMINI_MODEL_NAME:
+                    self._log_message(f"Loaded preferred model '{preferred_model_from_config}' from config.", Colors.YELLOW)
+
                 genai.configure(api_key=key_to_try)
                 self._log_message(f"genai.configure() successful with key from {key_source}.", Colors.GREEN)
-                
-                # If key from env, ask for model. If key from file, use preferred_model_from_config then try setup.
-                model_to_attempt_first = preferred_model_from_config if key_source == API_CONFIG_FILE else self._ask_for_model_selection()
 
-                if self._attempt_api_setup(key_to_try, key_source, model_to_attempt_first):
-                    # If the key was from file, but the model selected by user (if asked) is different from file's pref,
-                    # or if user selected a non-default model with ENV key, save choice.
+                if self._attempt_api_setup(key_to_try, key_source, preferred_model_from_config):
                     low_ai_pref = self._prompt_for_low_ai_mode()
-                    # Saving logic might need to consider if the model was from config and if it changed.
-                    # For now, if key from env and a non-default model was picked, or if model from file differs from current, prompt to save.
-                    if key_source != API_CONFIG_FILE or self.chosen_model_name != preferred_model_from_config :
-                         if key_source == f"environment variable '{GEMINI_API_KEY_ENV_VAR}'": # If key was from ENV, always ask to save this new combo
-                            save_choice = self._input_color_func(
-                                f"Save this key from ENV and model ('{self.chosen_model_name}') to {API_CONFIG_FILE}? (y/n): ",
-                                Colors.YELLOW).strip().lower()
-                            if save_choice == 'y':
-                                self.save_api_key_to_file(key_to_try)
+                    if self.chosen_model_name != preferred_model_from_config:
+                        self.save_api_key_to_file(key_to_try)
                     return {"api_configured": True, "low_ai_preference": low_ai_pref}
-                elif key_source == API_CONFIG_FILE:
-                    self._rename_invalid_config_file(API_CONFIG_FILE, f"failed_setup_with_{model_to_attempt_first.replace('/','_')}")
-            
-            except Exception as e_initial_config:
-                self._print_color_func(f"Error initially configuring Gemini API with key from {key_source}: {e_initial_config}", Colors.RED)
-                if key_source == API_CONFIG_FILE:
-                     self._rename_invalid_config_file(API_CONFIG_FILE, "initial_config_error")
-            
-            self._print_color_func(f"API key from {key_source} (with model '{preferred_model_from_config if key_source == API_CONFIG_FILE else 'user choice'}') failed validation or setup.", Colors.YELLOW)
+                else:
+                    self._rename_invalid_config_file(API_CONFIG_FILE, f"failed_setup_with_{preferred_model_from_config.replace('/','_')}")
+                    self._print_color_func(f"API key from {key_source} (with model '{preferred_model_from_config}') failed validation or setup.", Colors.YELLOW)
+            except Exception as e:
+                self._log_message(f"Error processing config file {API_CONFIG_FILE}: {e}", Colors.YELLOW)
+                self._rename_invalid_config_file(API_CONFIG_FILE, "initial_config_error")
+        else:
+            self._log_message(f"Config file '{API_CONFIG_FILE}' not found.", Colors.DIM)
+        return None
 
+    def _handle_manual_key_input(self):
         while True:
             manual_api_key_input = self._input_color_func(
                 f"Please enter your Gemini API key (or type 'skip' to use placeholder responses): ",
@@ -288,6 +276,21 @@ class GeminiAPI:
                 self._print_color_func("\nProceeding with placeholder responses.", Colors.RED)
                 self.model = None 
                 return {"api_configured": False, "low_ai_preference": False}
+
+    def configure(self, print_func, input_func):
+        self._print_color_func = print_func
+        self._input_color_func = input_func
+        self._print_color_func("\n--- Gemini API Key Configuration ---", Colors.MAGENTA)
+
+        env_result = self._handle_env_key()
+        if env_result is not None:
+            return env_result
+
+        config_file_result = self._handle_config_file_key()
+        if config_file_result is not None:
+            return config_file_result
+
+        return self._handle_manual_key_input()
     
     def _generate_content_with_fallback(self, prompt, error_message_context="generating content"):
         if not self.model:
