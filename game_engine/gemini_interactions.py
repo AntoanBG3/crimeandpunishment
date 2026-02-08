@@ -15,6 +15,7 @@ class GeminiAPI:
     def __init__(self):
         self.model = None
         self.genai = None
+        self._genai_warning_shown = False
         self.chosen_model_name = DEFAULT_GEMINI_MODEL_NAME # Initialize with default
         self._print_color_func = lambda text, color, end="\n": print(f"{color}{text}{Colors.RESET}", end=end)
         self._input_color_func = lambda prompt, color: input(f"{color}{prompt}{Colors.RESET}")
@@ -24,7 +25,9 @@ class GeminiAPI:
             return True
         spec = importlib.util.find_spec("google.generativeai")
         if spec is None:
-            self._log_message("Gemini API library not installed. Running with placeholder responses.", Colors.YELLOW)
+            if not self._genai_warning_shown:
+                self._log_message("Gemini API library not installed. Running with placeholder responses.", Colors.YELLOW)
+                self._genai_warning_shown = True
             return False
         self.genai = importlib.import_module("google.generativeai")
         return True
@@ -396,7 +399,7 @@ class GeminiAPI:
         The player is also carrying these notable items: '{player_notable_items_summary}'.
         If any of these items are particularly striking, unusual for the player to carry, or relevant to your knowledge or suspicions (e.g., an axe, a bloodied item, a sacred symbol in an unexpected context), your dialogue should reflect your awareness of them.
         Your reaction could range from subtle curiosity, suspicion, concern, fear, or even a direct comment, depending on your personality, the item, and the situation.
-        For instance, if the player is carrying 'Raskolnikov's axe', a character like Porfiry might make an indirect or probing remark, while Sonya might show distress if she saw a 'bloodied rag'.
+        For instance, if the player is carrying 'raskolnikov's axe', a character like Porfiry might make an indirect or probing remark, while Sonya might show distress if she saw a 'bloodied rag'.
         This awareness should be naturally integrated into your response. Do not simply list the items you see.
         """
 

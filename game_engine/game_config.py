@@ -105,8 +105,8 @@ SEPARATOR_LINE = Colors.DIM + ("-" * 60) + Colors.RESET
 
 # --- NPC Memory Configuration ---
 HIGHLY_NOTABLE_ITEMS_FOR_MEMORY = [
-    "Raskolnikov's axe", "bloodied rag", "Lizaveta's bundle",
-    "Sonya's Cypress Cross", "Sonya's New Testament", "mother's letter"
+    "raskolnikov's axe", "bloodied rag", "lizaveta's bundle",
+    "sonya's cypress cross", "sonya's new testament", "mother's letter"
 ]
 
 # --- Generic Scenery Keywords (for "look at scenery") ---

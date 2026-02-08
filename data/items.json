@@ -1,7 +1,9 @@
 {
     "worn coin": {
         "description": "A grimy, well-worn kopek. It's seen better days, but still holds some small value. Could be offered as meagre charity or perhaps to buy a moment's peace or a cheap drink.",
-        "takeable": true, "value": 1, "stackable": true,
+        "takeable": true,
+        "value": 1,
+        "stackable": true,
         "notable_threshold": 20,
         "use_effect_player": "offer_charity_or_payment"
     },
@@ -17,35 +19,41 @@
     },
     "old newspaper": {
         "description": "A yellowed page from a St. Petersburg newspaper, dated some weeks ago. The print is faded. Reading it might offer a glimpse into the city's recent events or spark a troubling thought.",
-        "takeable": true, "readable": true,
+        "takeable": true,
+        "readable": true,
         "use_effect_player": "read_newspaper_for_news_or_thoughts"
     },
     "fresh newspaper": {
         "description": "A recently printed newspaper, still smelling faintly of ink. The headlines might offer insights into current events or the city's mood.",
-        "takeable": true, "readable": true, "value": 2,
+        "takeable": true,
+        "readable": true,
+        "value": 2,
         "use_effect_player": "read_evolving_news_article"
     },
-    "Anonymous Note": {
+    "anonymous note": {
         "description": "A hastily scribbled note, contents unknown until read. It feels ominous.",
-        "takeable": true, "readable": true, "is_notable": true,
+        "takeable": true,
+        "readable": true,
+        "is_notable": true,
         "use_effect_player": "read_generated_document",
         "generated_content": ""
     },
-    "Raskolnikov's axe": {
+    "raskolnikov's axe": {
         "description": "A heavy, sharp axe, the blade still bearing almost imperceptible dark stains. It feels cold and menacing to the touch, a weight not just in hand but on the soul. Holding it brings back vivid, horrifying memories and a surge of conflicting emotions.",
         "takeable": true,
         "hidden_in_location": "Raskolnikov's Garret",
         "is_notable": true,
         "use_effect_player": "grip_axe_and_reminisce_horror"
     },
-    "Sonya's New Testament": {
+    "sonya's new testament": {
         "description": "A small, well-thumbed copy of the New Testament. Its pages are marked and worn, a testament to Sonya's unwavering faith. Reading it might offer solace, or a stark confrontation with one's own sins.",
-        "takeable": true, "readable": true,
+        "takeable": true,
+        "readable": true,
         "owner": "Sonya Marmeladova",
         "is_notable": true,
         "use_effect_player": "read_testament_for_solace_or_guilt"
     },
-    "Sonya's Cypress Cross": {
+    "sonya's cypress cross": {
         "description": "A small, plain cypress wood cross, given by Sonya. It feels strangely warm to the touch, imbued with a sense of simple, profound faith and shared suffering. Holding it might bring a moment of clarity, remorse, or a fragile hope for redemption.",
         "takeable": true,
         "owner": "Sonya Marmeladova",
@@ -60,18 +68,21 @@
     },
     "mother's letter": {
         "description": "A letter from Pulcheria Alexandrovna, filled with anxious love and troubling news of Dunya. Re-reading it might stir deep feelings of guilt, responsibility, or a desperate urge to protect one's family.",
-        "takeable": true, "readable": true,
+        "takeable": true,
+        "readable": true,
         "is_notable": true,
         "owner": "Rodion Raskolnikov",
         "use_effect_player": "reread_letter_and_feel_familial_pressure"
     },
     "cheap vodka": {
         "description": "A half-empty bottle of harsh, cheap vodka. It promises temporary oblivion from the crushing weight of thoughts and reality. Drinking it will likely lead to a muddled state.",
-        "takeable": true, "consumable": true, "value": 5,
+        "takeable": true,
+        "consumable": true,
+        "value": 5,
         "use_effect_player": "drink_vodka_for_oblivion"
     },
-    "Lizaveta's bundle": {
-        "description": "A small, poorly wrapped bundle tied with string, containing a few meager possessions. It was dropped by Lizaveta. Examining its contents – perhaps a worn shawl, a child's toy, a copper coin – serves as a brutal reminder of the innocent life taken, deepening the sense of guilt.",
+    "lizaveta's bundle": {
+        "description": "A small, poorly wrapped bundle tied with string, containing a few meager possessions. It was dropped by Lizaveta. Examining its contents \u2013 perhaps a worn shawl, a child's toy, a copper coin \u2013 serves as a brutal reminder of the innocent life taken, deepening the sense of guilt.",
         "takeable": true,
         "is_notable": true,
         "hidden_in_location": "Pawnbroker's Apartment",

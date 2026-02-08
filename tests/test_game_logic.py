@@ -35,7 +35,7 @@ TEST_ITEMS_FOR_LOOK = {
 
 TEST_GAME_ITEMS = { # For TestItemEffects
     "tattered handkerchief": {"description": "A worn piece of cloth.", "use_effect_player": "comfort_self_if_ill"},
-    "Raskolnikov's axe": {"description": "A weighty axe.", "use_effect_player": "grip_axe_and_reminisce_horror"},
+    "raskolnikov's axe": {"description": "A weighty axe.", "use_effect_player": "grip_axe_and_reminisce_horror"},
     "cheap vodka": {"description": "A bottle of cheap spirits.", "use_effect_player": "drink_vodka_for_oblivion", "consumable": True, "stackable": True},
     "fresh newspaper": {"description": "Today's news.", "readable": True, "use_effect_player": "read_evolving_news_article"},
     "mother's letter": {"description": "A letter from Pulcheria.", "readable": True, "use_effect_player": "reread_letter_and_feel_familial_pressure"},
@@ -683,8 +683,8 @@ class TestItemEffects(unittest.TestCase):
 
     def test_use_raskolnikovs_axe_as_raskolnikov(self):
         self.player.name = "Rodion Raskolnikov"
-        self.player.inventory.append({"name": "Raskolnikov's axe", "quantity": 1})
-        self.game.handle_use_item("Raskolnikov's axe", None, "use_self_implicit")
+        self.player.inventory.append({"name": "raskolnikov's axe", "quantity": 1})
+        self.game.handle_use_item("raskolnikov's axe", None, "use_self_implicit")
         self.assertIn(self.player.apparent_state, ["dangerously agitated", "remorseful", "paranoid"])
 
     def test_use_cheap_vodka(self):
@@ -901,7 +901,7 @@ TEST_LOC_DATA_FOR_LOW_AI = {
 }
 # Mock DEFAULT_ITEMS for TestLowAIMode (especially for anonymous note)
 TEST_DEFAULT_ITEMS_LOW_AI = {
-    "Anonymous Note": {"description": "A mysterious note.", "readable": True, "takeable": True}
+    "anonymous note": {"description": "A mysterious note.", "readable": True, "takeable": True}
 }
 
 
@@ -1076,11 +1076,11 @@ class TestLowAIMode(unittest.TestCase):
         # Check that the static content was used to create the note
         found_note = False
         for item_data in self.game.dynamic_location_items.get(self.game.current_location_name, []):
-            if item_data["name"] == "Anonymous Note":
+            if item_data["name"] == "anonymous note":
                 self.assertEqual(item_data.get("generated_content"), STATIC_ANONYMOUS_NOTE_CONTENT)
                 found_note = True
                 break
-        self.assertTrue(found_note, "Anonymous Note with static content should be created.")
+        self.assertTrue(found_note, "anonymous note with static content should be created.")
         self.game.gemini_api.get_generated_text_document.assert_not_called()
 
     def test_event_attempt_npc_npc_interaction_low_ai_mode(self):

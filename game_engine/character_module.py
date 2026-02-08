@@ -637,5 +637,6 @@ class Character:
         success = (skill_value + d6_roll) >= target_number
         
         # Debug message as specified in prompt
-        print(f"[Skill Check] {self.name} attempting {skill_name} (Value: {skill_value}, Roll: {d6_roll}, Threshold: {difficulty_threshold}): {'Success' if success else 'Failure'}")
+        if DEBUG_LOGS:
+            print(f"[Skill Check] {self.name} attempting {skill_name} (Value: {skill_value}, Roll: {d6_roll}, Threshold: {difficulty_threshold}): {'Success' if success else 'Failure'}")
         return success

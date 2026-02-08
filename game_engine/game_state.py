@@ -4,6 +4,7 @@ import os
 import re
 import random
 import copy
+import difflib
 
 from .game_config import (Colors, SAVE_GAME_FILE, # API_CONFIG_FILE, GEMINI_MODEL_NAME removed
                          CONCLUDING_PHRASES, POSITIVE_KEYWORDS, NEGATIVE_KEYWORDS,
@@ -130,6 +131,18 @@ class Game:
             return None, ambiguous
         return next((npc for npc in self.npcs_in_current_location if npc.name == match), None), False
 
+    def _get_matching_exit(self, target_input, location_exits):
+        matches = []
+        for target_loc_key, desc_text in location_exits.items():
+            if target_loc_key.lower() == target_input or desc_text.lower().startswith(target_input) or target_input in desc_text.lower():
+                matches.append(target_loc_key)
+        if not matches:
+            return None, False
+        if len(matches) > 1:
+            self._print_color(f"Which exit did you mean? {', '.join(matches)}", Colors.YELLOW)
+            return None, True
+        return matches[0], False
+
     def _display_item_properties(self, item_default):
         properties_to_display = []
         if item_default.get('readable', False): properties_to_display.append(f"Type: Readable")
@@ -143,6 +156,13 @@ class Game:
             self._print_color("--- Properties ---", Colors.BLUE + Colors.BOLD)
             for prop_str in properties_to_display: self._print_color(f"- {prop_str}", Colors.BLUE)
             self._print_color("", Colors.RESET)
+
+    def _get_command_suggestions(self, command_text, limit=3):
+        candidates = []
+        for base_cmd, synonyms in COMMAND_SYNONYMS.items():
+            candidates.append(base_cmd)
+            candidates.extend(synonyms)
+        return difflib.get_close_matches(command_text, candidates, n=limit, cutoff=0.5)
 
     def _inspect_item(self, item_name, item_default, action_context, observation_context, allow_npc_memory):
         self._print_color(f"You examine the {item_name}:", Colors.GREEN)
@@ -192,7 +212,7 @@ class Game:
         if allow_npc_memory and item_name in HIGHLY_NOTABLE_ITEMS_FOR_MEMORY:
             for npc_observer in self.npcs_in_current_location:
                 if npc_observer.name != self.player_character.name:
-                    sentiment_impact = -2 if item_name in ["Raskolnikov's axe", "bloodied rag"] else -1
+                    sentiment_impact = -2 if item_name in ["raskolnikov's axe", "bloodied rag"] else -1
                     npc_observer.add_player_memory(
                         memory_type="player_action_observed",
                         turn=self.game_time,
@@ -217,6 +237,11 @@ class Game:
         for item_name in HIGHLY_NOTABLE_ITEMS_FOR_MEMORY:
             if item_name not in DEFAULT_ITEMS:
                 missing_items.add(f"Notable items list references unknown item '{item_name}'.")
+
+        for item_name, item_data in DEFAULT_ITEMS.items():
+            hidden_location = item_data.get("hidden_in_location")
+            if hidden_location and hidden_location not in LOCATIONS_DATA:
+                missing_items.add(f"Item '{item_name}' references unknown hidden location '{hidden_location}'.")
 
         if missing_items:
             self._print_color("Warning: Item data inconsistencies detected:", Colors.YELLOW)
@@ -805,7 +830,10 @@ class Game:
             self.low_ai_data_mode = not self.low_ai_data_mode
             self._print_color(f"Low AI Data Mode is now {'ON' if self.low_ai_data_mode else 'OFF'}.", Colors.MAGENTA)
             return False, False, 0, False # No action, no time, no atmospherics
-        else: self._print_color(f"Unknown command: '{command}'. Type 'help' for a list of actions.", Colors.RED); action_taken_this_turn = False; show_atmospherics_this_turn = False
+        else:
+            suggestions = self._get_command_suggestions(command)
+            suggestion_text = f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
+            self._print_color(f"Unknown command: '{command}'. Type 'help' for a list of actions.{suggestion_text}", Colors.RED); action_taken_this_turn = False; show_atmospherics_this_turn = False
         return action_taken_this_turn, show_atmospherics_this_turn, time_to_advance, False
 
     def _update_world_state_after_action(self, command, action_taken_this_turn, time_to_advance):
@@ -1141,7 +1169,7 @@ class Game:
                     self._print_color(f"You take the {item_found_in_loc['name']}" + (f" (x{actual_taken_qty})" if actual_taken_qty > 1 and (item_default_props.get("stackable") or item_default_props.get("value") is not None) else "") + ".", Colors.GREEN)
                     self.last_significant_event_summary = f"took the {item_found_in_loc['name']}."
                     if item_default_props.get("is_notable"): self.player_character.apparent_state = random.choice(["thoughtful", "burdened"])
-                    if self.player_character.name == "Rodion Raskolnikov" and item_found_in_loc["name"] == "Raskolnikov's axe":
+                    if self.player_character.name == "Rodion Raskolnikov" and item_found_in_loc["name"] == "raskolnikov's axe":
                         self.player_notoriety_level = min(3, max(0, self.player_notoriety_level + 0.5)); self._print_color("(Reclaiming the axe sends a shiver down your spine, a feeling of being marked.)", Colors.RED + Colors.DIM)
                     for npc in self.npcs_in_current_location:
                         if npc.name != self.player_character.name:
@@ -1228,7 +1256,7 @@ class Game:
     def _handle_talk_to_command(self, argument):
         """Handles the 'talk to [npc]' command."""
         if not argument: self._print_color("Who do you want to talk to?", Colors.RED); return False, False
-        if not self.npcs_in_current_location: print("There's no one here to talk to."); return False, False
+        if not self.npcs_in_current_location: self._print_color("There's no one here to talk to.", Colors.DIM); return False, False
         if not self.player_character: self._print_color("Cannot talk: Player character not available.", Colors.RED); return False, False
         target_name_input = argument.lower()
         target_npc, ambiguous = self._get_matching_npc(target_name_input)
@@ -1287,8 +1315,8 @@ class Game:
                 item_name = item_in_inventory.get("name")
                 if item_name in HIGHLY_NOTABLE_ITEMS_FOR_MEMORY: # Changed
                     sentiment = 0
-                    if item_name in ["Raskolnikov's axe", "bloodied rag"]: sentiment = -1
-                    elif item_name == "Sonya's Cypress Cross" and target_npc.name != "Sonya Marmeladova":
+                    if item_name in ["raskolnikov's axe", "bloodied rag"]: sentiment = -1
+                    elif item_name == "sonya's cypress cross" and target_npc.name != "Sonya Marmeladova":
                         if target_npc.name == "Porfiry Petrovich" and self.player_character.name == "Rodion Raskolnikov": sentiment = -1
                     target_npc.add_player_memory(memory_type="observed_player_inventory", turn=self.game_time, content={"item_name": item_name, "context": "player was carrying during conversation"}, sentiment_impact=sentiment)
             if self.player_character.name == "Rodion Raskolnikov" and target_npc and target_npc.name == "Porfiry Petrovich":
@@ -1303,9 +1331,9 @@ class Game:
         current_location_data = LOCATIONS_DATA.get(self.current_location_name)
         if not current_location_data: self._print_color(f"Error: Data for current location '{self.current_location_name}' is missing.", Colors.RED); return False, False
         location_exits = current_location_data.get("exits", {})
-        for target_loc_key, desc_text in location_exits.items():
-            if target_loc_key.lower() == target_exit_input or desc_text.lower().startswith(target_exit_input) or target_exit_input in desc_text.lower():
-                potential_target_loc_name = target_loc_key; break
+        potential_target_loc_name, ambiguous = self._get_matching_exit(target_exit_input, location_exits)
+        if ambiguous:
+            return False, False
         if potential_target_loc_name:
             old_location = self.current_location_name; self.current_location_name = potential_target_loc_name
             self.player_character.current_location = potential_target_loc_name; self.current_location_description_shown_this_visit = False
@@ -1371,7 +1399,7 @@ class Game:
             self.player_character.apparent_state = random.choice(["burdened", "agitated", "resolved"])
             if self.player_character.name == "Rodion Raskolnikov": self.player_character.add_player_memory(memory_type="reread_mother_letter", turn=self.game_time, content={"summary": "Re-reading mother's letter intensified feelings of duty and distress."}, sentiment_impact=-1)
             self.last_significant_event_summary = f"re-read the {item_to_use_name}."; return True
-        elif item_to_use_name == "Sonya's New Testament":
+        elif item_to_use_name == "sonya's new testament":
             self._print_color(f"You open {item_to_use_name}. The familiar words of the Gospels seem to both accuse and offer a sliver of hope.", Colors.GREEN)
             reflection = None
             prompt_context = f"reading from {item_to_use_name}, pondering Lazarus, guilt, and salvation"
@@ -1391,7 +1419,7 @@ class Game:
                 self.player_character.apparent_state = random.choice(["contemplative", "remorseful", "thoughtful", "hopeful"])
                 self.player_character.add_player_memory(memory_type="read_testament_sonya", turn=self.game_time, content={"summary": "Read from the New Testament, stirring deep thoughts of salvation and suffering."}, sentiment_impact=0)
             self.last_significant_event_summary = f"read from {item_to_use_name}."; return True
-        elif item_to_use_name == "Anonymous Note":
+        elif item_to_use_name == "anonymous note":
             if item_obj_in_inventory and "generated_content" in item_obj_in_inventory:
                 self._print_color(f"You read the {item_to_use_name}:", Colors.WHITE); self._print_color(f"\"{item_obj_in_inventory['generated_content']}\"", Colors.CYAN)
                 self.player_character.add_journal_entry("Note", item_obj_in_inventory['generated_content'], self._get_current_game_time_period_str()); self.last_significant_event_summary = f"read an {item_to_use_name}."
@@ -1438,12 +1466,12 @@ class Game:
         elif effect_key == "examine_bottle_for_residue" and item_to_use_name == "dusty bottle":
             self._print_color(f"You peer into the {item_to_use_name}. A faint, stale smell of cheap spirits lingers. It's long empty.", Colors.YELLOW)
             self.last_significant_event_summary = f"examined a {item_to_use_name}."; used_successfully = True
-        elif effect_key == "grip_axe_and_reminisce_horror" and item_to_use_name == "Raskolnikov's axe":
+        elif effect_key == "grip_axe_and_reminisce_horror" and item_to_use_name == "raskolnikov's axe":
             if self.player_character.name == "Rodion Raskolnikov":
                 self._print_color(f"You grip the {item_to_use_name}. Its cold weight is a familiar dread. The memories, sharp and bloody, flood your mind. You feel a wave of nausea, then a chilling resolve, then utter despair.", Colors.RED + Colors.BOLD)
                 self.player_character.apparent_state = random.choice(["dangerously agitated", "remorseful", "paranoid"]); self.last_significant_event_summary = f"held the axe, tormented by memories."; used_successfully = True
             else: self._print_color(f"You look at the {item_to_use_name}. It's a grim object, heavy and unsettling. Best left alone.", Colors.YELLOW); used_successfully = True
-        elif effect_key == "reflect_on_faith_and_redemption" and item_to_use_name == "Sonya's Cypress Cross":
+        elif effect_key == "reflect_on_faith_and_redemption" and item_to_use_name == "sonya's cypress cross":
             if self.player_character.name == "Rodion Raskolnikov":
                 self._print_color("You clutch the small cypress cross. It feels strangely significant in your hand, a stark contrast to the turmoil within you.", Colors.GREEN)
                 self.player_character.apparent_state = random.choice(["remorseful", "contemplative", "hopeful"]); self.last_significant_event_summary = f"held Sonya's cross, feeling its weight and Sonya's sacrifice."
@@ -1471,10 +1499,10 @@ class Game:
                 self.player_character.apparent_state = "agitated"
                 self._print_color("The vodka clashes terribly with your fever, making you feel worse.", Colors.RED)
             used_successfully = True; return True
-        elif effect_key == "examine_bundle_and_face_guilt_for_Lizaveta" and item_to_use_name == "Lizaveta's bundle":
+        elif effect_key == "examine_bundle_and_face_guilt_for_Lizaveta" and item_to_use_name == "lizaveta's bundle":
             self._print_color(f"You hesitantly open {item_to_use_name}. Inside are a few pitiful belongings: a worn shawl, a child's small wooden toy, a copper coin... The sight is a fresh stab of guilt for the gentle Lizaveta.", Colors.YELLOW)
-            if self.player_character.name == "Rodion Raskolnikov": self.player_character.apparent_state = "remorseful"; self.player_character.add_player_memory(memory_type="examined_lizavetas_bundle", turn=self.game_time, content={"summary": "Examined Lizaveta's bundle; the innocence of the items was a heavy burden."}, sentiment_impact=-1)
-            self.last_significant_event_summary = f"examined Lizaveta's bundle, increasing the weight of guilt."; used_successfully = True
+            if self.player_character.name == "Rodion Raskolnikov": self.player_character.apparent_state = "remorseful"; self.player_character.add_player_memory(memory_type="examined_lizavetas_bundle", turn=self.game_time, content={"summary": "Examined lizaveta's bundle; the innocence of the items was a heavy burden."}, sentiment_impact=-1)
+            self.last_significant_event_summary = f"examined lizaveta's bundle, increasing the weight of guilt."; used_successfully = True
         elif effect_key == "eat_bread_for_sustenance" and item_to_use_name == "Loaf of Black Bread":
             self._print_color(f"You tear off a piece of the dense {item_to_use_name}. It's coarse, but fills your stomach somewhat.", Colors.YELLOW)
             if self.player_character.apparent_state in ["burdened", "feverish", "despondent"]: self.player_character.apparent_state = "normal"; self._print_color("The bread provides a moment of simple relief.", Colors.CYAN)
@@ -1521,8 +1549,8 @@ class Game:
             item_name = item_in_inventory.get("name")
             if item_name in HIGHLY_NOTABLE_ITEMS_FOR_MEMORY: # Changed
                 sentiment = 0
-                if item_name in ["Raskolnikov's axe", "bloodied rag"]: sentiment = -1
-                elif item_name == "Sonya's Cypress Cross" and target_npc.name != "Sonya Marmeladova":
+                if item_name in ["raskolnikov's axe", "bloodied rag"]: sentiment = -1
+                elif item_name == "sonya's cypress cross" and target_npc.name != "Sonya Marmeladova":
                     if target_npc.name == "Porfiry Petrovich" and self.player_character.name == "Rodion Raskolnikov": sentiment = -1
                 target_npc.add_player_memory(memory_type="observed_player_inventory", turn=self.game_time, content={"item_name": item_name, "context": "player was carrying during persuasion attempt"}, sentiment_impact=sentiment)
         self.advance_time(TIME_UNITS_PER_PLAYER_ACTION); return True, True
