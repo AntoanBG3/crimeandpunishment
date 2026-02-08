@@ -304,6 +304,9 @@ class GeminiAPI:
         self._input_color_func = input_func
         self._print_color_func("\n--- Gemini API Key Configuration ---", Colors.MAGENTA)
 
+        if not self._load_genai():
+            return {"api_configured": False, "low_ai_preference": False}
+
         env_result = self._handle_env_key()
         if env_result is not None:
             return env_result
