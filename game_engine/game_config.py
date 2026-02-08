@@ -25,6 +25,7 @@ DREAM_CHANCE_TROUBLED_STATE = 0.35 # Chance if feverish, agitated etc. on new da
 RUMOR_CHANCE_PER_NPC_INTERACTION = 0.15 # Chance an NPC shares a rumor during dialogue
 AMBIENT_RUMOR_CHANCE_PUBLIC_PLACE = 0.05 # Chance to overhear ambient rumor in public
 NPC_SHARE_RUMOR_MIN_RELATIONSHIP = -2 # NPC won't share rumors if relationship is too low
+DEBUG_LOGS = False
 
 # --- Phrases that might indicate a natural end to a conversation ---
 CONCLUDING_PHRASES = [

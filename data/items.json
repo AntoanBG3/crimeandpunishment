@@ -20,7 +20,7 @@
         "takeable": true, "readable": true,
         "use_effect_player": "read_newspaper_for_news_or_thoughts"
     },
-    "Fresh Newspaper": {
+    "fresh newspaper": {
         "description": "A recently printed newspaper, still smelling faintly of ink. The headlines might offer insights into current events or the city's mood.",
         "takeable": true, "readable": true, "value": 2,
         "use_effect_player": "read_evolving_news_article"
