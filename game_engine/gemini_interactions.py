@@ -1,7 +1,8 @@
 # gemini_interactions.py
-import google.generativeai as genai
 import os
 import json
+import importlib
+import importlib.util
 
 # --- Self-contained API Configuration Constants ---
 API_CONFIG_FILE = "gemini_config.json"
@@ -13,9 +14,23 @@ from .game_config import Colors
 class GeminiAPI:
     def __init__(self):
         self.model = None
+        self.genai = None
+        self._genai_warning_shown = False
         self.chosen_model_name = DEFAULT_GEMINI_MODEL_NAME # Initialize with default
         self._print_color_func = lambda text, color, end="\n": print(f"{color}{text}{Colors.RESET}", end=end)
         self._input_color_func = lambda prompt, color: input(f"{color}{prompt}{Colors.RESET}")
+
+    def _load_genai(self):
+        if self.genai:
+            return True
+        spec = importlib.util.find_spec("google.generativeai")
+        if spec is None:
+            if not self._genai_warning_shown:
+                self._log_message("Gemini API library not installed. Running with placeholder responses.", Colors.YELLOW)
+                self._genai_warning_shown = True
+            return False
+        self.genai = importlib.import_module("google.generativeai")
+        return True
 
     def _log_message(self, text, color, end="\n"):
         if hasattr(self, '_print_color_func') and callable(self._print_color_func):
@@ -57,16 +72,19 @@ class GeminiAPI:
             self._log_message(f"Internal: _attempt_api_setup called with no API key from {source}.", Colors.RED)
             self.model = None
             return False
+        if not self._load_genai():
+            self.model = None
+            return False
             
         try:
-            genai.configure(api_key=api_key)
+            self.genai.configure(api_key=api_key)
         except Exception as e_config:
             self._print_color_func(f"Error configuring Gemini API (genai.configure using key from {source}): {e_config}", Colors.RED)
             self.model = None
             return False
 
         try:
-            model_instance = genai.GenerativeModel(model_to_use) # Use the passed model_to_use
+            model_instance = self.genai.GenerativeModel(model_to_use) # Use the passed model_to_use
         except Exception as model_e:
             self._print_color_func(f"Error instantiating Gemini model '{model_to_use}' (key from {source}): {model_e}", Colors.RED)
             self._print_color_func(f"The API key might be valid, but there's an issue with model '{model_to_use}' (e.g., name, access permissions).", Colors.YELLOW)
@@ -83,7 +101,7 @@ class GeminiAPI:
             ]
             test_response = model_instance.generate_content(
                 "This is a test of the API. Please respond with the word 'test' to confirm.",
-                generation_config=genai.types.GenerationConfig(candidate_count=1, max_output_tokens=5),
+                generation_config=self.genai.types.GenerationConfig(candidate_count=1, max_output_tokens=5),
                 safety_settings=safety_settings
             )
 
@@ -210,7 +228,9 @@ class GeminiAPI:
                 if preferred_model_from_config != DEFAULT_GEMINI_MODEL_NAME:
                     self._log_message(f"Loaded preferred model '{preferred_model_from_config}' from config.", Colors.YELLOW)
 
-                genai.configure(api_key=key_to_try)
+                if not self._load_genai():
+                    return {"api_configured": False, "low_ai_preference": False}
+                self.genai.configure(api_key=key_to_try)
                 self._log_message(f"genai.configure() successful with key from {key_source}.", Colors.GREEN)
 
                 if self._attempt_api_setup(key_to_try, key_source, preferred_model_from_config):
@@ -245,7 +265,9 @@ class GeminiAPI:
                 return {"api_configured": False, "low_ai_preference": False}
             
             try:
-                genai.configure(api_key=manual_api_key_input)
+                if not self._load_genai():
+                    return {"api_configured": False, "low_ai_preference": False}
+                self.genai.configure(api_key=manual_api_key_input)
                 self._log_message(f"genai.configure() successful with manually entered key.", Colors.GREEN)
             except Exception as e_manual_initial_config:
                  self._print_color_func(f"Error initially configuring Gemini API with manually entered key: {e_manual_initial_config}", Colors.RED)
@@ -374,7 +396,7 @@ class GeminiAPI:
         The player is also carrying these notable items: '{player_notable_items_summary}'.
         If any of these items are particularly striking, unusual for the player to carry, or relevant to your knowledge or suspicions (e.g., an axe, a bloodied item, a sacred symbol in an unexpected context), your dialogue should reflect your awareness of them.
         Your reaction could range from subtle curiosity, suspicion, concern, fear, or even a direct comment, depending on your personality, the item, and the situation.
-        For instance, if the player is carrying 'Raskolnikov's axe', a character like Porfiry might make an indirect or probing remark, while Sonya might show distress if she saw a 'bloodied rag'.
+        For instance, if the player is carrying 'raskolnikov's axe', a character like Porfiry might make an indirect or probing remark, while Sonya might show distress if she saw a 'bloodied rag'.
         This awareness should be naturally integrated into your response. Do not simply list the items you see.
         """
 

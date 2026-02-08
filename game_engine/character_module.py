@@ -3,6 +3,7 @@ import random
 import copy
 import logging
 import json
+from .game_config import DEBUG_LOGS
 
 def load_characters_data(data_path='data/characters.json'):
     """Loads character data from a JSON file."""
@@ -519,7 +520,8 @@ class Character:
                 else:
                     # Player memories are simple strings
                     self.memory_about_player.append(f"Objective '{obj_desc}' concluded with stage '{stage_desc_for_memory}'.")
-                print(f"[DEBUG] Player {self.name} completed objective: {obj_desc} (Stage: {stage_desc_for_memory if by_stage else 'N/A'})")
+                    if DEBUG_LOGS:
+                        print(f"[DEBUG] Player {self.name} completed objective: {obj_desc} (Stage: {stage_desc_for_memory if by_stage else 'N/A'})")
 
             link_info = None
             current_stage = self.get_current_stage_for_objective(objective_id)
@@ -543,41 +545,49 @@ class Character:
                     if target_objective:
                         target_obj_desc = target_objective.get('description', 'Unnamed Linked Objective')
                         if not target_objective.get("active", False) and not target_objective.get("completed", False) :
-                            print(f"[DEBUG] Linking: Activating objective '{target_obj_desc}' due to completion of '{obj_desc}'.")
+                            if DEBUG_LOGS:
+                                print(f"[DEBUG] Linking: Activating objective '{target_obj_desc}' due to completion of '{obj_desc}'.")
                             self.activate_objective(target_objective_id) 
                             if specific_next_stage_id and target_objective.get("current_stage_id") != specific_next_stage_id :
-                                print(f"[DEBUG] Linking: Advancing newly activated objective '{target_obj_desc}' to specific stage '{specific_next_stage_id}'.")
+                                if DEBUG_LOGS:
+                                    print(f"[DEBUG] Linking: Advancing newly activated objective '{target_obj_desc}' to specific stage '{specific_next_stage_id}'.")
                                 self.advance_objective_stage(target_objective_id, specific_next_stage_id)
                             if self.is_player: # Player memories are simple strings
                                 self.memory_about_player.append(f"Completing '{obj_desc}' has opened up new paths regarding '{target_obj_desc}'.")
                         
                         elif target_objective.get("active", False) and not target_objective.get("completed", False):
                             if specific_next_stage_id:
-                                print(f"[DEBUG] Linking: Advancing active objective '{target_obj_desc}' to specific stage '{specific_next_stage_id}' due to '{obj_desc}'.")
+                                if DEBUG_LOGS:
+                                    print(f"[DEBUG] Linking: Advancing active objective '{target_obj_desc}' to specific stage '{specific_next_stage_id}' due to '{obj_desc}'.")
                                 if self.advance_objective_stage(target_objective_id, specific_next_stage_id):
                                      if self.is_player: # Player memories are simple strings
                                         self.memory_about_player.append(f"Progress on '{obj_desc}' has further developed your understanding of '{target_obj_desc}'.")
-                                else: print(f"[DEBUG] Linking: Failed to advance '{target_obj_desc}' to stage '{specific_next_stage_id}'.")
+                                elif DEBUG_LOGS:
+                                    print(f"[DEBUG] Linking: Failed to advance '{target_obj_desc}' to stage '{specific_next_stage_id}'.")
                             else:
                                 current_target_stage = self.get_current_stage_for_objective(target_objective_id)
                                 if current_target_stage and current_target_stage.get("next_stages"):
                                     potential_next_ids = current_target_stage["next_stages"]
                                     if isinstance(potential_next_ids, dict) and potential_next_ids:
                                         auto_next_stage_id = next(iter(potential_next_ids.values()))
-                                        print(f"[DEBUG] Linking: Attempting generic advance for active objective '{target_obj_desc}' to its next stage '{auto_next_stage_id}' due to '{obj_desc}'.")
+                                        if DEBUG_LOGS:
+                                            print(f"[DEBUG] Linking: Attempting generic advance for active objective '{target_obj_desc}' to its next stage '{auto_next_stage_id}' due to '{obj_desc}'.")
                                         if self.advance_objective_stage(target_objective_id, auto_next_stage_id):
                                             if self.is_player: # Player memories are simple strings
                                                 self.memory_about_player.append(f"Progress on '{obj_desc}' has influenced your approach to '{target_obj_desc}'.")
                                     elif isinstance(potential_next_ids, list) and potential_next_ids:
                                          auto_next_stage_id = potential_next_ids[0]
-                                         print(f"[DEBUG] Linking: Attempting generic advance for active objective '{target_obj_desc}' to its next stage '{auto_next_stage_id}' due to '{obj_desc}'.")
+                                         if DEBUG_LOGS:
+                                             print(f"[DEBUG] Linking: Attempting generic advance for active objective '{target_obj_desc}' to its next stage '{auto_next_stage_id}' due to '{obj_desc}'.")
                                          if self.advance_objective_stage(target_objective_id, auto_next_stage_id):
                                             if self.is_player: # Player memories are simple strings
                                                 self.memory_about_player.append(f"Progress on '{obj_desc}' has influenced your approach to '{target_obj_desc}'.")
                                     else:
-                                        print(f"[DEBUG] Linking: Objective '{target_obj_desc}' is active, but current stage has no defined 'next_stages' for generic advance.")
+                                        if DEBUG_LOGS:
+                                            print(f"[DEBUG] Linking: Objective '{target_obj_desc}' is active, but current stage has no defined 'next_stages' for generic advance.")
                                 else:
-                                    print(f"[DEBUG] Linking: Objective '{target_obj_desc}' is active, but current stage or its 'next_stages' are not clearly defined for generic advance.")
+                                    if DEBUG_LOGS:
+                                        print(f"[DEBUG] Linking: Objective '{target_obj_desc}' is active, but current stage or its 'next_stages' are not clearly defined for generic advance.")
             return True
         return False
 
@@ -592,7 +602,8 @@ class Character:
                 if any(s.get("stage_id") == set_stage_id for s in obj.get("stages", [])):
                     initial_stage_id_to_set = set_stage_id
                 else:
-                    print(f"[DEBUG] Warning: Requested stage_id '{set_stage_id}' for activating objective '{objective_id}' not found. Defaulting to first stage.")
+                    if DEBUG_LOGS:
+                        print(f"[DEBUG] Warning: Requested stage_id '{set_stage_id}' for activating objective '{objective_id}' not found. Defaulting to first stage.")
 
             if not initial_stage_id_to_set: 
                 if obj.get("stages") and obj["stages"][0].get("stage_id"):
@@ -608,7 +619,8 @@ class Character:
             current_stage_desc = self.get_current_stage_for_objective(objective_id).get('description', 'initial stage')
             if self.is_player: # Player memories are simple strings
                 self.memory_about_player.append(f"New objective active or re-activated: '{obj.get('description', 'Unnamed Objective')}' (Current stage: '{current_stage_desc}').")
-            print(f"[DEBUG] Player {self.name} activated objective: {obj.get('description')} - now at stage '{current_stage_desc}'")
+            if DEBUG_LOGS:
+                print(f"[DEBUG] Player {self.name} activated objective: {obj.get('description')} - now at stage '{current_stage_desc}'")
             return True
         return False
 
@@ -625,5 +637,6 @@ class Character:
         success = (skill_value + d6_roll) >= target_number
         
         # Debug message as specified in prompt
-        print(f"[Skill Check] {self.name} attempting {skill_name} (Value: {skill_value}, Roll: {d6_roll}, Threshold: {difficulty_threshold}): {'Success' if success else 'Failure'}")
+        if DEBUG_LOGS:
+            print(f"[Skill Check] {self.name} attempting {skill_name} (Value: {skill_value}, Roll: {d6_roll}, Threshold: {difficulty_threshold}): {'Success' if success else 'Failure'}")
         return success

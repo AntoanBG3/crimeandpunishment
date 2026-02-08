@@ -16,7 +16,7 @@ Step into the tormented mind of Rodion Raskolnikov, the saintly Sonya Marmeladov
 ## Features
 
 * **Rich Narrative Core:** Follow branching objectives mirroring the novel's complexity, such as Raskolnikov's "Grapple with Crime" or Sonya's "Guide Raskolnikov".
-* **Interactive Item System:** Find, use, and give items like "Raskolnikov's axe," "Sonya's New Testament," or AI-generated "Anonymous Notes" that can drive the plot or reveal character insights.
+* **Interactive Item System:** Find, use, and give items like "raskolnikov's axe," "sonya's new testament," or AI-generated "anonymous notes" that can drive the plot or reveal character insights.
 * **Dynamic Events:** Encounter scripted and emergent events, from Marmeladov's tragic tavern confessions to Katerina Ivanovna's public laments, or even find mysterious notes reacting to your deeds.
 * **Psychological Depth:** Explore your character's inner world through AI-generated reflections, dreams, and observations.
 * **Persistent World:** Save and load your progress at any time.

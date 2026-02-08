@@ -1,6 +1,6 @@
 # event_manager.py
 import random
-from .game_config import (Colors, DEFAULT_ITEMS,
+from .game_config import (Colors, DEFAULT_ITEMS, DEBUG_LOGS,
                          STATIC_PLAYER_REFLECTIONS, STATIC_ANONYMOUS_NOTE_CONTENT,
                          STATIC_STREET_LIFE_EVENTS, STATIC_NPC_NPC_INTERACTIONS)
 
@@ -191,13 +191,13 @@ class EventManager:
             event_desc = f"Tucked into your doorframe (or perhaps slipped under your door), you find a hastily folded piece of paper. It's an anonymous note."
             self._print_event(event_desc)
             
-            # Create the "Anonymous Note" item instance with this specific content
+            # Create the "anonymous note" item instance with this specific content
             # Option 1: Add to location (player must then take it)
-            note_item_instance = {"name": "Anonymous Note", "quantity": 1, "generated_content": note_text}
-            # Ensure the base "Anonymous Note" is in DEFAULT_ITEMS with readable=True
-            if "Anonymous Note" in DEFAULT_ITEMS:
+            note_item_instance = {"name": "anonymous note", "quantity": 1, "generated_content": note_text}
+            # Ensure the base "anonymous note" is in DEFAULT_ITEMS with readable=True
+            if "anonymous note" in DEFAULT_ITEMS:
                 self.game.dynamic_location_items.setdefault(self.game.current_location_name, []).append(note_item_instance)
-                self.game._print_color(f"An {Colors.GREEN}Anonymous Note{Colors.RESET} appears on the floor.", Colors.YELLOW) # Changed self to self.game
+                self.game._print_color(f"An {Colors.GREEN}anonymous note{Colors.RESET} appears on the floor.", Colors.YELLOW) # Changed self to self.game
                 self.game.player_character.add_journal_entry("Note Found", f"Found an anonymous note: {note_text[:30]}...", self.game._get_current_game_time_period_str())
 
             else: # Fallback if item not defined well
@@ -250,7 +250,8 @@ class EventManager:
 
     def check_and_trigger_events(self):
         if self.game.game_time % 50 == 0: # Cooldown reset periodically
-            print(f"[DEBUG] EventManager: Checking event cooldowns at game time {self.game.game_time}")
+            if DEBUG_LOGS:
+                print(f"[DEBUG] EventManager: Checking event cooldowns at game time {self.game.game_time}")
             events_to_remove = {ev for ev in self.triggered_events if ev.endswith("_recent")}
             for ev_rem in events_to_remove: self.triggered_events.remove(ev_rem)
 

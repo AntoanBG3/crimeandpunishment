@@ -25,6 +25,7 @@ DREAM_CHANCE_TROUBLED_STATE = 0.35 # Chance if feverish, agitated etc. on new da
 RUMOR_CHANCE_PER_NPC_INTERACTION = 0.15 # Chance an NPC shares a rumor during dialogue
 AMBIENT_RUMOR_CHANCE_PUBLIC_PLACE = 0.05 # Chance to overhear ambient rumor in public
 NPC_SHARE_RUMOR_MIN_RELATIONSHIP = -2 # NPC won't share rumors if relationship is too low
+DEBUG_LOGS = False
 
 # --- Phrases that might indicate a natural end to a conversation ---
 CONCLUDING_PHRASES = [
@@ -104,8 +105,8 @@ SEPARATOR_LINE = Colors.DIM + ("-" * 60) + Colors.RESET
 
 # --- NPC Memory Configuration ---
 HIGHLY_NOTABLE_ITEMS_FOR_MEMORY = [
-    "Raskolnikov's axe", "bloodied rag", "Lizaveta's bundle",
-    "Sonya's Cypress Cross", "Sonya's New Testament", "mother's letter"
+    "raskolnikov's axe", "bloodied rag", "lizaveta's bundle",
+    "sonya's cypress cross", "sonya's new testament", "mother's letter"
 ]
 
 # --- Generic Scenery Keywords (for "look at scenery") ---
