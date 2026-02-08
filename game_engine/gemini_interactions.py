@@ -7,7 +7,7 @@ import importlib.util
 # --- Self-contained API Configuration Constants ---
 API_CONFIG_FILE = "gemini_config.json"
 GEMINI_API_KEY_ENV_VAR = "GEMINI_API_KEY"
-DEFAULT_GEMINI_MODEL_NAME = 'gemini-3-pro-preview' # Updated Default
+DEFAULT_GEMINI_MODEL_NAME = 'gemini-3-flash-preview' # Updated Default
 
 from .game_config import Colors
 
