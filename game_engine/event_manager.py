@@ -1,6 +1,6 @@
 # event_manager.py
 import random
-from .game_config import (Colors, DEFAULT_ITEMS,
+from .game_config import (Colors, DEFAULT_ITEMS, DEBUG_LOGS,
                          STATIC_PLAYER_REFLECTIONS, STATIC_ANONYMOUS_NOTE_CONTENT,
                          STATIC_STREET_LIFE_EVENTS, STATIC_NPC_NPC_INTERACTIONS)
 
@@ -250,7 +250,8 @@ class EventManager:
 
     def check_and_trigger_events(self):
         if self.game.game_time % 50 == 0: # Cooldown reset periodically
-            print(f"[DEBUG] EventManager: Checking event cooldowns at game time {self.game.game_time}")
+            if DEBUG_LOGS:
+                print(f"[DEBUG] EventManager: Checking event cooldowns at game time {self.game.game_time}")
             events_to_remove = {ev for ev in self.triggered_events if ev.endswith("_recent")}
             for ev_rem in events_to_remove: self.triggered_events.remove(ev_rem)
 

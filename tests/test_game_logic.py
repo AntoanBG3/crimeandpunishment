@@ -37,7 +37,7 @@ TEST_GAME_ITEMS = { # For TestItemEffects
     "tattered handkerchief": {"description": "A worn piece of cloth.", "use_effect_player": "comfort_self_if_ill"},
     "Raskolnikov's axe": {"description": "A weighty axe.", "use_effect_player": "grip_axe_and_reminisce_horror"},
     "cheap vodka": {"description": "A bottle of cheap spirits.", "use_effect_player": "drink_vodka_for_oblivion", "consumable": True, "stackable": True},
-    "Fresh Newspaper": {"description": "Today's news.", "readable": True, "use_effect_player": "read_evolving_news_article"},
+    "fresh newspaper": {"description": "Today's news.", "readable": True, "use_effect_player": "read_evolving_news_article"},
     "mother's letter": {"description": "A letter from Pulcheria.", "readable": True, "use_effect_player": "reread_letter_and_feel_familial_pressure"},
 }
 
@@ -702,10 +702,10 @@ class TestItemEffects(unittest.TestCase):
         self.game._print_color.assert_any_call("The vodka clashes terribly with your fever, making you feel worse.", Colors.RED)
 
     def test_read_newspaper(self):
-        self.player.inventory.append({"name": "Fresh Newspaper", "quantity": 1})
+        self.player.inventory.append({"name": "fresh newspaper", "quantity": 1})
         self.player.add_journal_entry = MagicMock()
         self.game.gemini_api.get_newspaper_article_snippet = MagicMock(return_value="A terrible crime was reported...")
-        self.game.handle_use_item("Fresh Newspaper", None, "read")
+        self.game.handle_use_item("fresh newspaper", None, "read")
         self.game.gemini_api.get_newspaper_article_snippet.assert_called_once()
         self.player.add_journal_entry.assert_called_once_with("News (AI)", "A terrible crime was reported...", "Day 1, Morning") # Updated "News" to "News (AI)"
         self.assertEqual(self.player.apparent_state, "thoughtful")
@@ -1026,11 +1026,11 @@ class TestLowAIMode(unittest.TestCase):
         # For now, we just ensure the primary AI call is skipped. A more robust test would check base_desc.
 
     @patch('game_engine.game_state.DEFAULT_ITEMS', {
-        "Fresh Newspaper": {"description": "Today's news.", "readable": True}
+        "fresh newspaper": {"description": "Today's news.", "readable": True}
     })
     def test_read_newspaper_low_ai_mode(self):
         self.game.low_ai_data_mode = True
-        self.game.player_character.inventory = [{"name": "Fresh Newspaper", "quantity": 1}]
+        self.game.player_character.inventory = [{"name": "fresh newspaper", "quantity": 1}]
         self.game.gemini_api.get_newspaper_article_snippet = MagicMock()
 
         expected_snippet = "The headlines are dull today."
@@ -1039,7 +1039,7 @@ class TestLowAIMode(unittest.TestCase):
         # Ensure the item exists in player's inventory for _handle_read_item
         # The _handle_read_item is called from handle_use_item
         with patch('game_engine.game_state.STATIC_NEWSPAPER_SNIPPETS', [expected_snippet, "Other news."]):
-             self.game.handle_use_item("Fresh Newspaper", None, "read") # Correct way to trigger _handle_read_item
+             self.game.handle_use_item("fresh newspaper", None, "read") # Correct way to trigger _handle_read_item
 
         # Static newspaper snippets are printed with YELLOW in the current implementation if AI was not attempted
         # but if low_ai_data_mode is true, it's CYAN.
