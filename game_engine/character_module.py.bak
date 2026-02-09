@@ -21,8 +21,7 @@ CHARACTERS_DATA = load_characters_data()
 
 class Character:
     def __init__(self, name, persona, greeting, default_location, accessible_locations,
-                 objectives=None, inventory_items=None, schedule=None, npc_relationships=None, skills_data=None,
-                 psychology=None, is_player=False):
+                 objectives=None, inventory_items=None, schedule=None, npc_relationships=None, skills_data=None, is_player=False):
         self.name = name
         self.persona = persona
         self.greeting = greeting
@@ -36,13 +35,6 @@ class Character:
         self.relationship_with_player = 0
         self.npc_relationships = copy.deepcopy(npc_relationships) if npc_relationships is not None else {}
         self.skills = copy.deepcopy(skills_data) if skills_data is not None else {}
-        default_psychology = {"suspicion": 0, "fear": 0, "respect": 50}
-        if psychology is None:
-            self.psychology = copy.deepcopy(default_psychology)
-        else:
-            merged_psychology = copy.deepcopy(default_psychology)
-            merged_psychology.update(psychology)
-            self.psychology = merged_psychology
         
         self.objectives = []
         if objectives:
@@ -106,7 +98,6 @@ class Character:
             "objectives": self.objectives,
             "inventory": self.inventory,
             "apparent_state": self.apparent_state,
-            "psychology": self.psychology,
         }
 
     @classmethod
@@ -124,7 +115,6 @@ class Character:
             schedule=static_char_data_safe.get("schedule", {}),
             npc_relationships=static_char_data_safe.get("npc_relationships", {}), 
             skills_data=static_char_data_safe.get("skills", {}),
-            psychology=static_char_data_safe.get("psychology"),
             is_player=data.get("is_player", False) 
         )
         
@@ -134,11 +124,6 @@ class Character:
         char.journal_entries = data.get("journal_entries", []) 
         char.relationship_with_player = data.get("relationship_with_player", 0)
         char.apparent_state = data.get("apparent_state", static_char_data_safe.get("apparent_state", "normal"))
-        saved_psychology = data.get("psychology")
-        if saved_psychology is not None:
-            merged_psychology = copy.deepcopy(char.psychology)
-            merged_psychology.update(saved_psychology)
-            char.psychology = merged_psychology
 
         saved_npc_relationships = data.get("npc_relationships")
         if saved_npc_relationships is not None:
@@ -201,22 +186,6 @@ class Character:
         
         char.objectives = final_objectives_list
         return char
-
-    def apply_psychology_changes(self, stat_changes):
-        if not isinstance(stat_changes, dict):
-            return
-        for stat_name, delta in stat_changes.items():
-            if stat_name not in self.psychology:
-                continue
-            try:
-                delta_value = int(delta)
-            except (TypeError, ValueError):
-                continue
-            current_value = self.psychology.get(stat_name, 0)
-            updated_value = max(0, min(100, current_value + delta_value))
-            self.psychology[stat_name] = updated_value
-            if DEBUG_LOGS:
-                print(f"[DEBUG] {self.name} psychology '{stat_name}' changed by {delta_value} -> {updated_value}")
 
     def add_to_inventory(self, item_name, quantity=1):
         from .game_config import DEFAULT_ITEMS
