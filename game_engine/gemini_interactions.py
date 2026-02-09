@@ -11,9 +11,115 @@ from types import SimpleNamespace
 # --- Self-contained API Configuration Constants ---
 API_CONFIG_FILE = "gemini_config.json"
 GEMINI_API_KEY_ENV_VAR = "GEMINI_API_KEY"
-DEFAULT_GEMINI_MODEL_NAME = 'gemini-2.5-pro'
+DEFAULT_GEMINI_MODEL_NAME = 'gemini-3-pro-preview'
 
 from .game_config import Colors
+
+
+class NaturalLanguageParser:
+    """Translate free-form player input into structured game intents."""
+
+    INTENT_SCHEMA = {
+        "intent": ["move", "take", "examine", "talk", "unknown"],
+        "target": "string",
+        "confidence": "float (0-1)"
+    }
+
+    def __init__(self, gemini_api):
+        self.gemini_api = gemini_api
+
+    def _contains_unsafe_request(self, input_text):
+        lowered = input_text.lower()
+        unsafe_phrases = [
+            "kill myself",
+            "suicide",
+            "self harm",
+            "harm myself",
+            "bomb",
+            "terrorist",
+            "rape"
+        ]
+        return any(phrase in lowered for phrase in unsafe_phrases)
+
+    def _select_intent_model(self):
+        if not self.gemini_api._load_genai():
+            return self.gemini_api.model
+        try:
+            return self.gemini_api.genai.GenerativeModel("gemini-3-flash-preview")
+        except Exception:
+            return self.gemini_api.model
+
+    def parse_player_intent(self, input_text, current_context):
+        default_response = {"intent": "unknown", "target": "", "confidence": 0.0}
+        if not input_text or not input_text.strip():
+            return default_response
+        if self._contains_unsafe_request(input_text):
+            return default_response
+        if not self.gemini_api.model:
+            return default_response
+
+        exits = current_context.get("exits", [])
+        items = current_context.get("items", [])
+        npcs = current_context.get("npcs", [])
+        inventory = current_context.get("inventory", [])
+
+        exits_text = ", ".join(
+            [f"{exit_info['name']} ({exit_info['description']})" for exit_info in exits]
+        ) if exits else "none"
+        items_text = ", ".join(items) if items else "none"
+        npcs_text = ", ".join(npcs) if npcs else "none"
+        inventory_text = ", ".join(inventory) if inventory else "none"
+
+        schema = json.dumps(self.INTENT_SCHEMA, ensure_ascii=False)
+        sanitized_input = input_text.replace("\"", "\\\"")
+
+        prompt = (
+            "You are an intent classifier for a text adventure game. "
+            "Map the player's input to a JSON object following the schema exactly. "
+            "Only choose targets from the provided lists. "
+            "If the player expresses a refusal, negation, or the target is not available, return intent 'unknown'. "
+            "If the input requests unsafe or disallowed actions, return intent 'unknown'. "
+            "Return JSON only, no markdown or code fences.\n"
+            f"Schema: {schema}\n"
+            f"Available exits: {exits_text}\n"
+            f"Available items in room: {items_text}\n"
+            f"Available NPCs: {npcs_text}\n"
+            f"Player inventory: {inventory_text}\n"
+            f"Player input: \"{sanitized_input}\"\n"
+        )
+
+        model = self._select_intent_model()
+        try:
+            if hasattr(self.gemini_api.genai, "types"):
+                generation_config = self.gemini_api.genai.types.GenerationConfig(
+                    candidate_count=1,
+                    max_output_tokens=120,
+                    temperature=0.1,
+                )
+                response = model.generate_content(prompt, generation_config=generation_config)
+            else:
+                response = model.generate_content(prompt)
+        except Exception:
+            return default_response
+
+        raw_text = response.text.strip() if hasattr(response, "text") and response.text else ""
+        payload = self.gemini_api._extract_json_payload(raw_text)
+        if not isinstance(payload, dict):
+            return default_response
+
+        intent = payload.get("intent", "unknown")
+        target = payload.get("target", "")
+        confidence = payload.get("confidence", 0.0)
+        if intent not in self.INTENT_SCHEMA["intent"]:
+            intent = "unknown"
+        if not isinstance(target, str):
+            target = ""
+        try:
+            confidence = float(confidence)
+        except (TypeError, ValueError):
+            confidence = 0.0
+        confidence = max(0.0, min(1.0, confidence))
+        return {"intent": intent, "target": target.strip(), "confidence": confidence}
 
 class GeminiAPI:
     def __init__(self):
@@ -157,12 +263,12 @@ class GeminiAPI:
             return False
 
     def _ask_for_model_selection(self):
-        # DEFAULT_GEMINI_MODEL_NAME should be 'gemini-2.5-pro' at file level
+        # DEFAULT_GEMINI_MODEL_NAME should be 'gemini-3-pro-preview' at file level
 
         self._print_color_func("\nPlease select which Gemini model to use:", Colors.CYAN)
         models_map = {
-            "1": {"name": "Gemini 2.5 Pro (Default)", "id": "gemini-2.5-pro"},
-            "2": {"name": "Gemini Flash Latest", "id": "gemini-flash-latest"}
+            "1": {"name": "Gemini 3 Pro Preview (Default)", "id": "gemini-3-pro-preview"},
+            "2": {"name": "Gemini 3 Flash Preview", "id": "gemini-3-flash-preview"}
         }
 
         # Dynamically create the display map to ensure the default model from DEFAULT_GEMINI_MODEL_NAME is marked
@@ -187,7 +293,7 @@ class GeminiAPI:
             choice = self._input_color_func(f"Enter your choice (1-{len(display_map_for_prompt)}), or press Enter for default): ", Colors.MAGENTA).strip()
             if not choice: 
                 self._print_color_func(f"Using default model: {default_model_display_name}", Colors.YELLOW)
-                return DEFAULT_GEMINI_MODEL_NAME # This should be the ID 'gemini-2.5-pro'
+                return DEFAULT_GEMINI_MODEL_NAME # This should be the ID 'gemini-3-pro-preview'
             if choice in display_map_for_prompt: # Check against keys of display_map_for_prompt
                 self._print_color_func(f"You selected: {display_map_for_prompt[choice]['name']}", Colors.GREEN)
                 return display_map_for_prompt[choice]['id']
