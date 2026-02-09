@@ -23,7 +23,7 @@ from .game_config import (Colors, SAVE_GAME_FILE, # API_CONFIG_FILE, GEMINI_MODE
 from .game_config import DEBUG_LOGS
 from .character_module import Character, CHARACTERS_DATA
 from .location_module import LOCATIONS_DATA
-from .gemini_interactions import GeminiAPI
+from .gemini_interactions import GeminiAPI, NaturalLanguageParser
 from .event_manager import EventManager
 
 
@@ -36,6 +36,7 @@ class Game:
         self.dynamic_location_items = {}
 
         self.gemini_api = GeminiAPI()
+        self.nl_parser = NaturalLanguageParser(self.gemini_api)
         self.event_manager = EventManager(self)
         # self.game_config = __import__('game_config') # Removed
 
@@ -142,6 +143,45 @@ class Game:
             self._print_color(f"Which exit did you mean? {', '.join(matches)}", Colors.YELLOW)
             return None, True
         return matches[0], False
+
+    def _is_known_command(self, command):
+        if not command:
+            return False
+        known_commands = set(COMMAND_SYNONYMS.keys())
+        known_commands.update(["select_item"])
+        return command in known_commands
+
+    def _build_intent_context(self):
+        current_location_data = LOCATIONS_DATA.get(self.current_location_name, {})
+        exits = []
+        for exit_target, exit_desc in current_location_data.get("exits", {}).items():
+            exits.append({"name": exit_target, "description": exit_desc})
+        items = [item_info["name"] for item_info in self.dynamic_location_items.get(self.current_location_name, [])]
+        npcs = [npc.name for npc in self.npcs_in_current_location]
+        inventory = [item_info["name"] for item_info in self.player_character.inventory] if self.player_character else []
+        return {"exits": exits, "items": items, "npcs": npcs, "inventory": inventory}
+
+    def _handle_unknown_intent(self):
+        self._print_color("Your mind is too clouded to focus on that.", Colors.YELLOW)
+
+    def _interpret_with_nlp(self, raw_input):
+        context = self._build_intent_context()
+        intent_payload = self.nl_parser.parse_player_intent(raw_input, context)
+        if intent_payload.get("intent") == "unknown" or intent_payload.get("confidence", 0.0) < 0.7:
+            self._handle_unknown_intent()
+            return None, None
+        intent = intent_payload.get("intent")
+        target = intent_payload.get("target")
+        if intent == "move":
+            return "move to", target
+        if intent == "take":
+            return "take", target
+        if intent == "examine":
+            return "look", target
+        if intent == "talk":
+            return "talk to", target
+        self._handle_unknown_intent()
+        return None, None
 
     def _display_item_properties(self, item_default):
         properties_to_display = []
@@ -747,6 +787,19 @@ class Game:
         time_info = self._get_current_game_time_period_str()
         prompt_text = f"\n[{Colors.DIM}{time_info}{Colors.RESET} | {Colors.CYAN}{self.current_location_name}{Colors.RESET} ({player_state_info})]{hint_string} What do you do? {PROMPT_ARROW}"
         raw_action_input = self._input_color(prompt_text, Colors.WHITE)
+        fast_input = raw_action_input.strip().lower()
+        fast_map = {
+            "n": ("move to", "north"),
+            "s": ("move to", "south"),
+            "e": ("move to", "east"),
+            "w": ("move to", "west"),
+            "look": ("look", None),
+            "l": ("look", None),
+            "inv": ("inventory", None),
+            "i": ("inventory", None),
+        }
+        if fast_input in fast_map:
+            return fast_map[fast_input]
         try:
             action_number = int(raw_action_input)
             if 1 <= action_number <= len(self.numbered_actions_context):
@@ -758,8 +811,22 @@ class Game:
                 elif action_type == 'look_at_item': return 'look', target
                 elif action_type == 'look_at_npc': return 'look', target
                 elif action_info['type'] == 'select_item': return ('select_item', action_info['target'])
-            else: return self.parse_action(raw_action_input)
-        except ValueError: return self.parse_action(raw_action_input)
+            else:
+                parsed_command, parsed_argument = self.parse_action(raw_action_input)
+                if self._is_known_command(parsed_command):
+                    return parsed_command, parsed_argument
+                if self.gemini_api.model:
+                    return self._interpret_with_nlp(raw_action_input)
+                self._handle_unknown_intent()
+                return None, None
+        except ValueError:
+            parsed_command, parsed_argument = self.parse_action(raw_action_input)
+            if self._is_known_command(parsed_command):
+                return parsed_command, parsed_argument
+            if self.gemini_api.model:
+                return self._interpret_with_nlp(raw_action_input)
+            self._handle_unknown_intent()
+            return None, None
 
     def _process_command(self, command, argument):
         show_full_look_details = False
