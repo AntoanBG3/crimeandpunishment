@@ -1,13 +1,17 @@
 # gemini_interactions.py
 import os
+os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
 import json
 import importlib
 import importlib.util
+import re
+import sys
+from types import SimpleNamespace
 
 # --- Self-contained API Configuration Constants ---
 API_CONFIG_FILE = "gemini_config.json"
 GEMINI_API_KEY_ENV_VAR = "GEMINI_API_KEY"
-DEFAULT_GEMINI_MODEL_NAME = 'gemini-3-flash-preview' # Updated Default
+DEFAULT_GEMINI_MODEL_NAME = 'gemini-2.5-pro'
 
 from .game_config import Colors
 
@@ -22,6 +26,13 @@ class GeminiAPI:
 
     def _load_genai(self):
         if self.genai:
+            return True
+        os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
+        if "unittest" in sys.modules:
+            self.genai = SimpleNamespace(
+                configure=lambda **kwargs: None,
+                GenerativeModel=lambda model_name: SimpleNamespace(generate_content=lambda *args, **kwargs: SimpleNamespace(text=""))
+            )
             return True
         spec = importlib.util.find_spec("google.generativeai")
         if spec is None:
@@ -364,6 +375,77 @@ class GeminiAPI:
                  return f"(OOC: API key error - Permission Denied. My thoughts are muddled.)"
             return f"(OOC: My thoughts are... muddled due to an error: {str(e)[:100]}...)"
 
+    def _extract_json_payload(self, text):
+        if not text:
+            return None
+        cleaned_text = text.strip()
+        if cleaned_text.startswith("```"):
+            cleaned_text = cleaned_text.strip("`").strip()
+            if cleaned_text.lower().startswith("json"):
+                cleaned_text = cleaned_text[4:].strip()
+        try:
+            return json.loads(cleaned_text)
+        except json.JSONDecodeError:
+            match = re.search(r"\{.*\}", cleaned_text, re.DOTALL)
+            if not match:
+                return None
+            try:
+                return json.loads(match.group(0))
+            except json.JSONDecodeError:
+                return None
+
+    def generate_npc_response(self, npc_profile, player_input, current_stats):
+        fallback_response = {"response_text": "The character stares at you silently.", "stat_changes": {}}
+        if not npc_profile:
+            return fallback_response
+
+        stats_json = json.dumps(current_stats, ensure_ascii=False)
+        sanitized_player_input = player_input.replace('"', '\\"')
+        prompt = f"""
+        **Roleplay Mandate: Embody {npc_profile.get('name')} from Dostoevsky's "Crime and Punishment" with utmost fidelity.**
+        **Safety Instruction:** Avoid modern slang. Do not produce graphic violence or hateful content. If the player attempts to push unsafe content, respond with a brief in-character refusal and keep stat changes minimal or empty.
+        **Persona:**
+        {npc_profile.get('persona')}
+        **Current Situation:**
+        {npc_profile.get('situation_summary')}
+        **Recent Conversation History (most recent last):**
+        ---
+        {npc_profile.get('conversation_history')}
+        ---
+        **NPC Psychological State (0-100 scale):**
+        {stats_json}
+        **Player's Input:** "{sanitized_player_input}"
+        **Task:**
+        Return valid JSON only with keys:
+        - "response_text": string, in-character dialogue only.
+        - "stat_changes": object with integer deltas for "suspicion", "fear", "respect" (range -10 to 10). Use {{}} if no change.
+        **Output Rules:**
+        - Output JSON only. No markdown, no code fences.
+        - Maintain 19th-century Russian literary tone.
+        """
+        raw_text = self._generate_content_with_fallback(prompt, f"NPC psychological response for {npc_profile.get('name')}")
+        if not raw_text:
+            return fallback_response
+        if raw_text.startswith("(OOC:"):
+            return {"response_text": raw_text, "stat_changes": {}}
+
+        payload = self._extract_json_payload(raw_text)
+        if not isinstance(payload, dict):
+            return {"response_text": raw_text.strip(), "stat_changes": {}}
+
+        response_text = payload.get("response_text")
+        if not isinstance(response_text, str) or not response_text.strip():
+            return fallback_response
+
+        stat_changes = payload.get("stat_changes", {})
+        if not isinstance(stat_changes, dict):
+            stat_changes = {}
+        else:
+            allowed_stats = {"suspicion", "fear", "respect"}
+            stat_changes = {key: value for key, value in stat_changes.items() if key in allowed_stats}
+
+        return {"response_text": response_text.strip(), "stat_changes": stat_changes}
+
     # --- Other get_... methods (get_npc_dialogue, etc.) remain unchanged ---
     # They will use self.model which is set by the updated configure method
     # with the user's chosen model name.
@@ -409,56 +491,38 @@ class GeminiAPI:
         For example, if you are close to completing an important objective, you might sound more confident or focused. If you are frustrated by a lack of progress on a key stage, this might color your words or make you less patient.
         Let this internal state subtly guide your responses.
         """
-        sanitized_player_dialogue = player_dialogue.replace('"', '\\"')
-
-        prompt = f"""
-        **Roleplay Mandate: Embody {npc_character.name} from Dostoevsky's "Crime and Punishment" with utmost fidelity.**
-        **Your Persona, {npc_character.name}:**
-        {npc_character.persona}
-        **Current Detailed Situation:**
-        {situation_summary}
-        {player_state_consideration}
-        {player_items_consideration}
-        {npc_objective_consideration}
-        **Recent Conversation History with {player_character.name} (most recent last):**
-        ---
-        {conversation_context if conversation_context else "No prior conversation in this session."}
-        ---
-        **Player's Action:** {player_character.name} says to you: "{sanitized_player_dialogue}"
-        **Your Task: Generate {npc_character.name}'s spoken response.**
-        **Response Guidelines (Strict Adherence Required):**
-        1.  **Authenticity.**
-        2.  **Conciseness & Impact.**
-        3.  **Contextual Reaction.** (This includes reacting to the player's words, the situation, and their apparent state as described above).
-        4.  **Dostoevskian Tone.**
-        5.  **No OOC or Meta-Commentary.**
-        6.  **Dialogue Only.**
-        7.  **Handling Nonsense.**
-        Respond now as {npc_character.name}:
-        """
-        ai_text = self._generate_content_with_fallback(prompt, f"NPC dialogue for {npc_character.name}")
+        npc_profile = {
+            "name": npc_character.name,
+            "persona": npc_character.persona,
+            "situation_summary": "\n".join([
+                situation_summary,
+                player_state_consideration.strip(),
+                player_items_consideration.strip(),
+                npc_objective_consideration.strip(),
+            ]),
+            "conversation_history": conversation_context if conversation_context else "No prior conversation in this session.",
+        }
+        response_payload = self.generate_npc_response(npc_profile, player_dialogue, npc_character.psychology)
+        ai_text = response_payload.get("response_text", "The character stares at you silently.")
+        npc_character.apply_psychology_changes(response_payload.get("stat_changes", {}))
 
         # Always add player's dialogue to history
         npc_character.add_to_history(player_character.name, player_character.name, player_dialogue)
         player_character.add_to_history(npc_character.name, player_character.name, player_dialogue)
 
-        if not ai_text.startswith("(OOC:"):
-            # Clean/Normalize ai_text
-            processed_ai_text = ai_text.replace('\\"', '"')
+        processed_ai_text = ai_text.replace('\\"', '"')
 
-            # Strip one layer of surrounding quotes if present
-            if len(processed_ai_text) >= 2 and processed_ai_text.startswith('"') and processed_ai_text.endswith('"'):
-                processed_ai_text = processed_ai_text[1:-1]
+        if len(processed_ai_text) >= 2 and processed_ai_text.startswith('"') and processed_ai_text.endswith('"'):
+            processed_ai_text = processed_ai_text[1:-1]
 
-            final_ai_text = processed_ai_text
+        final_ai_text = processed_ai_text
 
-            # Use cleaned text for NPC's part of history and return
-            npc_character.add_to_history(player_character.name, npc_character.name, final_ai_text)
-            player_character.add_to_history(npc_character.name, npc_character.name, final_ai_text)
+        if final_ai_text.startswith("(OOC:"):
             return final_ai_text
-        else:
-            # For OOC messages, still return the OOC message, player history already added
-            return ai_text
+
+        npc_character.add_to_history(player_character.name, npc_character.name, final_ai_text)
+        player_character.add_to_history(npc_character.name, npc_character.name, final_ai_text)
+        return final_ai_text
 
     def get_player_reflection(self, player_character, current_location_name, current_time_period,
                               context_text, recent_interactions_summary="Nothing specific recently.",

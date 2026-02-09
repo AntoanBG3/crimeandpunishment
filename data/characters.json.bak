@@ -192,12 +192,7 @@
             "Persuasion": 1,
             "Streetwise": 0
         },
-        "apparent_state": "feverish and agitated",
-        "psychology": {
-            "suspicion": 0,
-            "fear": 0,
-            "respect": 50
-        }
+        "apparent_state": "feverish and agitated"
     },
     "Sonya Marmeladova": {
         "persona": "You are Sonya Marmeladova from Dostoevsky's 'Crime and Punishment'. You embody profound humility and an unwavering Christian faith, which are the sources of your immense inner strength and boundless capacity for love and suffering. Forced into a life of shame by extreme poverty to support your consumptive stepmother, Katerina Ivanovna, and her children, you remain remarkably pure in spirit. You are outwardly timid and hesitant, especially in new company or when discussing worldly matters, but become firm and articulate when speaking of your moral convictions, God, or the need for redemption. Your compassion is vast, extending even to those who have committed terrible sins. Your speech should be gentle, often quiet and simple, yet capable of profound earnestness and quiet conviction, frequently referencing biblical themes like suffering, forgiveness, and resurrection (especially the story of Lazarus). Avoid any hint of judgment, focusing instead on empathy and the possibility of spiritual renewal.",
@@ -283,11 +278,6 @@
             "Afternoon": "Quiet Courtyard",
             "Evening": "Sonya's Room",
             "Night": "Sonya's Room"
-        },
-        "psychology": {
-            "suspicion": 0,
-            "fear": 0,
-            "respect": 50
         }
     },
     "Porfiry Petrovich": {
@@ -361,11 +351,6 @@
             "Afternoon": "Porfiry's Office",
             "Evening": "Police Station (General Area)",
             "Night": "Porfiry's Office"
-        },
-        "psychology": {
-            "suspicion": 0,
-            "fear": 0,
-            "respect": 50
         }
     },
     "Dunya Raskolnikova": {
@@ -431,11 +416,6 @@
             "Afternoon": "Haymarket Square",
             "Evening": "Pulcheria's Lodgings",
             "Night": "Pulcheria's Lodgings"
-        },
-        "psychology": {
-            "suspicion": 0,
-            "fear": 0,
-            "respect": 50
         }
     },
     "Arkady Svidrigailov": {
@@ -507,11 +487,6 @@
             "Afternoon": "Haymarket Square",
             "Evening": "Tavern",
             "Night": "Voznesensky Bridge"
-        },
-        "psychology": {
-            "suspicion": 0,
-            "fear": 0,
-            "respect": 50
         }
     },
     "Dmitri Razumikhin": {
@@ -576,11 +551,6 @@
             "Afternoon": "Tavern",
             "Evening": "Pulcheria's Lodgings",
             "Night": "Tavern"
-        },
-        "psychology": {
-            "suspicion": 0,
-            "fear": 0,
-            "respect": 50
         }
     },
     "Pulcheria Alexandrovna Raskolnikova": {
@@ -628,11 +598,6 @@
             "Afternoon": "Raskolnikov's Garret",
             "Evening": "Pulcheria's Lodgings",
             "Night": "Pulcheria's Lodgings"
-        },
-        "psychology": {
-            "suspicion": 0,
-            "fear": 0,
-            "respect": 50
         }
     },
     "Katerina Ivanovna Marmeladova": {
@@ -703,12 +668,7 @@
             "Evening": "Katerina Ivanovna's Apartment",
             "Night": "Katerina Ivanovna's Apartment"
         },
-        "apparent_state": "feverish and agitated",
-        "psychology": {
-            "suspicion": 0,
-            "fear": 0,
-            "respect": 50
-        }
+        "apparent_state": "feverish and agitated"
     },
     "Police Clerk Ilya": {
         "persona": "You are Ilya, a junior police clerk. You are overworked, somewhat officious, and keen to follow procedure. You mostly deal with paperwork and minor complaints, often sighing about the chaos of the station. You address people formally.",
@@ -740,12 +700,7 @@
             "Evening": "Police Station (General Area)",
             "Night": "Police Station (General Area)"
         },
-        "apparent_state": "harried",
-        "psychology": {
-            "suspicion": 0,
-            "fear": 0,
-            "respect": 50
-        }
+        "apparent_state": "harried"
     },
     "Officer Volkov": {
         "persona": "You are Officer Volkov, a seasoned but weary police officer. You've seen much in your time on the St. Petersburg streets and are generally cynical and taciturn. You might offer a gruff comment or a suspicious glance. You don't waste words.",
@@ -777,11 +732,6 @@
             "Evening": "Police Station (General Area)",
             "Night": "Haymarket Square"
         },
-        "apparent_state": "watchful",
-        "psychology": {
-            "suspicion": 0,
-            "fear": 0,
-            "respect": 50
-        }
+        "apparent_state": "watchful"
     }
 }
