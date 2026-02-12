@@ -55,6 +55,8 @@ class Game:
         self.current_conversation_log = []
         self.overheard_rumors = []
         self.low_ai_data_mode = False
+        self.autosave_interval_actions = 10
+        self.actions_since_last_autosave = 0
 
     def _get_current_game_time_period_str(self):
         return f"Day {self.current_day}, {self.get_current_time_period()}"
@@ -163,6 +165,32 @@ class Game:
 
     def _handle_unknown_intent(self):
         self._print_color("Your mind is too clouded to focus on that.", Colors.YELLOW)
+        context_examples = self._get_contextual_command_examples()
+        if context_examples:
+            self._print_color(f"Try: {', '.join(context_examples)}", Colors.DIM)
+
+    def _get_contextual_command_examples(self):
+        context = self._build_intent_context()
+        examples = ["look", "help movement", "help social"]
+
+        if context.get("npcs"):
+            examples.append(f"talk to {context['npcs'][0]}")
+        if context.get("items"):
+            examples.append(f"take {context['items'][0]}")
+        if context.get("exits"):
+            first_exit = context["exits"][0].get("name")
+            if first_exit:
+                examples.append(f"move to {first_exit}")
+
+        seen = set()
+        unique_examples = []
+        for example in examples:
+            if example not in seen:
+                unique_examples.append(example)
+                seen.add(example)
+            if len(unique_examples) >= 4:
+                break
+        return unique_examples
 
     def _interpret_with_nlp(self, raw_input):
         context = self._build_intent_context()
@@ -515,31 +543,85 @@ class Game:
             self._print_color("\nCompleted:", Colors.GREEN + Colors.BOLD)
             for obj in completed_objectives: self._print_color(f"- {obj.get('description', 'Unnamed objective')}", Colors.WHITE)
 
-    def display_help(self):
+    def display_help(self, category=None):
         self._print_color("\n--- Available Actions ---", Colors.CYAN + Colors.BOLD); self._print_color("", Colors.RESET)
-        actions = [
-            ("look / l / examine / observe / look around", "Examine surroundings, see people, items, and exits."),
-            ("look at [thing/person/scenery]", "Examine something specific more closely."),
-            ("talk to [name]", "Speak with someone here."),
-            ("move to [exit desc / location name]", "Change locations."),
-            ("inventory / inv / i", "Check your possessions."),
-            ("take [item name]", "Pick up an item from the location."),
-            ("drop [item name]", "Leave an item from your inventory in the location."),
-            ("use [item name]", "Attempt to use an item from your inventory (often on yourself)."),
-            ("use [item name] on [target name/item]", "Use an item on something or someone specifically."),
-            ("give [item name] to [target name]", "Offer an item to another character."),
-            ("read [item name]", "Read a readable item like a letter or newspaper."),
-            ("objectives / obj", "See your current goals."),
-            ("think / reflect", "Access your character's inner thoughts."),
-            ("wait", "Pass some time (may trigger dreams if troubled)."),
-            ("journal / notes", "Review your journal entries (rumors, news, etc.)."),
-            ("save", "Save your current game progress."), ("load", "Load a previously saved game."),
-            ("help / commands", "Show this help message."),
-            ("status / char / profile / st", "Display your character's current status."),
-            ("toggle lowai / lowaimode", "Toggle low AI data usage mode."),
-            ("quit / exit / q", "Exit the game.")]
+        action_groups = {
+            "movement": [
+                ("look / l / examine / observe / look around", "Examine surroundings, see people, items, and exits."),
+                ("look at [thing/person/scenery]", "Examine something specific more closely."),
+                ("move to [exit desc / location name]", "Change locations."),
+                ("wait", "Pass some time (may trigger dreams if troubled).")
+            ],
+            "social": [
+                ("talk to [name]", "Speak with someone here."),
+                ("persuade [name] that/to [argument]", "Try to sway a character with a focused argument."),
+                ("give [item name] to [target name]", "Offer an item to another character."),
+                ("think / reflect", "Access your character's inner thoughts.")
+            ],
+            "items": [
+                ("inventory / inv / i", "Check your possessions."),
+                ("take [item name]", "Pick up an item from the location."),
+                ("drop [item name]", "Leave an item from your inventory in the location."),
+                ("use [item name]", "Attempt to use an item from your inventory (often on yourself)."),
+                ("use [item name] on [target name/item]", "Use an item on something or someone specifically."),
+                ("read [item name]", "Read a readable item like a letter or newspaper.")
+            ],
+            "meta": [
+                ("objectives / obj", "See your current goals."),
+                ("journal / notes", "Review your journal entries (rumors, news, etc.)."),
+                ("save [slot]", "Save your current game progress (optional slot name)."),
+                ("load [slot]", "Load a previously saved game (optional slot name)."),
+                ("help / commands", "Show this help message."),
+                ("status / char / profile / st", "Display your character's current status."),
+                ("toggle lowai / lowaimode", "Toggle low AI data usage mode."),
+                ("quit / exit / q", "Exit the game.")
+            ]
+        }
+
+        normalized_category = category.strip().lower() if isinstance(category, str) and category.strip() else "all"
+        if normalized_category == "all":
+            actions = [item for group in action_groups.values() for item in group]
+        elif normalized_category in action_groups:
+            self._print_color(f"Category: {normalized_category}", Colors.DIM)
+            actions = action_groups[normalized_category]
+        else:
+            available = ", ".join(action_groups.keys())
+            self._print_color(
+                f"Unknown help category '{category}'. Available: {available}. Showing all commands.",
+                Colors.YELLOW
+            )
+            actions = [item for group in action_groups.values() for item in group]
+
         for cmd, desc in actions: self._print_color(f"{cmd:<65} {Colors.WHITE}- {desc}{Colors.RESET}", Colors.MAGENTA)
         self._print_color("", Colors.RESET)
+        self._print_color("Tip: use 'help movement', 'help social', 'help items', or 'help meta'.", Colors.DIM)
+        self._print_color("", Colors.RESET)
+
+    def _display_load_recap(self):
+        if not self.player_character:
+            return
+
+        self._print_color("\n--- Session Recap ---", Colors.CYAN + Colors.BOLD)
+        self._print_color(f"Location: {self.current_location_name}", Colors.WHITE)
+        self._print_color(f"Time: {self._get_current_game_time_period_str()}", Colors.WHITE)
+
+        active_objective = None
+        for objective in self.player_character.objectives:
+            if objective.get("active") and not objective.get("completed"):
+                active_objective = objective
+                break
+        if active_objective:
+            stage = self.player_character.get_current_stage_for_objective(active_objective.get("id"))
+            stage_text = stage.get("description") if stage else "unspecified stage"
+            self._print_color(f"Objective: {active_objective.get('description', 'Unnamed objective')} ({stage_text})", Colors.WHITE)
+        else:
+            self._print_color("Objective: No active objective.", Colors.WHITE)
+
+        recent_events = self.key_events_occurred[-3:] if self.key_events_occurred else []
+        if recent_events:
+            self._print_color("Recent events:", Colors.WHITE)
+            for event in recent_events:
+                self._print_color(f"- {event}", Colors.DIM)
 
     def parse_action(self, raw_input):
         action = raw_input.strip().lower();
@@ -563,8 +645,20 @@ class Game:
         if persuade_match: return "persuade", (persuade_match.group(2).strip(), persuade_match.group(3).strip())
         return parts[0], parts[1] if len(parts) > 1 else None
 
-    def save_game(self):
+    def _get_save_file_path(self, slot_name=None):
+        if not slot_name:
+            return SAVE_GAME_FILE
+        sanitized = re.sub(r"[^a-zA-Z0-9_-]", "", str(slot_name).strip().lower())
+        if not sanitized:
+            return None
+        return f"savegame_{sanitized}.json"
+
+    def save_game(self, slot_name=None, is_autosave=False):
         if not self.player_character: self._print_color("Cannot save: Game not fully initialized.", Colors.RED); return
+        save_file = self._get_save_file_path(slot_name)
+        if not save_file:
+            self._print_color("Invalid save slot name. Use letters, numbers, hyphens, or underscores.", Colors.RED)
+            return
         game_state_data = {
             "player_character_name": self.player_character.name, "current_location_name": self.current_location_name,
             "game_time": self.game_time, "current_day": self.current_day,
@@ -579,14 +673,21 @@ class Game:
             "chosen_gemini_model": self.gemini_api.chosen_model_name,
             "low_ai_data_mode": self.low_ai_data_mode }
         try:
-            with open(SAVE_GAME_FILE, 'w') as f: json.dump(game_state_data, f, indent=4)
-            self._print_color(f"Game saved to {SAVE_GAME_FILE}", Colors.GREEN)
+            with open(save_file, 'w') as f: json.dump(game_state_data, f, indent=4)
+            if is_autosave:
+                self._print_color(f"Autosaved to {save_file}", Colors.DIM)
+            else:
+                self._print_color(f"Game saved to {save_file}", Colors.GREEN)
         except Exception as e: self._print_color(f"Error saving game: {e}", Colors.RED)
 
-    def load_game(self):
-        if not os.path.exists(SAVE_GAME_FILE): self._print_color("No save file found.", Colors.YELLOW); return False
+    def load_game(self, slot_name=None):
+        save_file = self._get_save_file_path(slot_name)
+        if not save_file:
+            self._print_color("Invalid save slot name. Use letters, numbers, hyphens, or underscores.", Colors.RED)
+            return False
+        if not os.path.exists(save_file): self._print_color(f"No save file found at {save_file}.", Colors.YELLOW); return False
         try:
-            with open(SAVE_GAME_FILE, 'r') as f: game_state_data = json.load(f)
+            with open(save_file, 'r') as f: game_state_data = json.load(f)
             self.game_time = game_state_data.get("game_time", 0); self.current_day = game_state_data.get("current_day", 1)
             self.current_location_name = game_state_data.get("current_location_name")
             self.dynamic_location_items = game_state_data.get("dynamic_location_items", {})
@@ -612,6 +713,7 @@ class Game:
             if not self.current_location_name and self.player_character: self.current_location_name = self.player_character.current_location
             if not self.dynamic_location_items: self.initialize_dynamic_location_items()
             self.update_npcs_in_current_location(); self._print_color("Game loaded successfully.", Colors.GREEN)
+            self._display_load_recap()
             self.update_current_location_details(from_explicit_look_cmd=False); return True
         except Exception as e: self._print_color(f"Error loading game: {e}", Colors.RED); self.player_character = None; return False
 
@@ -872,12 +974,12 @@ class Game:
             else:
                 self._print_color(f"Invalid action '{secondary_action_input}' for {item_name_selected}.", Colors.RED)
                 return False, False, 0, False
-        elif command == "save": self.save_game(); action_taken_this_turn = False; show_atmospherics_this_turn = False
+        elif command == "save": self.save_game(argument); action_taken_this_turn = False; show_atmospherics_this_turn = False
         elif command == "load":
-            if self.load_game(): show_atmospherics_this_turn = True
+            if self.load_game(argument): show_atmospherics_this_turn = True
             else: show_atmospherics_this_turn = False
             action_taken_this_turn = False; return action_taken_this_turn, show_atmospherics_this_turn, 0, "load_triggered"
-        elif command == "help": self.display_help(); action_taken_this_turn = False; show_atmospherics_this_turn = False
+        elif command == "help": self.display_help(argument); action_taken_this_turn = False; show_atmospherics_this_turn = False
         elif command == "journal":
             if self.player_character: self._print_color(self.player_character.get_journal_summary(), Colors.CYAN)
             action_taken_this_turn = False; show_atmospherics_this_turn = False
@@ -900,12 +1002,18 @@ class Game:
         else:
             suggestions = self._get_command_suggestions(command)
             suggestion_text = f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
-            self._print_color(f"Unknown command: '{command}'. Type 'help' for a list of actions.{suggestion_text}", Colors.RED); action_taken_this_turn = False; show_atmospherics_this_turn = False
+            self._print_color(f"Unknown command: '{command}'. Type 'help' for a list of actions.{suggestion_text}", Colors.RED)
+            self._print_color(f"Try: {', '.join(self._get_contextual_command_examples())}", Colors.DIM)
+            action_taken_this_turn = False; show_atmospherics_this_turn = False
         return action_taken_this_turn, show_atmospherics_this_turn, time_to_advance, False
 
     def _update_world_state_after_action(self, command, action_taken_this_turn, time_to_advance):
         if action_taken_this_turn:
             if command != "talk to": self.advance_time(time_to_advance)
+            self.actions_since_last_autosave += 1
+            if self.actions_since_last_autosave >= self.autosave_interval_actions and command not in ["save", "load", "quit"]:
+                self.save_game("autosave", is_autosave=True)
+                self.actions_since_last_autosave = 0
             event_triggered = self.event_manager.check_and_trigger_events()
             if event_triggered and self.last_significant_event_summary and \
                self.last_significant_event_summary not in self.key_events_occurred[-3:]:
@@ -1165,6 +1273,8 @@ class Game:
         elif self.player_notoriety_level < 2.5: notoriety_desc = "Talked About"
         else: notoriety_desc = "Infamous"
         self._print_color(f"Notoriety: {Colors.MAGENTA}{notoriety_desc} (Level {self.player_notoriety_level:.1f}){Colors.RESET}", Colors.WHITE)
+        ai_mode = "Low AI / Fallback Friendly" if self.low_ai_data_mode else "AI Dynamic"
+        self._print_color(f"Narrative Mode: {Colors.CYAN}{ai_mode}{Colors.RESET}", Colors.WHITE)
         self._print_color("\n--- Skills ---", Colors.CYAN + Colors.BOLD)
         if self.player_character.skills:
             for skill_name, value in self.player_character.skills.items(): self._print_color(f"- {skill_name.capitalize()}: {value}", Colors.WHITE)
