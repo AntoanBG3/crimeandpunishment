@@ -38,8 +38,19 @@ class TestCharacterModule(unittest.TestCase):
             "objectives": [],
             "inventory": [],
             "apparent_state": "normal",
+            "psychology": {"suspicion": 0, "fear": 0, "respect": 50},
         }
         self.assertEqual(char_dict, expected_dict)
+
+    def test_to_dict_includes_custom_psychology(self):
+        self.character.psychology = {"suspicion": 35, "fear": 10, "respect": 65}
+
+        char_dict = self.character.to_dict()
+
+        self.assertEqual(
+            char_dict["psychology"],
+            {"suspicion": 35, "fear": 10, "respect": 65}
+        )
 
     def test_from_dict(self):
         char_data = {
