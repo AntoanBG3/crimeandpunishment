@@ -107,6 +107,50 @@ class TestGameState(unittest.TestCase):
         time_advanced = self.game._handle_wait_command()
         self.assertEqual(time_advanced, TIME_UNITS_PER_PLAYER_ACTION * 5)
 
+
+    def test_get_contextual_command_examples_includes_context(self):
+        self.game.npcs_in_current_location = [Character("Sonya", "", "", "start_location", ["start_location"])]
+        self.game.dynamic_location_items = {"start_location": [{"name": "coin"}]}
+        with patch('game_engine.game_state.LOCATIONS_DATA', {"start_location": {"exits": {"street": "A street"}}}):
+            examples = self.game._get_contextual_command_examples()
+        self.assertIn("look", examples)
+        self.assertIn("talk to Sonya", examples)
+
+    def test_display_help_with_category(self):
+        with patch.object(self.game, '_print_color') as mock_print:
+            self.game.display_help("movement")
+        printed = "\n".join(call.args[0] for call in mock_print.call_args_list if call.args)
+        self.assertIn("Category: movement", printed)
+        self.assertIn("move to", printed)
+
+    @patch("os.path.exists", return_value=True)
+    @patch("builtins.open", new_callable=mock_open, read_data='{}')
+    @patch("json.load")
+    def test_load_game_displays_recap(self, mock_json_load, mock_open_file, mock_exists):
+        mock_save_data = {
+            "player_character_name": "Test Player",
+            "current_location_name": "start_location",
+            "game_time": 100,
+            "current_day": 1,
+            "all_character_objects_state": {"Test Player": self.game.player_character.to_dict()},
+            "dynamic_location_items": {"start_location": []},
+            "triggered_events": ["event1"],
+            "last_significant_event_summary": "Something happened.",
+            "player_notoriety_level": 1,
+            "known_facts_about_crime": ["A crime was committed."],
+            "key_events_occurred": ["The game started.", "Found clue", "Met inspector"],
+            "current_location_description_shown_this_visit": True,
+            "chosen_gemini_model": "test_model",
+            "low_ai_data_mode": False
+        }
+        mock_json_load.return_value = mock_save_data
+
+        with patch('game_engine.game_state.CHARACTERS_DATA', {"Test Player": {"persona": "A brave adventurer.", "greeting": "Hello!", "default_location": "start_location", "accessible_locations": ["start_location"]}}), \
+             patch.object(self.game, '_display_load_recap') as mock_recap:
+            result = self.game.load_game()
+
+        self.assertTrue(result)
+        mock_recap.assert_called_once()
     def test_handle_status_command(self):
         with patch.object(self.game, '_print_color') as mock_print:
             self.game._handle_status_command()
