@@ -55,6 +55,8 @@ class Game:
         self.current_conversation_log = []
         self.overheard_rumors = []
         self.low_ai_data_mode = False
+        self.autosave_interval_actions = 10
+        self.actions_since_last_autosave = 0
 
     def _get_current_game_time_period_str(self):
         return f"Day {self.current_day}, {self.get_current_time_period()}"
@@ -567,8 +569,8 @@ class Game:
             "meta": [
                 ("objectives / obj", "See your current goals."),
                 ("journal / notes", "Review your journal entries (rumors, news, etc.)."),
-                ("save", "Save your current game progress."),
-                ("load", "Load a previously saved game."),
+                ("save [slot]", "Save your current game progress (optional slot name)."),
+                ("load [slot]", "Load a previously saved game (optional slot name)."),
                 ("help / commands", "Show this help message."),
                 ("status / char / profile / st", "Display your character's current status."),
                 ("toggle lowai / lowaimode", "Toggle low AI data usage mode."),
@@ -643,8 +645,20 @@ class Game:
         if persuade_match: return "persuade", (persuade_match.group(2).strip(), persuade_match.group(3).strip())
         return parts[0], parts[1] if len(parts) > 1 else None
 
-    def save_game(self):
+    def _get_save_file_path(self, slot_name=None):
+        if not slot_name:
+            return SAVE_GAME_FILE
+        sanitized = re.sub(r"[^a-zA-Z0-9_-]", "", str(slot_name).strip().lower())
+        if not sanitized:
+            return None
+        return f"savegame_{sanitized}.json"
+
+    def save_game(self, slot_name=None, is_autosave=False):
         if not self.player_character: self._print_color("Cannot save: Game not fully initialized.", Colors.RED); return
+        save_file = self._get_save_file_path(slot_name)
+        if not save_file:
+            self._print_color("Invalid save slot name. Use letters, numbers, hyphens, or underscores.", Colors.RED)
+            return
         game_state_data = {
             "player_character_name": self.player_character.name, "current_location_name": self.current_location_name,
             "game_time": self.game_time, "current_day": self.current_day,
@@ -659,14 +673,21 @@ class Game:
             "chosen_gemini_model": self.gemini_api.chosen_model_name,
             "low_ai_data_mode": self.low_ai_data_mode }
         try:
-            with open(SAVE_GAME_FILE, 'w') as f: json.dump(game_state_data, f, indent=4)
-            self._print_color(f"Game saved to {SAVE_GAME_FILE}", Colors.GREEN)
+            with open(save_file, 'w') as f: json.dump(game_state_data, f, indent=4)
+            if is_autosave:
+                self._print_color(f"Autosaved to {save_file}", Colors.DIM)
+            else:
+                self._print_color(f"Game saved to {save_file}", Colors.GREEN)
         except Exception as e: self._print_color(f"Error saving game: {e}", Colors.RED)
 
-    def load_game(self):
-        if not os.path.exists(SAVE_GAME_FILE): self._print_color("No save file found.", Colors.YELLOW); return False
+    def load_game(self, slot_name=None):
+        save_file = self._get_save_file_path(slot_name)
+        if not save_file:
+            self._print_color("Invalid save slot name. Use letters, numbers, hyphens, or underscores.", Colors.RED)
+            return False
+        if not os.path.exists(save_file): self._print_color(f"No save file found at {save_file}.", Colors.YELLOW); return False
         try:
-            with open(SAVE_GAME_FILE, 'r') as f: game_state_data = json.load(f)
+            with open(save_file, 'r') as f: game_state_data = json.load(f)
             self.game_time = game_state_data.get("game_time", 0); self.current_day = game_state_data.get("current_day", 1)
             self.current_location_name = game_state_data.get("current_location_name")
             self.dynamic_location_items = game_state_data.get("dynamic_location_items", {})
@@ -953,9 +974,9 @@ class Game:
             else:
                 self._print_color(f"Invalid action '{secondary_action_input}' for {item_name_selected}.", Colors.RED)
                 return False, False, 0, False
-        elif command == "save": self.save_game(); action_taken_this_turn = False; show_atmospherics_this_turn = False
+        elif command == "save": self.save_game(argument); action_taken_this_turn = False; show_atmospherics_this_turn = False
         elif command == "load":
-            if self.load_game(): show_atmospherics_this_turn = True
+            if self.load_game(argument): show_atmospherics_this_turn = True
             else: show_atmospherics_this_turn = False
             action_taken_this_turn = False; return action_taken_this_turn, show_atmospherics_this_turn, 0, "load_triggered"
         elif command == "help": self.display_help(argument); action_taken_this_turn = False; show_atmospherics_this_turn = False
@@ -989,6 +1010,10 @@ class Game:
     def _update_world_state_after_action(self, command, action_taken_this_turn, time_to_advance):
         if action_taken_this_turn:
             if command != "talk to": self.advance_time(time_to_advance)
+            self.actions_since_last_autosave += 1
+            if self.actions_since_last_autosave >= self.autosave_interval_actions and command not in ["save", "load", "quit"]:
+                self.save_game("autosave", is_autosave=True)
+                self.actions_since_last_autosave = 0
             event_triggered = self.event_manager.check_and_trigger_events()
             if event_triggered and self.last_significant_event_summary and \
                self.last_significant_event_summary not in self.key_events_occurred[-3:]:
@@ -1248,6 +1273,8 @@ class Game:
         elif self.player_notoriety_level < 2.5: notoriety_desc = "Talked About"
         else: notoriety_desc = "Infamous"
         self._print_color(f"Notoriety: {Colors.MAGENTA}{notoriety_desc} (Level {self.player_notoriety_level:.1f}){Colors.RESET}", Colors.WHITE)
+        ai_mode = "Low AI / Fallback Friendly" if self.low_ai_data_mode else "AI Dynamic"
+        self._print_color(f"Narrative Mode: {Colors.CYAN}{ai_mode}{Colors.RESET}", Colors.WHITE)
         self._print_color("\n--- Skills ---", Colors.CYAN + Colors.BOLD)
         if self.player_character.skills:
             for skill_name, value in self.player_character.skills.items(): self._print_color(f"- {skill_name.capitalize()}: {value}", Colors.WHITE)

@@ -108,6 +108,46 @@ class TestGameState(unittest.TestCase):
         self.assertEqual(time_advanced, TIME_UNITS_PER_PLAYER_ACTION * 5)
 
 
+
+    @patch("builtins.open", new_callable=mock_open)
+    @patch("json.dump")
+    def test_save_game_with_slot(self, mock_json_dump, mock_open_file):
+        self.game.save_game("slot1")
+        mock_open_file.assert_called_once_with("savegame_slot1.json", "w")
+
+    @patch("os.path.exists", return_value=True)
+    @patch("builtins.open", new_callable=mock_open, read_data='{}')
+    @patch("json.load")
+    def test_load_game_with_slot(self, mock_json_load, mock_open_file, mock_exists):
+        mock_json_load.return_value = {
+            "player_character_name": "Test Player",
+            "current_location_name": "start_location",
+            "game_time": 100,
+            "current_day": 1,
+            "all_character_objects_state": {"Test Player": self.game.player_character.to_dict()},
+            "dynamic_location_items": {"start_location": []},
+            "triggered_events": ["event1"],
+            "last_significant_event_summary": "Something happened.",
+            "player_notoriety_level": 1,
+            "known_facts_about_crime": ["A crime was committed."],
+            "key_events_occurred": ["The game started."],
+            "current_location_description_shown_this_visit": True,
+            "chosen_gemini_model": "test_model",
+            "low_ai_data_mode": False
+        }
+        with patch('game_engine.game_state.CHARACTERS_DATA', {"Test Player": {"persona": "A brave adventurer.", "greeting": "Hello!", "default_location": "start_location", "accessible_locations": ["start_location"]}}):
+            result = self.game.load_game("slot1")
+
+        self.assertTrue(result)
+        mock_exists.assert_called_once_with("savegame_slot1.json")
+
+    def test_autosave_after_threshold_actions(self):
+        self.game.autosave_interval_actions = 1
+        self.game.actions_since_last_autosave = 0
+        with patch.object(self.game, 'save_game') as mock_save:
+            self.game._update_world_state_after_action("look", True, TIME_UNITS_PER_PLAYER_ACTION)
+        mock_save.assert_called_once_with("autosave", is_autosave=True)
+
     def test_get_contextual_command_examples_includes_context(self):
         self.game.npcs_in_current_location = [Character("Sonya", "", "", "start_location", ["start_location"])]
         self.game.dynamic_location_items = {"start_location": [{"name": "coin"}]}
