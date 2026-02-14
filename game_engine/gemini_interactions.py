@@ -44,8 +44,11 @@ class NaturalLanguageParser:
     def _select_intent_model(self):
         if not self.gemini_api._load_genai():
             return self.gemini_api.model
+        genai_module = self.gemini_api.genai
+        if genai_module is None:
+            return self.gemini_api.model
         try:
-            return self.gemini_api.genai.GenerativeModel("gemini-3-flash-preview")
+            return genai_module.GenerativeModel("gemini-3-flash-preview")
         except Exception:
             return self.gemini_api.model
 
@@ -90,8 +93,9 @@ class NaturalLanguageParser:
 
         model = self._select_intent_model()
         try:
-            if hasattr(self.gemini_api.genai, "types"):
-                generation_config = self.gemini_api.genai.types.GenerationConfig(
+            genai_module = self.gemini_api.genai
+            if genai_module is not None and hasattr(genai_module, "types"):
+                generation_config = genai_module.types.GenerationConfig(
                     candidate_count=1,
                     max_output_tokens=120,
                     temperature=0.1,
@@ -192,16 +196,20 @@ class GeminiAPI:
         if not self._load_genai():
             self.model = None
             return False
+        genai_module = self.genai
+        if genai_module is None:
+            self.model = None
+            return False
             
         try:
-            self.genai.configure(api_key=api_key)
+            genai_module.configure(api_key=api_key)
         except Exception as e_config:
             self._print_color_func(f"Error configuring Gemini API (genai.configure using key from {source}): {e_config}", Colors.RED)
             self.model = None
             return False
 
         try:
-            model_instance = self.genai.GenerativeModel(model_to_use) # Use the passed model_to_use
+            model_instance = genai_module.GenerativeModel(model_to_use) # Use the passed model_to_use
         except Exception as model_e:
             self._print_color_func(f"Error instantiating Gemini model '{model_to_use}' (key from {source}): {model_e}", Colors.RED)
             self._print_color_func(f"The API key might be valid, but there's an issue with model '{model_to_use}' (e.g., name, access permissions).", Colors.YELLOW)
@@ -218,7 +226,7 @@ class GeminiAPI:
             ]
             test_response = model_instance.generate_content(
                 "This is a test of the API. Please respond with the word 'test' to confirm.",
-                generation_config=self.genai.types.GenerationConfig(candidate_count=1, max_output_tokens=5),
+                generation_config=genai_module.types.GenerationConfig(candidate_count=1, max_output_tokens=5),
                 safety_settings=safety_settings
             )
 
@@ -253,7 +261,7 @@ class GeminiAPI:
                 "invalid api key", "credential is invalid", "unauthenticated", 
                 "api_key_invalid", "user_location_invalid" 
             ]
-            grpc_permission_denied = hasattr(e_test, 'grpc_status_code') and e_test.grpc_status_code == 7
+            grpc_permission_denied = getattr(e_test, "grpc_status_code", None) == 7
             is_auth_error = grpc_permission_denied or any(keyword in error_str for keyword in auth_keywords)
             if is_auth_error:
                 self._print_color_func(f"The API key from '{source}' appears invalid or lacks permissions for model '{model_to_use}'/region.", Colors.RED)
@@ -347,7 +355,10 @@ class GeminiAPI:
 
                 if not self._load_genai():
                     return {"api_configured": False, "low_ai_preference": False}
-                self.genai.configure(api_key=key_to_try)
+                genai_module = self.genai
+                if genai_module is None:
+                    return {"api_configured": False, "low_ai_preference": False}
+                genai_module.configure(api_key=key_to_try)
                 self._log_message(f"genai.configure() successful with key from {key_source}.", Colors.GREEN)
 
                 if self._attempt_api_setup(key_to_try, key_source, preferred_model_from_config):
@@ -384,7 +395,10 @@ class GeminiAPI:
             try:
                 if not self._load_genai():
                     return {"api_configured": False, "low_ai_preference": False}
-                self.genai.configure(api_key=manual_api_key_input)
+                genai_module = self.genai
+                if genai_module is None:
+                    return {"api_configured": False, "low_ai_preference": False}
+                genai_module.configure(api_key=manual_api_key_input)
                 self._log_message(f"genai.configure() successful with manually entered key.", Colors.GREEN)
             except Exception as e_manual_initial_config:
                  self._print_color_func(f"Error initially configuring Gemini API with manually entered key: {e_manual_initial_config}", Colors.RED)
@@ -470,14 +484,15 @@ class GeminiAPI:
             self._log_message(f"Error calling Gemini API for {error_message_context} using model {self.chosen_model_name}: {e}", Colors.RED)
             block_reason = None
             # Look for block reason in the exception response if available (some errors wrap the response)
-            if hasattr(e, 'response') and hasattr(e.response, 'prompt_feedback') and hasattr(e.response.prompt_feedback, 'block_reason'):
-                block_reason = e.response.prompt_feedback.block_reason
+            response_obj = getattr(e, "response", None)
+            prompt_feedback = getattr(response_obj, "prompt_feedback", None)
+            block_reason = getattr(prompt_feedback, "block_reason", None)
             
             if block_reason:
                 self._log_message(f"Blocked due to: {block_reason}", Colors.YELLOW)
                 return f"(OOC: My response was blocked: {block_reason})"
             
-            if hasattr(e, 'grpc_status_code') and e.grpc_status_code == 7: 
+            if getattr(e, "grpc_status_code", None) == 7:
                  return f"(OOC: API key error - Permission Denied. My thoughts are muddled.)"
             return f"(OOC: My thoughts are... muddled due to an error: {str(e)[:100]}...)"
 
