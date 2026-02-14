@@ -15,7 +15,9 @@ from .game_config import (Colors, SAVE_GAME_FILE, # API_CONFIG_FILE, GEMINI_MODE
                          DREAM_CHANCE_NORMAL_STATE, DREAM_CHANCE_TROUBLED_STATE,
                          RUMOR_CHANCE_PER_NPC_INTERACTION, AMBIENT_RUMOR_CHANCE_PUBLIC_PLACE,
                          NPC_SHARE_RUMOR_MIN_RELATIONSHIP, GENERIC_SCENERY_KEYWORDS,
-                         PROMPT_ARROW, HIGHLY_NOTABLE_ITEMS_FOR_MEMORY, SEPARATOR_LINE,
+                         HIGHLY_NOTABLE_ITEMS_FOR_MEMORY,
+                         apply_color_theme, COLOR_THEME_MAP, DEFAULT_COLOR_THEME,
+                         DEFAULT_VERBOSITY_LEVEL, VERBOSITY_LEVELS,
                          STATIC_ATMOSPHERIC_DETAILS, generate_static_scenery_observation, # Added
                          STATIC_PLAYER_REFLECTIONS, STATIC_ENHANCED_OBSERVATIONS,      # Added
                          STATIC_NEWSPAPER_SNIPPETS, STATIC_DREAM_SEQUENCES,            # Added
@@ -57,6 +59,17 @@ class Game:
         self.low_ai_data_mode = False
         self.autosave_interval_actions = 10
         self.actions_since_last_autosave = 0
+        self.player_action_count = 0
+        self.tutorial_turn_limit = 5
+        self.command_history = []
+        self.max_command_history = 25
+        self.turn_headers_enabled = True
+        self.last_turn_result_icon = "..."
+        self.verbosity_level = DEFAULT_VERBOSITY_LEVEL
+        self.color_theme = DEFAULT_COLOR_THEME
+        self.last_ai_generated_text = None
+        self.last_ai_generation_source = None
+        apply_color_theme(self.color_theme)
 
     def _get_current_game_time_period_str(self):
         return f"Day {self.current_day}, {self.get_current_time_period()}"
@@ -97,20 +110,151 @@ class Game:
     def _input_color(self, prompt_text, color_code):
         return input(f"{color_code}{prompt_text}{Colors.RESET}")
 
-    def _resolve_prefix_match(self, target, options, label):
+    def _prompt_arrow(self):
+        return f"{Colors.GREEN}> {Colors.RESET}"
+
+    def _separator_line(self):
+        return Colors.DIM + ("-" * 60) + Colors.RESET
+
+    def _get_mode_label(self):
+        if self.low_ai_data_mode or not self.gemini_api.model:
+            return "LOW-AI"
+        return "AI"
+
+    def _apply_verbosity(self, text):
+        if text is None:
+            return None
+        normalized = str(text).strip()
+        if not normalized:
+            return normalized
+        if self.verbosity_level == "brief":
+            sentence = re.split(r'(?<=[.!?])\s+', normalized, maxsplit=1)[0]
+            if len(sentence) > 180:
+                sentence = sentence[:177].rstrip() + "..."
+            return sentence
+        if self.verbosity_level == "standard" and len(normalized) > 550:
+            return normalized[:547].rstrip() + "..."
+        return normalized
+
+    def _remember_ai_output(self, text, source_label):
+        if not text or not isinstance(text, str):
+            return
+        if text.startswith("(OOC:"):
+            return
+        self.last_ai_generated_text = text.strip()
+        self.last_ai_generation_source = source_label
+
+    def _canonical_command_text(self, command, argument):
+        if command is None:
+            return ""
+        if argument is None:
+            return str(command)
+        if isinstance(argument, tuple):
+            if command == "use" and len(argument) == 3:
+                item_name, target_name, mode = argument
+                if mode == "give" and target_name:
+                    return f"give {item_name} to {target_name}"
+                if mode == "read":
+                    return f"read {item_name}"
+                if mode == "use_on" and target_name:
+                    return f"use {item_name} on {target_name}"
+                return f"use {item_name}"
+            if command == "persuade" and len(argument) == 2:
+                return f"persuade {argument[0]} that {argument[1]}"
+            return str(command)
+        return f"{command} {argument}".strip()
+
+    def _record_command_history(self, command, argument):
+        if not command or command in ["history", "retry", "rephrase", "select_item"]:
+            return
+        command_text = self._canonical_command_text(command, argument)
+        if not command_text:
+            return
+        self.command_history.append(command_text)
+        if len(self.command_history) > self.max_command_history:
+            self.command_history.pop(0)
+
+    def _display_command_history(self):
+        self._print_color("\n--- Recent Commands ---", Colors.CYAN + Colors.BOLD)
+        if not self.command_history:
+            self._print_color("No commands recorded yet.", Colors.DIM)
+            return
+        history_to_show = self.command_history[-10:]
+        for idx, command_text in enumerate(history_to_show, start=1):
+            self._print_color(f"{idx}. {command_text}", Colors.WHITE)
+
+    def _display_tutorial_hint(self):
+        if self.player_action_count >= self.tutorial_turn_limit:
+            return
+        step = self.player_action_count + 1
+        context = self._build_intent_context()
+        talk_target = context["npcs"][0] if context.get("npcs") else "someone nearby"
+        move_target = context["exits"][0]["name"] if context.get("exits") else "an available exit"
+        tutorial_lines = {
+            1: "Tutorial 1/5: Start by using 'look' to survey this location.",
+            2: f"Tutorial 2/5: Try 'talk to {talk_target}' to open a social path.",
+            3: "Tutorial 3/5: Use 'objectives' to check your active direction.",
+            4: f"Tutorial 4/5: Travel with 'move to {move_target}' when you're ready.",
+            5: "Tutorial 5/5: Need focused help? Try 'help movement' or 'help social'."
+        }
+        self._print_color(tutorial_lines.get(step, ""), Colors.DIM)
+
+    def _print_turn_header(self):
+        if not self.turn_headers_enabled:
+            return
+        time_info = self._get_current_game_time_period_str()
+        location = self.current_location_name or "Unknown"
+        self._print_color(self._separator_line(), Colors.DIM)
+        self._print_color(
+            f"[{time_info} | {location} | {self.last_turn_result_icon} | Mode: {self._get_mode_label()}]",
+            Colors.DIM
+        )
+
+    def _describe_item_brief(self, item_name):
+        item_defaults = DEFAULT_ITEMS.get(item_name, {})
+        tags = []
+        if item_defaults.get("readable"):
+            tags.append("readable")
+        if item_defaults.get("consumable"):
+            tags.append("consumable")
+        if item_defaults.get("value") is not None:
+            tags.append(f"value {item_defaults['value']}")
+        if item_defaults.get("is_notable"):
+            tags.append("notable")
+        return ", ".join(tags) if tags else "common item"
+
+    def _describe_npc_brief(self, npc_name):
+        npc = next((n for n in self.npcs_in_current_location if n.name == npc_name), None)
+        if npc is None:
+            return "person here"
+        return f"appears {npc.apparent_state}"
+
+    def _resolve_prefix_match(self, target, options, label, descriptor_lookup=None):
         target = target.lower()
         matches = [option for option in options if option.lower().startswith(target)]
         if not matches:
             return None, False
         if len(matches) > 1:
-            self._print_color(f"Which {label} did you mean? {', '.join(matches)}", Colors.YELLOW)
+            entries = []
+            for option in matches[:5]:
+                descriptor = descriptor_lookup(option) if descriptor_lookup else ""
+                if descriptor:
+                    entries.append(f"{option} ({descriptor})")
+                else:
+                    entries.append(option)
+            self._print_color(f"Which {label} did you mean? {'; '.join(entries)}", Colors.YELLOW)
             return None, True
         return matches[0], False
 
     def _get_matching_location_item(self, target):
         location_items = self.dynamic_location_items.get(self.current_location_name, [])
         options = [item_info["name"] for item_info in location_items]
-        match, ambiguous = self._resolve_prefix_match(target, options, "item")
+        match, ambiguous = self._resolve_prefix_match(
+            target,
+            options,
+            "item",
+            descriptor_lookup=self._describe_item_brief
+        )
         if ambiguous or not match:
             return None, ambiguous
         return next((item_info for item_info in location_items if item_info["name"] == match), None), False
@@ -119,14 +263,24 @@ class Game:
         if not self.player_character:
             return None, False
         options = [item_info["name"] for item_info in self.player_character.inventory]
-        match, ambiguous = self._resolve_prefix_match(target, options, "item")
+        match, ambiguous = self._resolve_prefix_match(
+            target,
+            options,
+            "item",
+            descriptor_lookup=self._describe_item_brief
+        )
         if ambiguous or not match:
             return None, ambiguous
         return next((item_info for item_info in self.player_character.inventory if item_info["name"] == match), None), False
 
     def _get_matching_npc(self, target):
         options = [npc.name for npc in self.npcs_in_current_location]
-        match, ambiguous = self._resolve_prefix_match(target, options, "person")
+        match, ambiguous = self._resolve_prefix_match(
+            target,
+            options,
+            "person",
+            descriptor_lookup=self._describe_npc_brief
+        )
         if ambiguous or not match:
             return None, ambiguous
         return next((npc for npc in self.npcs_in_current_location if npc.name == match), None), False
@@ -139,7 +293,11 @@ class Game:
         if not matches:
             return None, False
         if len(matches) > 1:
-            self._print_color(f"Which exit did you mean? {', '.join(matches)}", Colors.YELLOW)
+            descriptions = []
+            for match in matches[:5]:
+                desc = location_exits.get(match, "")
+                descriptions.append(f"{match} ({desc})" if desc else match)
+            self._print_color(f"Which exit did you mean? {'; '.join(descriptions)}", Colors.YELLOW)
             return None, True
         return matches[0], False
 
@@ -246,12 +404,14 @@ class Game:
             )
 
         if gen_desc is not None and not (isinstance(gen_desc, str) and gen_desc.startswith("(OOC:")) and not self.low_ai_data_mode:
+            gen_desc = self._apply_verbosity(gen_desc)
             self._print_color(f"\"{gen_desc}\"", Colors.GREEN)
             base_desc_for_skill_check = gen_desc
+            self._remember_ai_output(gen_desc, "item_inspection")
         else:
             if self.low_ai_data_mode or gen_desc is None or (isinstance(gen_desc, str) and gen_desc.startswith("(OOC:")):
                 gen_desc = generate_static_item_interaction_description(item_name, "examine")
-                self._print_color(f"\"{gen_desc}\"", Colors.CYAN)
+                self._print_color(f"\"{self._apply_verbosity(gen_desc)}\"", Colors.CYAN)
             else:
                 self._print_color(f"({base_desc_for_skill_check})", Colors.DIM)
 
@@ -275,9 +435,11 @@ class Game:
                 else:
                     detailed_observation = "You notice a few more mundane details, but nothing striking."
                 if detailed_observation:
-                    self._print_color(f"Detail: \"{detailed_observation}\"", Colors.CYAN)
+                    self._print_color(f"Detail: \"{self._apply_verbosity(detailed_observation)}\"", Colors.CYAN)
             elif detailed_observation:
-                self._print_color(f"Detail: \"{detailed_observation}\"", Colors.GREEN)
+                final_detail = self._apply_verbosity(detailed_observation)
+                self._print_color(f"Detail: \"{final_detail}\"", Colors.GREEN)
+                self._remember_ai_output(final_detail, "item_detail")
 
         if allow_npc_memory and item_name in HIGHLY_NOTABLE_ITEMS_FOR_MEMORY:
             for npc_observer in self.npcs_in_current_location:
@@ -382,6 +544,7 @@ class Game:
     def display_atmospheric_details(self):
         if self.player_character and self.current_location_name:
             details = None
+            ai_generated = False
             if not self.low_ai_data_mode and self.gemini_api.model:
                 details = self.gemini_api.get_atmospheric_details(
                     self.player_character, self.current_location_name, self.get_current_time_period(),
@@ -392,9 +555,14 @@ class Game:
                     details = random.choice(STATIC_ATMOSPHERIC_DETAILS)
                 else:
                     details = "The atmosphere is thick with unspoken stories." # Ultimate fallback
+            else:
+                ai_generated = True
 
             if details: # Ensure details is not None if fallbacks were empty
-                 self._print_color(f"\n{details}", Colors.CYAN)
+                 final_details = self._apply_verbosity(details)
+                 self._print_color(f"\n{final_details}", Colors.CYAN)
+                 if ai_generated:
+                     self._remember_ai_output(final_details, "atmosphere")
             self.last_significant_event_summary = None
 
     def initialize_dynamic_location_items(self):
@@ -547,6 +715,10 @@ class Game:
 
     def display_help(self, category=None):
         self._print_color("\n--- Available Actions ---", Colors.CYAN + Colors.BOLD); self._print_color("", Colors.RESET)
+        self._print_color(
+            f"Mode: {self._get_mode_label()} | Theme: {self.color_theme} | Verbosity: {self.verbosity_level}",
+            Colors.DIM
+        )
         action_groups = {
             "movement": [
                 ("look / l / examine / observe / look around", "Examine surroundings, see people, items, and exits."),
@@ -576,6 +748,12 @@ class Game:
                 ("help / commands", "Show this help message."),
                 ("status / char / profile / st", "Display your character's current status."),
                 ("toggle lowai / lowaimode", "Toggle low AI data usage mode."),
+                ("history / /history", "Show recent commands."),
+                ("!!", "Repeat your previous command."),
+                ("retry / rephrase", "Generate an alternate wording of the last AI text."),
+                ("theme [default|high-contrast|mono]", "Switch color profile."),
+                ("verbosity [brief|standard|rich]", "Adjust narrative text density."),
+                ("turnheaders [on|off]", "Toggle turn boundary headers."),
                 ("quit / exit / q", "Exit the game.")
             ]
         }
@@ -625,6 +803,19 @@ class Game:
             for event in recent_events:
                 self._print_color(f"- {event}", Colors.DIM)
 
+        relationship_entries = []
+        for character_name, character_obj in self.all_character_objects.items():
+            if character_obj.is_player:
+                continue
+            score = getattr(character_obj, "relationship_with_player", 0)
+            if score != 0:
+                relationship_entries.append((abs(score), character_name, self.get_relationship_text(score)))
+        relationship_entries.sort(reverse=True)
+        if relationship_entries:
+            self._print_color("Relationship highlights:", Colors.WHITE)
+            for _, character_name, relationship_text in relationship_entries[:3]:
+                self._print_color(f"- {character_name}: {relationship_text}", Colors.DIM)
+
     def parse_action(self, raw_input):
         action = raw_input.strip().lower();
         if not action: return None, None
@@ -673,7 +864,13 @@ class Game:
             "key_events_occurred": self.key_events_occurred,
             "current_location_description_shown_this_visit": self.current_location_description_shown_this_visit,
             "chosen_gemini_model": self.gemini_api.chosen_model_name,
-            "low_ai_data_mode": self.low_ai_data_mode }
+            "low_ai_data_mode": self.low_ai_data_mode,
+            "player_action_count": self.player_action_count,
+            "color_theme": self.color_theme,
+            "verbosity_level": self.verbosity_level,
+            "turn_headers_enabled": self.turn_headers_enabled,
+            "command_history": self.command_history[-self.max_command_history:]
+        }
         try:
             with open(save_file, 'w') as f: json.dump(game_state_data, f, indent=4)
             if is_autosave:
@@ -700,6 +897,19 @@ class Game:
             self.key_events_occurred = game_state_data.get("key_events_occurred", ["Game loaded."])
             self.current_location_description_shown_this_visit = game_state_data.get("current_location_description_shown_this_visit", False)
             self.low_ai_data_mode = game_state_data.get("low_ai_data_mode", False)
+            self.player_action_count = game_state_data.get("player_action_count", 0)
+            loaded_theme = game_state_data.get("color_theme", DEFAULT_COLOR_THEME)
+            applied_theme = apply_color_theme(loaded_theme)
+            if not applied_theme:
+                apply_color_theme(DEFAULT_COLOR_THEME)
+                applied_theme = DEFAULT_COLOR_THEME
+            self.color_theme = applied_theme
+            self.verbosity_level = game_state_data.get("verbosity_level", DEFAULT_VERBOSITY_LEVEL)
+            if self.verbosity_level not in VERBOSITY_LEVELS:
+                self.verbosity_level = DEFAULT_VERBOSITY_LEVEL
+            self.turn_headers_enabled = game_state_data.get("turn_headers_enabled", True)
+            loaded_history = game_state_data.get("command_history", [])
+            self.command_history = loaded_history[-self.max_command_history:] if isinstance(loaded_history, list) else []
             saved_model_name = game_state_data.get("chosen_gemini_model")
             if saved_model_name: self.gemini_api.chosen_model_name = saved_model_name; self._print_color(f"Loaded preferred Gemini model: {saved_model_name}", Colors.DIM)
             self.all_character_objects = {}
@@ -740,7 +950,7 @@ class Game:
                 return False
         else:
             self._print_color("Type 'load' to load a saved game, or press Enter to start a new game.", Colors.MAGENTA)
-            initial_action = self._input_color(f"{PROMPT_ARROW}", Colors.WHITE).strip().lower()
+            initial_action = self._input_color(f"{self._prompt_arrow()}", Colors.WHITE).strip().lower()
             if initial_action == "load":
                 if self.load_game():
                     game_loaded_successfully = True
@@ -781,14 +991,17 @@ class Game:
                     rumor_text = random.choice(STATIC_RUMORS)
                 else:
                     rumor_text = "The air buzzes with indistinct chatter." # Ultimate fallback
+                rumor_text = self._apply_verbosity(rumor_text)
                 # Print static rumor with a different color or note if desired
                 self._print_color(f"\n{Colors.DIM}(You overhear some chatter nearby: \"{rumor_text}\"){Colors.RESET}", Colors.DIM); self._print_color("", Colors.RESET)
                 if self.player_character and rumor_text: # Check rumor_text is not None
                      self.player_character.add_journal_entry("Overheard Rumor (Static)", rumor_text, self._get_current_game_time_period_str())
             elif rumor_text: # AI success and not OOC
+                rumor_text = self._apply_verbosity(rumor_text)
                 self._print_color(f"\n{Colors.DIM}(You overhear some chatter nearby: \"{rumor_text}\"){Colors.RESET}", Colors.DIM); self._print_color("", Colors.RESET)
                 if self.player_character:
                      self.player_character.add_journal_entry("Overheard Rumor (AI)", rumor_text, self._get_current_game_time_period_str())
+                self._remember_ai_output(rumor_text, "ambient_rumor")
 
             # Common logic for Raskolnikov if any rumor was processed (AI or static)
             if rumor_text and self.player_character and self.player_character.name == "Rodion Raskolnikov" and \
@@ -845,9 +1058,22 @@ class Game:
         hint_string = f" (Hint: {Colors.DIM}{' | '.join(active_hint_display_strings)}{Colors.RESET})" if active_hint_display_strings else \
                       (f" (Hint: {Colors.DIM}type 'look' or 'help'{Colors.RESET})" if not (hasattr(self, 'numbered_actions_context') and self.numbered_actions_context) else "")
         time_info = self._get_current_game_time_period_str()
-        prompt_text = f"\n[{Colors.DIM}{time_info}{Colors.RESET} | {Colors.CYAN}{self.current_location_name}{Colors.RESET} ({player_state_info})]{hint_string} What do you do? {PROMPT_ARROW}"
+        mode_label = self._get_mode_label()
+        prompt_text = (
+            f"\n[{Colors.DIM}{time_info}{Colors.RESET} | {Colors.CYAN}{self.current_location_name}{Colors.RESET} "
+            f"| {mode_label} | {self.verbosity_level} | {player_state_info}]"
+            f"{hint_string} What do you do? {self._prompt_arrow()}"
+        )
         raw_action_input = self._input_color(prompt_text, Colors.WHITE)
         fast_input = raw_action_input.strip().lower()
+        if fast_input == "!!":
+            if not self.command_history:
+                self._print_color("No previous command to repeat yet.", Colors.YELLOW)
+                return None, None
+            repeated_command = self.command_history[-1]
+            self._print_color(f"Repeating: {repeated_command}", Colors.DIM)
+            raw_action_input = repeated_command
+            fast_input = raw_action_input.strip().lower()
         fast_map = {
             "n": ("move to", "north"),
             "s": ("move to", "south"),
@@ -889,6 +1115,84 @@ class Game:
             return None, None
         return None, None
 
+    def _handle_theme_command(self, argument):
+        if not argument:
+            available = ", ".join(COLOR_THEME_MAP.keys())
+            self._print_color(f"Current theme: {self.color_theme}. Available: {available}.", Colors.CYAN)
+            return
+        requested_theme = str(argument).strip().lower()
+        applied_theme = apply_color_theme(requested_theme)
+        if not applied_theme:
+            self._print_color(
+                f"Unknown theme '{requested_theme}'. Use: {', '.join(COLOR_THEME_MAP.keys())}.",
+                Colors.YELLOW
+            )
+            return
+        self.color_theme = applied_theme
+        self._print_color(f"Theme set to {self.color_theme}.", Colors.GREEN)
+
+    def _handle_verbosity_command(self, argument):
+        if not argument:
+            self._print_color(
+                f"Current verbosity: {self.verbosity_level}. Options: {', '.join(VERBOSITY_LEVELS)}.",
+                Colors.CYAN
+            )
+            return
+        requested_level = str(argument).strip().lower()
+        if requested_level not in VERBOSITY_LEVELS:
+            self._print_color(
+                f"Unknown verbosity '{requested_level}'. Use: {', '.join(VERBOSITY_LEVELS)}.",
+                Colors.YELLOW
+            )
+            return
+        self.verbosity_level = requested_level
+        self._print_color(f"Verbosity set to {self.verbosity_level}.", Colors.GREEN)
+
+    def _handle_turnheaders_command(self, argument):
+        if not argument:
+            status_text = "on" if self.turn_headers_enabled else "off"
+            self._print_color(f"Turn headers are currently {status_text}. Use 'turnheaders on' or 'turnheaders off'.", Colors.CYAN)
+            return
+        normalized = str(argument).strip().lower()
+        if normalized in ["on", "true", "yes", "1"]:
+            self.turn_headers_enabled = True
+            self._print_color("Turn headers enabled.", Colors.GREEN)
+            return
+        if normalized in ["off", "false", "no", "0"]:
+            self.turn_headers_enabled = False
+            self._print_color("Turn headers disabled.", Colors.GREEN)
+            return
+        self._print_color("Invalid value. Use 'turnheaders on' or 'turnheaders off'.", Colors.YELLOW)
+
+    def _handle_retry_or_rephrase(self, mode):
+        if not self.last_ai_generated_text:
+            self._print_color("No recent AI text available to rework yet.", Colors.YELLOW)
+            return False
+        if not self.gemini_api.model or self.low_ai_data_mode:
+            self._print_color("Retry/rephrase requires active AI mode.", Colors.YELLOW)
+            return False
+
+        if mode == "retry":
+            prompt = (
+                "Rewrite this game narration with a different angle and details while preserving meaning:\n"
+                f"{self.last_ai_generated_text}"
+            )
+        else:
+            prompt = (
+                "Rephrase this game narration for clarity in 1-2 concise sentences, preserving meaning:\n"
+                f"{self.last_ai_generated_text}"
+            )
+
+        regenerated_text = self.gemini_api._generate_content_with_fallback(prompt, f"{mode} last AI output")
+        if regenerated_text is None or (isinstance(regenerated_text, str) and regenerated_text.startswith("(OOC:")):
+            self._print_color("Could not generate an alternate version right now.", Colors.YELLOW)
+            return False
+
+        final_text = self._apply_verbosity(regenerated_text)
+        self._print_color(f"{mode.title()}: \"{final_text}\"", Colors.CYAN)
+        self._remember_ai_output(final_text, f"{mode}_command")
+        return True
+
     def _process_command(self, command, argument):
         show_full_look_details = False
         if command == "look" or command == "move to":
@@ -897,7 +1201,7 @@ class Game:
         if command == "quit": self._print_color("Exiting game. Goodbye.", Colors.MAGENTA); return False, False, 0, True
         elif command == "select_item":
             item_name_selected = argument
-            secondary_action_input = self._input_color(f"What to do with {Colors.GREEN}{item_name_selected}{Colors.WHITE}? (e.g., look at, take, use, read, give to...) {PROMPT_ARROW}", Colors.WHITE).strip().lower()
+            secondary_action_input = self._input_color(f"What to do with {Colors.GREEN}{item_name_selected}{Colors.WHITE}? (e.g., look at, take, use, read, give to...) {self._prompt_arrow()}", Colors.WHITE).strip().lower()
 
             if secondary_action_input == "look at":
                 self._handle_look_command(item_name_selected, show_full_look_details) # _handle_look_command doesn't return action_taken flags
@@ -958,6 +1262,18 @@ class Game:
             self.low_ai_data_mode = not self.low_ai_data_mode
             self._print_color(f"Low AI Data Mode is now {'ON' if self.low_ai_data_mode else 'OFF'}.", Colors.MAGENTA)
             return False, False, 0, False # No action, no time, no atmospherics
+        elif command == "history":
+            self._display_command_history(); action_taken_this_turn = False; show_atmospherics_this_turn = False
+        elif command == "theme":
+            self._handle_theme_command(argument); action_taken_this_turn = False; show_atmospherics_this_turn = False
+        elif command == "verbosity":
+            self._handle_verbosity_command(argument); action_taken_this_turn = False; show_atmospherics_this_turn = False
+        elif command == "turnheaders":
+            self._handle_turnheaders_command(argument); action_taken_this_turn = False; show_atmospherics_this_turn = False
+        elif command == "retry":
+            self._handle_retry_or_rephrase("retry"); action_taken_this_turn = False; show_atmospherics_this_turn = False
+        elif command == "rephrase":
+            self._handle_retry_or_rephrase("rephrase"); action_taken_this_turn = False; show_atmospherics_this_turn = False
         else:
             suggestions = self._get_command_suggestions(command)
             suggestion_text = f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
@@ -968,6 +1284,7 @@ class Game:
 
     def _update_world_state_after_action(self, command, action_taken_this_turn, time_to_advance):
         if action_taken_this_turn:
+            self.player_action_count += 1
             if command != "talk to": self.advance_time(time_to_advance)
             self.actions_since_last_autosave += 1
             if self.actions_since_last_autosave >= self.autosave_interval_actions and command not in ["save", "load", "quit"]:
@@ -1003,13 +1320,26 @@ class Game:
         while True:
             if not LOCATIONS_DATA.get(self.current_location_name):
                  self._print_color(f"Critical Error: Current location '{self.current_location_name}' data not found. Exiting.", Colors.RED); break
+            self._print_turn_header()
+            self._display_tutorial_hint()
             self._handle_ambient_rumors(); command, argument = self._get_player_input()
             if command is None and argument is None: continue
+            self._record_command_history(command, argument)
             action_taken, show_atmospherics, time_units, special_flag = self._process_command(command, argument)
-            if special_flag == "load_triggered": continue
-            if special_flag: break
+            if special_flag == "load_triggered":
+                self.last_turn_result_icon = "LOAD"
+                continue
+            if special_flag:
+                self.last_turn_result_icon = "QUIT"
+                break
             self._update_world_state_after_action(command, action_taken, time_units)
             self._display_turn_feedback(show_atmospherics, command)
+            if action_taken:
+                self.last_turn_result_icon = "OK"
+            elif command in ["help", "status", "history", "theme", "verbosity", "turnheaders", "retry", "rephrase", "save", "load", "toggle_lowai"]:
+                self.last_turn_result_icon = "INFO"
+            else:
+                self.last_turn_result_icon = "NOOP"
             if self._check_game_ending_conditions(): break
 
     def _handle_look_at_location_item(self, target_to_look_at):
@@ -1080,15 +1410,17 @@ class Game:
                 observation = self.gemini_api.get_player_reflection(player_character, current_location_name, self.get_current_time_period(), observation_prompt, player_character.get_inventory_description(), self._get_objectives_summary(player_character))
 
             if observation is not None and not (isinstance(observation, str) and observation.startswith("(OOC:")) and not self.low_ai_data_mode:
-                self._print_color(f"\"{observation}\"", Colors.GREEN)
-                base_desc_for_skill_check = observation
+                final_observation = self._apply_verbosity(observation)
+                self._print_color(f"\"{final_observation}\"", Colors.GREEN)
+                base_desc_for_skill_check = final_observation
+                self._remember_ai_output(final_observation, "look_npc")
             else:
                 if self.low_ai_data_mode or observation is None or (isinstance(observation, str) and observation.startswith("(OOC:")) :
                     if STATIC_PLAYER_REFLECTIONS:
                         observation = f"{npc.name} is here. {random.choice(STATIC_PLAYER_REFLECTIONS)}"
                     else:
                         observation = f"You observe {npc.name}. They seem to be going about their business."
-                    self._print_color(f"\"{observation}\"", Colors.CYAN)
+                    self._print_color(f"\"{self._apply_verbosity(observation)}\"", Colors.CYAN)
                 else:
                     self._print_color(f"({base_desc_for_skill_check})", Colors.DIM)
 
@@ -1113,9 +1445,11 @@ class Game:
                     else:
                         detailed_observation = "You notice some subtle cues, but their full meaning eludes you."
                     if detailed_observation:
-                        self._print_color(f"Insight: \"{detailed_observation}\"", Colors.CYAN)
+                        self._print_color(f"Insight: \"{self._apply_verbosity(detailed_observation)}\"", Colors.CYAN)
                 elif detailed_observation:
-                    self._print_color(f"Insight: \"{detailed_observation}\"", Colors.GREEN)
+                    final_detail = self._apply_verbosity(detailed_observation)
+                    self._print_color(f"Insight: \"{final_detail}\"", Colors.GREEN)
+                    self._remember_ai_output(final_detail, "look_npc_detail")
             return True
         return False
 
@@ -1137,14 +1471,16 @@ class Game:
 
             if observation is not None and not (isinstance(observation, str) and observation.startswith("(OOC:")) and not self.low_ai_data_mode:
                 # AI success
-                self._print_color(f"\"{observation}\"", Colors.CYAN)
-                base_desc_for_skill_check = observation # Update for skill check
+                final_observation = self._apply_verbosity(observation)
+                self._print_color(f"\"{final_observation}\"", Colors.CYAN)
+                base_desc_for_skill_check = final_observation # Update for skill check
+                self._remember_ai_output(final_observation, "look_scenery")
             else:
                 # Fallback or AI failed/OOC or low_ai_mode
                 if self.low_ai_data_mode or observation is None or (isinstance(observation, str) and observation.startswith("(OOC:")) :
                     observation = generate_static_scenery_observation(target_to_look_at)
                     # base_desc_for_skill_check remains the initial general one
-                    self._print_color(f"\"{observation}\"", Colors.DIM) # Static in DIM
+                    self._print_color(f"\"{self._apply_verbosity(observation)}\"", Colors.DIM) # Static in DIM
                 else: # Should not be reached
                      self._print_color(f"The {target_to_look_at} is just as it seems.", Colors.DIM)
 
@@ -1161,9 +1497,11 @@ class Game:
                     else:
                         detailed_observation = "The scene offers no further secrets to your gaze." # Ultimate fallback
                     if detailed_observation: # Check if not None
-                        self._print_color(f"You also notice: \"{detailed_observation}\"", Colors.CYAN) # Static in Cyan
+                        self._print_color(f"You also notice: \"{self._apply_verbosity(detailed_observation)}\"", Colors.CYAN) # Static in Cyan
                 elif detailed_observation: # AI success
-                    self._print_color(f"You also notice: \"{detailed_observation}\"", Colors.GREEN)
+                    final_detail = self._apply_verbosity(detailed_observation)
+                    self._print_color(f"You also notice: \"{final_detail}\"", Colors.GREEN)
+                    self._remember_ai_output(final_detail, "look_scenery_detail")
                 # If still None, nothing printed.
             return True
         return False
@@ -1177,16 +1515,16 @@ class Game:
         if argument and not is_general_look:
             target_to_look_at = argument.lower()
             if self._handle_look_at_location_item(target_to_look_at):
-                self._print_color(SEPARATOR_LINE, Colors.DIM)
+                self._print_color(self._separator_line(), Colors.DIM)
             elif self._handle_look_at_inventory_item(target_to_look_at):
-                self._print_color(SEPARATOR_LINE, Colors.DIM)
+                self._print_color(self._separator_line(), Colors.DIM)
             elif self._handle_look_at_npc(target_to_look_at):
-                self._print_color(SEPARATOR_LINE, Colors.DIM)
+                self._print_color(self._separator_line(), Colors.DIM)
             elif self._handle_look_at_scenery(target_to_look_at):
-                self._print_color(SEPARATOR_LINE, Colors.DIM)
+                self._print_color(self._separator_line(), Colors.DIM)
             else:
                 self._print_color(f"You don't see '{argument}' here to look at specifically.", Colors.RED)
-                self._print_color(SEPARATOR_LINE, Colors.DIM)
+                self._print_color(self._separator_line(), Colors.DIM)
 
         if show_full_look_details:
             self._print_color("", Colors.RESET)
@@ -1248,6 +1586,11 @@ class Game:
         self._print_color(f"Notoriety: {Colors.MAGENTA}{notoriety_desc} (Level {self.player_notoriety_level:.1f}){Colors.RESET}", Colors.WHITE)
         ai_mode = "Low AI / Fallback Friendly" if self.low_ai_data_mode else "AI Dynamic"
         self._print_color(f"Narrative Mode: {Colors.CYAN}{ai_mode}{Colors.RESET}", Colors.WHITE)
+        self._print_color(f"Theme: {self.color_theme}", Colors.WHITE)
+        self._print_color(f"Verbosity: {self.verbosity_level}", Colors.WHITE)
+        self._print_color(f"Turn Headers: {'on' if self.turn_headers_enabled else 'off'}", Colors.WHITE)
+        if self.player_action_count < self.tutorial_turn_limit:
+            self._print_color(f"Tutorial Progress: {self.player_action_count}/{self.tutorial_turn_limit} actions", Colors.DIM)
         self._print_color("\n--- Skills ---", Colors.CYAN + Colors.BOLD)
         if self.player_character.skills:
             for skill_name, value in self.player_character.skills.items(): self._print_color(f"- {skill_name.capitalize()}: {value}", Colors.WHITE)
@@ -1387,6 +1730,7 @@ class Game:
                 full_reflection_context += (f"\nHe is particularly wrestling with his 'extraordinary man' theory (currently at stage: '{current_stage_desc}'). How do his immediate surroundings, recent events, or current feelings intersect with or challenge this core belief?")
 
         reflection = None
+        ai_generated = False
         if not self.low_ai_data_mode and self.gemini_api.model:
             reflection = self.gemini_api.get_player_reflection(self.player_character, self.current_location_name, self.get_current_time_period(), full_reflection_context)
 
@@ -1395,8 +1739,13 @@ class Game:
                 reflection = random.choice(STATIC_PLAYER_REFLECTIONS)
             else:
                 reflection = "Your mind is a whirl of thoughts." # Ultimate fallback
+        else:
+            ai_generated = True
 
-        self._print_color(f"Inner thought: \"{reflection}\"", Colors.GREEN) # Print whatever reflection is chosen
+        final_reflection = self._apply_verbosity(reflection)
+        self._print_color(f"Inner thought: \"{final_reflection}\"", Colors.GREEN) # Print whatever reflection is chosen
+        if ai_generated:
+            self._remember_ai_output(final_reflection, "think")
         self.last_significant_event_summary = "was lost in thought."
 
     def _handle_wait_command(self):
@@ -1430,7 +1779,7 @@ class Game:
                  if len(self.current_conversation_log) > MAX_CONVERSATION_LOG_LINES: self.current_conversation_log.pop(0)
             conversation_active = True
             while conversation_active:
-                player_dialogue = self._input_color(f"You ({Colors.GREEN}{self.player_character.name}{Colors.RESET}): {PROMPT_ARROW}", Colors.GREEN).strip()
+                player_dialogue = self._input_color(f"You ({Colors.GREEN}{self.player_character.name}{Colors.RESET}): {self._prompt_arrow()}", Colors.GREEN).strip()
                 if player_dialogue.lower() in ['history', 'review', 'log']:
                     self._print_color("\n--- Recent Conversation History ---", Colors.CYAN + Colors.BOLD)
                     if not self.current_conversation_log: self._print_color("No history recorded yet for this conversation.", Colors.DIM)
@@ -1445,12 +1794,17 @@ class Game:
                 if len(self.current_conversation_log) > MAX_CONVERSATION_LOG_LINES: self.current_conversation_log.pop(0)
                 if self.check_conversation_conclusion(player_dialogue): self._print_color(f"You end the conversation with {Colors.YELLOW}{target_npc.name}{Colors.RESET}.", Colors.WHITE); conversation_active = False; break
                 if not player_dialogue: self._print_color("You remain silent for a moment.", Colors.DIM); pass
+                used_ai_dialogue = False
                 if self.gemini_api.model:
                     self._print_color("Thinking...", Colors.DIM + Colors.MAGENTA)
                     ai_response = self.gemini_api.get_npc_dialogue(target_npc, self.player_character, player_dialogue, self.current_location_name, self.get_current_time_period(), self.get_relationship_text(target_npc.relationship_with_player), target_npc.get_player_memory_summary(self.game_time), self.player_character.apparent_state, self.player_character.get_notable_carried_items_summary(), self._get_recent_events_summary(), self._get_objectives_summary(target_npc), self._get_objectives_summary(self.player_character))
+                    used_ai_dialogue = True
                 else: ai_response = random.choice(["Yes?", "Hmm.", "What is it?", "I am busy.", f"{target_npc.greeting if hasattr(target_npc, 'greeting') else '...'}"]); self._print_color(f"{Colors.DIM}(Using placeholder dialogue){Colors.RESET}", Colors.DIM)
+                ai_response = self._apply_verbosity(ai_response)
                 target_npc.update_relationship(player_dialogue, POSITIVE_KEYWORDS, NEGATIVE_KEYWORDS, self.game_time); self._print_color(f"{target_npc.name}: ", Colors.YELLOW, end=""); print(f"\"{ai_response}\"")
                 logged_ai_response = f"{target_npc.name}: \"{ai_response}\""; self.current_conversation_log.append(logged_ai_response)
+                if used_ai_dialogue and not (isinstance(ai_response, str) and ai_response.startswith("(OOC:")):
+                    self._remember_ai_output(ai_response, "npc_dialogue")
                 if len(self.current_conversation_log) > MAX_CONVERSATION_LOG_LINES: self.current_conversation_log.pop(0)
                 self.last_significant_event_summary = f"spoke with {target_npc.name} who said: \"{ai_response[:50]}...\""
                 if self.check_conversation_conclusion(ai_response): self._print_color(f"\nThe conversation with {Colors.YELLOW}{target_npc.name}{Colors.RESET} seems to have concluded.", Colors.MAGENTA); conversation_active = False
@@ -1507,6 +1861,7 @@ class Game:
         if item_to_use_name == "old newspaper" or item_to_use_name == "fresh newspaper":
             self._print_color(f"You smooth out the creases of the {item_to_use_name} and scan the faded print.", Colors.WHITE)
             article_snippet = None
+            ai_generated = False
             if not self.low_ai_data_mode and self.gemini_api.model:
                 article_snippet = self.gemini_api.get_newspaper_article_snippet(self.current_day, self._get_recent_events_summary(), self._get_objectives_summary(player_character), player_character.apparent_state)
 
@@ -1517,11 +1872,14 @@ class Game:
                     article_snippet = "The newsprint is smudged and uninteresting." # Ultimate fallback
 
                 if article_snippet : # Make sure we have something to print/log
+                    article_snippet = self._apply_verbosity(article_snippet)
                     self._print_color(f"An article catches your eye: \"{article_snippet}\"", Colors.CYAN) # Static in Cyan
                     player_character.add_journal_entry("News (Static)", article_snippet, self._get_current_game_time_period_str()) # Optionally log differently
             elif article_snippet: # AI success and not OOC
+                article_snippet = self._apply_verbosity(article_snippet)
                 self._print_color(f"An article catches your eye: \"{article_snippet}\"", Colors.YELLOW)
                 player_character.add_journal_entry("News (AI)", article_snippet, self._get_current_game_time_period_str()) # Optionally log differently
+                ai_generated = True
 
             if not article_snippet: # Final fallback if all else fails
                  self._print_color("The print is too faded or the news too mundane to hold your interest.", Colors.DIM)
@@ -1534,6 +1892,8 @@ class Game:
                         player_character.add_player_memory(memory_type="read_news_crime", turn=self.game_time, content={"summary": "Read unsettling news about the recent crime."}, sentiment_impact=0)
                         self.player_notoriety_level = min(self.player_notoriety_level + 0.1, 3)
                 self.last_significant_event_summary = f"read an {item_to_use_name}."
+                if ai_generated:
+                    self._remember_ai_output(article_snippet, "news_article")
             return True
         elif item_to_use_name == "mother's letter":
             self._print_color(f"You re-read your mother's letter. Her words of love and anxiety, Dunya's predicament... it all weighs heavily on you.", Colors.YELLOW)
@@ -1547,9 +1907,11 @@ class Game:
                     reflection = random.choice(STATIC_PLAYER_REFLECTIONS)
                 else:
                     reflection = "The letter stirs a whirlwind of emotions and responsibilities." # Ultimate fallback
-                self._print_color(f"\"{reflection}\"", Colors.DIM) # Static reflection in DIM
+                self._print_color(f"\"{self._apply_verbosity(reflection)}\"", Colors.DIM) # Static reflection in DIM
             else: # AI success
+                reflection = self._apply_verbosity(reflection)
                 self._print_color(f"\"{reflection}\"", Colors.CYAN)
+                self._remember_ai_output(reflection, "read_letter")
 
             player_character.apparent_state = random.choice(["burdened", "agitated", "resolved"])
             if player_character.name == "Rodion Raskolnikov": player_character.add_player_memory(memory_type="reread_mother_letter", turn=self.game_time, content={"summary": "Re-reading mother's letter intensified feelings of duty and distress."}, sentiment_impact=-1)
@@ -1566,9 +1928,11 @@ class Game:
                     reflection = random.choice(STATIC_PLAYER_REFLECTIONS)
                 else:
                     reflection = "The words offer a strange mix of judgment and hope." # Ultimate fallback
-                self._print_color(f"\"{reflection}\"", Colors.DIM) # Static reflection in DIM
+                self._print_color(f"\"{self._apply_verbosity(reflection)}\"", Colors.DIM) # Static reflection in DIM
             else: # AI success
+                reflection = self._apply_verbosity(reflection)
                 self._print_color(f"\"{reflection}\"", Colors.CYAN)
+                self._remember_ai_output(reflection, "read_testament")
 
             if player_character.name == "Rodion Raskolnikov":
                 player_character.apparent_state = random.choice(["contemplative", "remorseful", "thoughtful", "hopeful"])
@@ -1690,11 +2054,16 @@ class Game:
         self._print_color(f"\nYou attempt to persuade {Colors.YELLOW}{target_npc.name}{Colors.RESET} that \"{statement_text}\"...", Colors.WHITE)
         difficulty = 2; success = self.player_character.check_skill("Persuasion", difficulty)
         persuasion_skill_check_result_text = "SUCCESS due to their skillful argument" if success else "FAILURE despite their efforts"
+        used_ai_dialogue = False
         if self.gemini_api.model:
             self._print_color("Thinking...", Colors.DIM + Colors.MAGENTA)
             ai_response = self.gemini_api.get_npc_dialogue_persuasion_attempt(target_npc, self.player_character, player_persuasive_statement=statement_text, current_location_name=self.current_location_name, current_time_period=self.get_current_time_period(), relationship_status_text=self.get_relationship_text(target_npc.relationship_with_player), npc_memory_summary=target_npc.get_player_memory_summary(self.game_time), player_apparent_state=self.player_character.apparent_state, player_notable_items_summary=self.player_character.get_notable_carried_items_summary(), recent_game_events_summary=self._get_recent_events_summary(), npc_objectives_summary=self._get_objectives_summary(target_npc), player_objectives_summary=self._get_objectives_summary(self.player_character), persuasion_skill_check_result_text=persuasion_skill_check_result_text)
+            used_ai_dialogue = True
         else: ai_response = f"Hmm, '{statement_text}', you say? That's... something to consider. (Skill: {persuasion_skill_check_result_text})"; self._print_color(f"{Colors.DIM}(Using placeholder dialogue for persuasion){Colors.RESET}", Colors.DIM)
+        ai_response = self._apply_verbosity(ai_response)
         self._print_color(f"{target_npc.name}: ", Colors.YELLOW, end=""); print(f"\"{ai_response}\"")
+        if used_ai_dialogue and not (isinstance(ai_response, str) and ai_response.startswith("(OOC:")):
+            self._remember_ai_output(ai_response, "persuasion_dialogue")
         sentiment_impact_base = 0
         if success: self._print_color(f"Your argument seems to have had an effect!", Colors.GREEN); sentiment_impact_base = 1; target_npc.relationship_with_player += 1
         else: self._print_color(f"Your words don't seem to convince {target_npc.name}.", Colors.RED); sentiment_impact_base = -1; target_npc.relationship_with_player -= 1

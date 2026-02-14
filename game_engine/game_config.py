@@ -16,6 +16,66 @@ class Colors:
     DIM = '\033[2m' # For less prominent text like timestamps
     UNDERLINE = '\033[4m'
 
+
+COLOR_THEME_MAP = {
+    "default": {
+        "RESET": '\033[0m',
+        "RED": '\033[91m',
+        "GREEN": '\033[92m',
+        "YELLOW": '\033[93m',
+        "BLUE": '\033[94m',
+        "MAGENTA": '\033[95m',
+        "CYAN": '\033[96m',
+        "WHITE": '\033[97m',
+        "BOLD": '\033[1m',
+        "DIM": '\033[2m',
+        "UNDERLINE": '\033[4m',
+    },
+    "high-contrast": {
+        "RESET": '\033[0m',
+        "RED": '\033[1;97;41m',
+        "GREEN": '\033[1;30;102m',
+        "YELLOW": '\033[1;30;103m',
+        "BLUE": '\033[1;97;44m',
+        "MAGENTA": '\033[1;97;45m',
+        "CYAN": '\033[1;30;106m',
+        "WHITE": '\033[1;97m',
+        "BOLD": '\033[1m',
+        "DIM": '\033[2m',
+        "UNDERLINE": '\033[4m',
+    },
+    "mono": {
+        "RESET": '\033[0m',
+        "RED": '',
+        "GREEN": '',
+        "YELLOW": '',
+        "BLUE": '',
+        "MAGENTA": '',
+        "CYAN": '',
+        "WHITE": '',
+        "BOLD": '\033[1m',
+        "DIM": '\033[2m',
+        "UNDERLINE": '\033[4m',
+    }
+}
+
+
+def apply_color_theme(theme_name):
+    normalized = str(theme_name or "default").strip().lower()
+    if normalized not in COLOR_THEME_MAP:
+        return None
+    for attr_name, color_code in COLOR_THEME_MAP[normalized].items():
+        setattr(Colors, attr_name, color_code)
+    return normalized
+
+
+DEFAULT_COLOR_THEME = "default"
+DEFAULT_VERBOSITY_LEVEL = "standard"
+VERBOSITY_LEVELS = ("brief", "standard", "rich")
+
+# Ensure theme attributes are consistently initialized through one code path.
+apply_color_theme(DEFAULT_COLOR_THEME)
+
 # --- Save Game File ---
 SAVE_GAME_FILE = "savegame.json"
 
@@ -88,7 +148,13 @@ COMMAND_SYNONYMS = {
     "quit": ["exit", "q"],
     "persuade": ["convince", "argue with"], # New command
     "status": ["char", "character", "profile", "st"],
-    "toggle_lowai": ["toggle lowai", "lowaimode"]
+    "toggle_lowai": ["toggle lowai", "lowaimode"],
+    "history": ["/history", "hist"],
+    "theme": ["set theme", "color theme"],
+    "verbosity": ["density", "text density"],
+    "turnheaders": ["turn headers", "turn header"],
+    "retry": [],
+    "rephrase": []
 }
 
 # --- Player States (for NPC reactions) ---

@@ -51,7 +51,12 @@ class TestGameState(unittest.TestCase):
             "key_events_occurred": ["The game started."],
             "current_location_description_shown_this_visit": True,
             "chosen_gemini_model": "test_model",
-            "low_ai_data_mode": False
+            "low_ai_data_mode": False,
+            "player_action_count": 0,
+            "color_theme": "default",
+            "verbosity_level": "standard",
+            "turn_headers_enabled": True,
+            "command_history": []
         }
 
         mock_json_dump.assert_called_once()
@@ -76,7 +81,12 @@ class TestGameState(unittest.TestCase):
             "key_events_occurred": ["The game started."],
             "current_location_description_shown_this_visit": True,
             "chosen_gemini_model": "test_model",
-            "low_ai_data_mode": False
+            "low_ai_data_mode": False,
+            "player_action_count": 0,
+            "color_theme": "default",
+            "verbosity_level": "standard",
+            "turn_headers_enabled": True,
+            "command_history": []
         }
         mock_json_load.return_value = mock_save_data
 
@@ -133,7 +143,12 @@ class TestGameState(unittest.TestCase):
             "key_events_occurred": ["The game started."],
             "current_location_description_shown_this_visit": True,
             "chosen_gemini_model": "test_model",
-            "low_ai_data_mode": False
+            "low_ai_data_mode": False,
+            "player_action_count": 0,
+            "color_theme": "default",
+            "verbosity_level": "standard",
+            "turn_headers_enabled": True,
+            "command_history": []
         }
         with patch('game_engine.game_state.CHARACTERS_DATA', {"Test Player": {"persona": "A brave adventurer.", "greeting": "Hello!", "default_location": "start_location", "accessible_locations": ["start_location"]}}):
             result = self.game.load_game("slot1")
@@ -181,7 +196,12 @@ class TestGameState(unittest.TestCase):
             "key_events_occurred": ["The game started.", "Found clue", "Met inspector"],
             "current_location_description_shown_this_visit": True,
             "chosen_gemini_model": "test_model",
-            "low_ai_data_mode": False
+            "low_ai_data_mode": False,
+            "player_action_count": 0,
+            "color_theme": "default",
+            "verbosity_level": "standard",
+            "turn_headers_enabled": True,
+            "command_history": []
         }
         mock_json_load.return_value = mock_save_data
 
@@ -195,6 +215,39 @@ class TestGameState(unittest.TestCase):
         with patch.object(self.game, '_print_color') as mock_print:
             self.game._handle_status_command()
             mock_print.assert_any_call(f"Name: {Colors.GREEN}Test Player{Colors.RESET}", Colors.WHITE)
+
+    def test_get_player_input_repeat_last_command(self):
+        self.game.command_history = ["look"]
+        with patch.object(self.game, '_input_color', return_value="!!"), \
+             patch.object(self.game, '_print_color'):
+            command, argument = self.game._get_player_input()
+        self.assertEqual(command, "look")
+        self.assertIsNone(argument)
+
+    def test_get_player_input_repeat_without_history(self):
+        self.game.command_history = []
+        with patch.object(self.game, '_input_color', return_value="!!"), \
+             patch.object(self.game, '_print_color') as mock_print:
+            command, argument = self.game._get_player_input()
+        self.assertIsNone(command)
+        self.assertIsNone(argument)
+        mock_print.assert_any_call("No previous command to repeat yet.", Colors.YELLOW)
+
+    def test_process_history_command(self):
+        self.game.command_history = ["look", "inventory"]
+        with patch.object(self.game, '_print_color') as mock_print:
+            action_taken, show_atmospherics, _, _ = self.game._process_command("history", None)
+        self.assertFalse(action_taken)
+        self.assertFalse(show_atmospherics)
+        printed = "\n".join(call.args[0] for call in mock_print.call_args_list if call.args)
+        self.assertIn("Recent Commands", printed)
+
+    def test_theme_and_verbosity_commands(self):
+        self.game._process_command("theme", "mono")
+        self.assertEqual(self.game.color_theme, "mono")
+        self.game._process_command("verbosity", "brief")
+        self.assertEqual(self.game.verbosity_level, "brief")
+        self.game._process_command("theme", "default")
 
 
 if __name__ == '__main__':
