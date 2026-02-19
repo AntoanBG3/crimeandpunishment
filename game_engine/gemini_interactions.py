@@ -42,13 +42,10 @@ class NaturalLanguageParser:
         return any(phrase in lowered for phrase in unsafe_phrases)
 
     def _select_intent_model(self):
-        if not self.gemini_api._load_genai():
-            return self.gemini_api.model
-        genai_module = self.gemini_api.genai
-        if genai_module is None:
+        if not self.gemini_api._load_genai() or not self.gemini_api.client:
             return self.gemini_api.model
         try:
-            return genai_module.GenerativeModel("gemini-3-flash-preview")
+            return self.gemini_api._GeminiModelAdapter(self.gemini_api.client, "gemini-3-flash-preview")
         except Exception:
             return self.gemini_api.model
 
@@ -93,16 +90,10 @@ class NaturalLanguageParser:
 
         model = self._select_intent_model()
         try:
-            genai_module = self.gemini_api.genai
-            if genai_module is not None and hasattr(genai_module, "types"):
-                generation_config = genai_module.types.GenerationConfig(
-                    candidate_count=1,
-                    max_output_tokens=120,
-                    temperature=0.1,
-                )
-                response = model.generate_content(prompt, generation_config=generation_config)
-            else:
-                response = model.generate_content(prompt)
+            response = model.generate_content(
+                prompt,
+                generation_config={"candidate_count": 1, "max_output_tokens": 120, "temperature": 0.1},
+            )
         except Exception:
             return default_response
 
@@ -128,6 +119,7 @@ class NaturalLanguageParser:
 class GeminiAPI:
     def __init__(self):
         self.model = None
+        self.client = None
         self.genai = None
         self._genai_warning_shown = False
         self.chosen_model_name = DEFAULT_GEMINI_MODEL_NAME # Initialize with default
@@ -138,20 +130,44 @@ class GeminiAPI:
         if self.genai:
             return True
         os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
-        if "unittest" in sys.modules:
+        if "unittest" in sys.modules or "pytest" in sys.modules:
             self.genai = SimpleNamespace(
-                configure=lambda **kwargs: None,
-                GenerativeModel=lambda model_name: SimpleNamespace(generate_content=lambda *args, **kwargs: SimpleNamespace(text=""))
+                Client=lambda **kwargs: SimpleNamespace(
+                    models=SimpleNamespace(
+                        generate_content=lambda *args, **kwargs: SimpleNamespace(text="test")
+                    )
+                )
             )
             return True
-        spec = importlib.util.find_spec("google.generativeai")
+        spec = importlib.util.find_spec("google.genai")
         if spec is None:
             if not self._genai_warning_shown:
                 self._log_message("Gemini API library not installed. Running with placeholder responses.", Colors.YELLOW)
                 self._genai_warning_shown = True
             return False
-        self.genai = importlib.import_module("google.generativeai")
+        self.genai = importlib.import_module("google.genai")
         return True
+
+    class _GeminiModelAdapter:
+        def __init__(self, client, model_name):
+            self.client = client
+            self.model_name = model_name
+
+        def generate_content(self, prompt, generation_config=None, safety_settings=None):
+            config = {}
+            if generation_config:
+                if isinstance(generation_config, dict):
+                    config.update(generation_config)
+                else:
+                    config.update(vars(generation_config))
+            if safety_settings:
+                config["safety_settings"] = safety_settings
+
+            return self.client.models.generate_content(
+                model=self.model_name,
+                contents=prompt,
+                config=config or None,
+            )
 
     def _log_message(self, text, color, end="\n"):
         if hasattr(self, '_print_color_func') and callable(self._print_color_func):
@@ -202,14 +218,14 @@ class GeminiAPI:
             return False
             
         try:
-            genai_module.configure(api_key=api_key)
+            self.client = genai_module.Client(api_key=api_key)
         except Exception as e_config:
-            self._print_color_func(f"Error configuring Gemini API (genai.configure using key from {source}): {e_config}", Colors.RED)
+            self._print_color_func(f"Error configuring Gemini API (Client init using key from {source}): {e_config}", Colors.RED)
             self.model = None
             return False
 
         try:
-            model_instance = genai_module.GenerativeModel(model_to_use) # Use the passed model_to_use
+            model_instance = self._GeminiModelAdapter(self.client, model_to_use)
         except Exception as model_e:
             self._print_color_func(f"Error instantiating Gemini model '{model_to_use}' (key from {source}): {model_e}", Colors.RED)
             self._print_color_func(f"The API key might be valid, but there's an issue with model '{model_to_use}' (e.g., name, access permissions).", Colors.YELLOW)
@@ -226,7 +242,7 @@ class GeminiAPI:
             ]
             test_response = model_instance.generate_content(
                 "This is a test of the API. Please respond with the word 'test' to confirm.",
-                generation_config=genai_module.types.GenerationConfig(candidate_count=1, max_output_tokens=5),
+                generation_config={"candidate_count": 1, "max_output_tokens": 5},
                 safety_settings=safety_settings
             )
 
@@ -355,11 +371,6 @@ class GeminiAPI:
 
                 if not self._load_genai():
                     return {"api_configured": False, "low_ai_preference": False}
-                genai_module = self.genai
-                if genai_module is None:
-                    return {"api_configured": False, "low_ai_preference": False}
-                genai_module.configure(api_key=key_to_try)
-                self._log_message(f"genai.configure() successful with key from {key_source}.", Colors.GREEN)
 
                 if self._attempt_api_setup(key_to_try, key_source, preferred_model_from_config):
                     low_ai_pref = self._prompt_for_low_ai_mode()
@@ -392,22 +403,8 @@ class GeminiAPI:
                 self.model = None 
                 return {"api_configured": False, "low_ai_preference": False}
             
-            try:
-                if not self._load_genai():
-                    return {"api_configured": False, "low_ai_preference": False}
-                genai_module = self.genai
-                if genai_module is None:
-                    return {"api_configured": False, "low_ai_preference": False}
-                genai_module.configure(api_key=manual_api_key_input)
-                self._log_message(f"genai.configure() successful with manually entered key.", Colors.GREEN)
-            except Exception as e_manual_initial_config:
-                 self._print_color_func(f"Error initially configuring Gemini API with manually entered key: {e_manual_initial_config}", Colors.RED)
-                 retry_choice = self._input_color_func("Invalid API key format or initial error. Try again? (y/n): ", Colors.YELLOW).strip().lower()
-                 if retry_choice != 'y':
-                     self._print_color_func("\nProceeding with placeholder responses.", Colors.RED)
-                     self.model = None 
-                     return {"api_configured": False, "low_ai_preference": False}
-                 continue
+            if not self._load_genai():
+                return {"api_configured": False, "low_ai_preference": False}
 
             selected_model_id_manual = self._ask_for_model_selection()
 

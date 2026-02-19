@@ -138,8 +138,8 @@ class TestInventoryDescription(unittest.TestCase):
 
 class TestGeminiDialogueQuotes(unittest.TestCase):
     def setUp(self):
-        self.mock_genai_configure = patch('google.generativeai.configure').start()
-        self.mock_generative_model_cls = patch('google.generativeai.GenerativeModel').start()
+        self.mock_genai_configure = MagicMock()
+        self.mock_generative_model_cls = MagicMock()
 
         self.api = GeminiAPI()
         self.api.model = MagicMock()
@@ -1218,6 +1218,9 @@ class TestGeminiAPIConfiguration(unittest.TestCase):
         # Patch methods within the GeminiAPI instance or its module
         self.patch_attempt_api_setup = patch.object(self.api, '_attempt_api_setup')
         self.mock_attempt_api_setup = self.patch_attempt_api_setup.start()
+
+        self.patch_load_genai = patch.object(self.api, '_load_genai', return_value=True)
+        self.mock_load_genai = self.patch_load_genai.start()
 
         self.patch_os_path_exists = patch('game_engine.gemini_interactions.os.path.exists')
         self.mock_os_path_exists = self.patch_os_path_exists.start()
