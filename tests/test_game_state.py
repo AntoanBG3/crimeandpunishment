@@ -90,7 +90,7 @@ class TestGameState(unittest.TestCase):
         }
         mock_json_load.return_value = mock_save_data
 
-        with patch('game_engine.game_state.CHARACTERS_DATA', {"Test Player": {"persona": "A brave adventurer.", "greeting": "Hello!", "default_location": "start_location", "accessible_locations": ["start_location"]}}):
+        with patch.dict('game_engine.character_module.CHARACTERS_DATA', {"Test Player": {"persona": "A brave adventurer.", "greeting": "Hello!", "default_location": "start_location", "accessible_locations": ["start_location"]}}, clear=True):
             result = self.game.load_game()
 
         self.assertTrue(result)
@@ -108,7 +108,7 @@ class TestGameState(unittest.TestCase):
         npc = Character("Test NPC", "A scheduled NPC.", "Greetings.", "loc_A", ["loc_A", "loc_B"], schedule={"Morning": "loc_B"})
         self.game.all_character_objects["Test NPC"] = npc
         self.game.game_time = 0 # Morning
-        with patch('game_engine.game_state.LOCATIONS_DATA', {"loc_A": {}, "loc_B": {}}):
+        with patch.dict('game_engine.location_module.LOCATIONS_DATA', {"loc_A": {}, "loc_B": {}}, clear=True):
             self.game.update_npc_locations_by_schedule()
         self.assertEqual(npc.current_location, "loc_B")
 
@@ -150,7 +150,7 @@ class TestGameState(unittest.TestCase):
             "turn_headers_enabled": True,
             "command_history": []
         }
-        with patch('game_engine.game_state.CHARACTERS_DATA', {"Test Player": {"persona": "A brave adventurer.", "greeting": "Hello!", "default_location": "start_location", "accessible_locations": ["start_location"]}}):
+        with patch.dict('game_engine.character_module.CHARACTERS_DATA', {"Test Player": {"persona": "A brave adventurer.", "greeting": "Hello!", "default_location": "start_location", "accessible_locations": ["start_location"]}}, clear=True):
             result = self.game.load_game("slot1")
 
         self.assertTrue(result)
@@ -166,7 +166,7 @@ class TestGameState(unittest.TestCase):
     def test_get_contextual_command_examples_includes_context(self):
         self.game.npcs_in_current_location = [Character("Sonya", "", "", "start_location", ["start_location"])]
         self.game.dynamic_location_items = {"start_location": [{"name": "coin"}]}
-        with patch('game_engine.game_state.LOCATIONS_DATA', {"start_location": {"exits": {"street": "A street"}}}):
+        with patch.dict('game_engine.location_module.LOCATIONS_DATA', {"start_location": {"exits": {"street": "A street"}}}, clear=True):
             examples = self.game._get_contextual_command_examples()
         self.assertIn("look", examples)
         self.assertIn("talk to Sonya", examples)
@@ -205,7 +205,7 @@ class TestGameState(unittest.TestCase):
         }
         mock_json_load.return_value = mock_save_data
 
-        with patch('game_engine.game_state.CHARACTERS_DATA', {"Test Player": {"persona": "A brave adventurer.", "greeting": "Hello!", "default_location": "start_location", "accessible_locations": ["start_location"]}}), \
+        with patch.dict('game_engine.character_module.CHARACTERS_DATA', {"Test Player": {"persona": "A brave adventurer.", "greeting": "Hello!", "default_location": "start_location", "accessible_locations": ["start_location"]}}, clear=True), \
              patch.object(self.game, '_display_load_recap') as mock_recap:
             result = self.game.load_game()
 

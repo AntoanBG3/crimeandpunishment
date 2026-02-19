@@ -475,17 +475,15 @@ class Character:
         if change != 0: 
             self.relationship_with_player += change
             self.relationship_with_player = max(-10, min(10, self.relationship_with_player))
-            # Add a memory for the relationship change
-            if change != 0:
-                self.add_player_memory(
-                    memory_type="relationship_change",
-                    turn=game_turn,
-                    content={
-                        "reason": f"their statement ('{player_dialogue[:30]}...')",
-                        "change": change
-                    },
-                    sentiment_impact=change
-                )
+            self.add_player_memory(
+                memory_type="relationship_change",
+                turn=game_turn,
+                content={
+                    "reason": f"their statement ('{player_dialogue[:30]}...')",
+                    "change": change
+                },
+                sentiment_impact=change
+            )
 
     def get_objective_by_id(self, objective_id):
         if not objective_id: return None
@@ -526,9 +524,7 @@ class Character:
                 new_stage_desc = next_stage_obj_from_template.get('description', 'unnamed stage')
                 
                 if self.is_player:
-                    # Player memories are simple strings for now, not using the new dict structure.
-                    # This could be enhanced later if player also needs structured memory.
-                    self.memory_about_player.append(f"Made progress on '{obj.get('description','Unnamed Objective')}': now at '{new_stage_desc}'.")
+                    self.add_player_memory(memory_type="objective_progress", turn=0, content={"summary": f"Made progress on '{obj.get('description','Unnamed Objective')}': now at '{new_stage_desc}'."}, sentiment_impact=0)
                 
                 if next_stage_obj_from_template.get("is_ending_stage", False):
                     self.complete_objective(objective_id, by_stage=True)
@@ -546,11 +542,9 @@ class Character:
                 stage_desc_for_memory = current_stage_for_memory.get('description', 'final stage') if current_stage_for_memory else 'final stage'
                 
                 if not by_stage:
-                    # Player memories are simple strings
-                    self.memory_about_player.append(f"Objective '{obj_desc}' was completed.")
+                    self.add_player_memory(memory_type="objective_completed", turn=0, content={"summary": f"Objective '{obj_desc}' was completed."}, sentiment_impact=0)
                 else:
-                    # Player memories are simple strings
-                    self.memory_about_player.append(f"Objective '{obj_desc}' concluded with stage '{stage_desc_for_memory}'.")
+                    self.add_player_memory(memory_type="objective_completed", turn=0, content={"summary": f"Objective '{obj_desc}' concluded with stage '{stage_desc_for_memory}'."}, sentiment_impact=0)
                     if DEBUG_LOGS:
                         print(f"[DEBUG] Player {self.name} completed objective: {obj_desc} (Stage: {stage_desc_for_memory if by_stage else 'N/A'})")
 
@@ -583,16 +577,16 @@ class Character:
                                 if DEBUG_LOGS:
                                     print(f"[DEBUG] Linking: Advancing newly activated objective '{target_obj_desc}' to specific stage '{specific_next_stage_id}'.")
                                 self.advance_objective_stage(target_objective_id, specific_next_stage_id)
-                            if self.is_player: # Player memories are simple strings
-                                self.memory_about_player.append(f"Completing '{obj_desc}' has opened up new paths regarding '{target_obj_desc}'.")
+                            if self.is_player:
+                                self.add_player_memory(memory_type="objective_linked", turn=0, content={"summary": f"Completing '{obj_desc}' has opened up new paths regarding '{target_obj_desc}'."}, sentiment_impact=0)
                         
                         elif target_objective.get("active", False) and not target_objective.get("completed", False):
                             if specific_next_stage_id:
                                 if DEBUG_LOGS:
                                     print(f"[DEBUG] Linking: Advancing active objective '{target_obj_desc}' to specific stage '{specific_next_stage_id}' due to '{obj_desc}'.")
                                 if self.advance_objective_stage(target_objective_id, specific_next_stage_id):
-                                     if self.is_player: # Player memories are simple strings
-                                        self.memory_about_player.append(f"Progress on '{obj_desc}' has further developed your understanding of '{target_obj_desc}'.")
+                                     if self.is_player:
+                                        self.add_player_memory(memory_type="objective_linked", turn=0, content={"summary": f"Progress on '{obj_desc}' has further developed your understanding of '{target_obj_desc}'."}, sentiment_impact=0)
                                 elif DEBUG_LOGS:
                                     print(f"[DEBUG] Linking: Failed to advance '{target_obj_desc}' to stage '{specific_next_stage_id}'.")
                             else:
@@ -604,15 +598,15 @@ class Character:
                                         if DEBUG_LOGS:
                                             print(f"[DEBUG] Linking: Attempting generic advance for active objective '{target_obj_desc}' to its next stage '{auto_next_stage_id}' due to '{obj_desc}'.")
                                         if self.advance_objective_stage(target_objective_id, auto_next_stage_id):
-                                            if self.is_player: # Player memories are simple strings
-                                                self.memory_about_player.append(f"Progress on '{obj_desc}' has influenced your approach to '{target_obj_desc}'.")
+                                            if self.is_player:
+                                                self.add_player_memory(memory_type="objective_linked", turn=0, content={"summary": f"Progress on '{obj_desc}' has influenced your approach to '{target_obj_desc}'."}, sentiment_impact=0)
                                     elif isinstance(potential_next_ids, list) and potential_next_ids:
                                          auto_next_stage_id = potential_next_ids[0]
                                          if DEBUG_LOGS:
                                              print(f"[DEBUG] Linking: Attempting generic advance for active objective '{target_obj_desc}' to its next stage '{auto_next_stage_id}' due to '{obj_desc}'.")
                                          if self.advance_objective_stage(target_objective_id, auto_next_stage_id):
-                                            if self.is_player: # Player memories are simple strings
-                                                self.memory_about_player.append(f"Progress on '{obj_desc}' has influenced your approach to '{target_obj_desc}'.")
+                                            if self.is_player:
+                                                self.add_player_memory(memory_type="objective_linked", turn=0, content={"summary": f"Progress on '{obj_desc}' has influenced your approach to '{target_obj_desc}'."}, sentiment_impact=0)
                                     else:
                                         if DEBUG_LOGS:
                                             print(f"[DEBUG] Linking: Objective '{target_obj_desc}' is active, but current stage has no defined 'next_stages' for generic advance.")
@@ -648,8 +642,8 @@ class Character:
                 stage["is_current_stage"] = (stage.get("stage_id") == initial_stage_id_to_set)
             
             current_stage_desc = self.get_current_stage_for_objective(objective_id).get('description', 'initial stage')
-            if self.is_player: # Player memories are simple strings
-                self.memory_about_player.append(f"New objective active or re-activated: '{obj.get('description', 'Unnamed Objective')}' (Current stage: '{current_stage_desc}').")
+            if self.is_player:
+                self.add_player_memory(memory_type="objective_activated", turn=0, content={"summary": f"New objective active or re-activated: '{obj.get('description', 'Unnamed Objective')}' (Current stage: '{current_stage_desc}')."}, sentiment_impact=0)
             if DEBUG_LOGS:
                 print(f"[DEBUG] Player {self.name} activated objective: {obj.get('description')} - now at stage '{current_stage_desc}'")
             return True

@@ -312,11 +312,11 @@ class GeminiAPI:
             return False
 
     def _ask_for_model_selection(self):
-        # DEFAULT_GEMINI_MODEL_NAME should be 'gemini-3-pro-preview' at file level
+        # DEFAULT_GEMINI_MODEL_NAME is defined at file level
 
         self._print_color_func("\nPlease select which Gemini model to use:", Colors.CYAN)
         models_map = {
-            "1": {"name": "Gemini 3 Pro Preview (Default)", "id": "gemini-3-pro-preview"},
+            "1": {"name": "Gemini 3 Pro Preview", "id": "gemini-3-pro-preview"},
             "2": {"name": "Gemini 3 Flash Preview", "id": "gemini-3-flash-preview"}
         }
 
@@ -342,7 +342,7 @@ class GeminiAPI:
             choice = self._input_color_func(f"Enter your choice (1-{len(display_map_for_prompt)}), or press Enter for default): ", Colors.MAGENTA).strip()
             if not choice: 
                 self._print_color_func(f"Using default model: {default_model_display_name}", Colors.YELLOW)
-                return DEFAULT_GEMINI_MODEL_NAME # This should be the ID 'gemini-3-pro-preview'
+                return DEFAULT_GEMINI_MODEL_NAME
             if choice in display_map_for_prompt: # Check against keys of display_map_for_prompt
                 self._print_color_func(f"You selected: {display_map_for_prompt[choice]['name']}", Colors.GREEN)
                 return display_map_for_prompt[choice]['id']

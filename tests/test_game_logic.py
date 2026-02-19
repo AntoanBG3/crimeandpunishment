@@ -76,26 +76,26 @@ class TestInventoryDescription(unittest.TestCase):
         )
         self.char.inventory = []
 
-    @patch('game_engine.game_config.DEFAULT_ITEMS', DEFAULT_ITEMS_TEST_DATA)
+    @patch.dict('game_engine.game_config.DEFAULT_ITEMS', DEFAULT_ITEMS_TEST_DATA, clear=True)
     def test_empty_inventory(self):
         self.assertEqual(self.char.get_inventory_description(), "You are carrying nothing.")
 
-    @patch('game_engine.game_config.DEFAULT_ITEMS', DEFAULT_ITEMS_TEST_DATA)
+    @patch.dict('game_engine.game_config.DEFAULT_ITEMS', DEFAULT_ITEMS_TEST_DATA, clear=True)
     def test_single_non_stackable_item(self):
         self.char.inventory = [{"name": "sword"}]
         self.assertEqual(self.char.get_inventory_description(), "You are carrying: sword.")
 
-    @patch('game_engine.game_config.DEFAULT_ITEMS', DEFAULT_ITEMS_TEST_DATA)
+    @patch.dict('game_engine.game_config.DEFAULT_ITEMS', DEFAULT_ITEMS_TEST_DATA, clear=True)
     def test_single_stackable_item_quantity_one(self):
         self.char.inventory = [{"name": "apple", "quantity": 1}]
         self.assertEqual(self.char.get_inventory_description(), "You are carrying: apple.")
 
-    @patch('game_engine.game_config.DEFAULT_ITEMS', DEFAULT_ITEMS_TEST_DATA)
+    @patch.dict('game_engine.game_config.DEFAULT_ITEMS', DEFAULT_ITEMS_TEST_DATA, clear=True)
     def test_single_stackable_item_quantity_many(self):
         self.char.inventory = [{"name": "apple", "quantity": 3}]
         self.assertEqual(self.char.get_inventory_description(), "You are carrying: apple (x3).")
 
-    @patch('game_engine.game_config.DEFAULT_ITEMS', DEFAULT_ITEMS_TEST_DATA)
+    @patch.dict('game_engine.game_config.DEFAULT_ITEMS', DEFAULT_ITEMS_TEST_DATA, clear=True)
     def test_multiple_items(self):
         self.char.inventory = [
             {"name": "sword"},
@@ -200,7 +200,7 @@ class TestGeminiDialogueQuotes(unittest.TestCase):
         expected_player_entry = f"{self.player.name}: {player_dialogue_with_quotes}"
         self.assertIn(expected_player_entry, npc_history_for_player)
 
-@patch('game_engine.game_state.DEFAULT_ITEMS', TEST_ITEMS_FOR_LOOK)
+@patch('game_engine.item_interaction_handler.DEFAULT_ITEMS', TEST_ITEMS_FOR_LOOK)
 class TestGameStateCommands(unittest.TestCase):
     def setUp(self):
         self.game = Game()
@@ -333,7 +333,7 @@ class TestGameStateCommands(unittest.TestCase):
         "coin": {"description": "A gold piece.", "takeable": True, "value": 1}
     }
 
-    @patch.dict('game_engine.game_state.DEFAULT_ITEMS', TEST_ITEMS_FOR_TAKE, clear=True)
+    @patch.dict('game_engine.item_interaction_handler.DEFAULT_ITEMS', TEST_ITEMS_FOR_TAKE, clear=True)
     def test_take_non_stackable_already_has(self):
         self.game.player_character.inventory = [{"name": "unique_sword"}]
         self.game.dynamic_location_items[self.game.current_location_name] = [{"name": "unique_sword"}]
@@ -347,7 +347,7 @@ class TestGameStateCommands(unittest.TestCase):
         self.mock_print_color.assert_any_call("You cannot carry another 'unique_sword'.", Colors.YELLOW)
         self.game.player_character.add_to_inventory.assert_called_once_with("unique_sword", 1)
 
-    @patch.dict('game_engine.game_state.DEFAULT_ITEMS', TEST_ITEMS_FOR_TAKE, clear=True)
+    @patch.dict('game_engine.item_interaction_handler.DEFAULT_ITEMS', TEST_ITEMS_FOR_TAKE, clear=True)
     def test_take_non_stackable_does_not_have(self):
         self.game.player_character.inventory = []
         self.game.dynamic_location_items[self.game.current_location_name] = [{"name": "unique_sword"}]
@@ -364,7 +364,7 @@ class TestGameStateCommands(unittest.TestCase):
             self.assertNotEqual(call_args[0][0], "You cannot carry another 'unique_sword'.")
         self.game.player_character.add_to_inventory.assert_called_once_with("unique_sword", 1)
 
-    @patch.dict('game_engine.game_state.DEFAULT_ITEMS', TEST_ITEMS_FOR_TAKE, clear=True)
+    @patch.dict('game_engine.item_interaction_handler.DEFAULT_ITEMS', TEST_ITEMS_FOR_TAKE, clear=True)
     def test_take_stackable_item(self):
         self.game.player_character.inventory = [{"name": "apple", "quantity": 1}]
         self.game.dynamic_location_items[self.game.current_location_name] = [{"name": "apple", "quantity": 1}]
@@ -380,7 +380,7 @@ class TestGameStateCommands(unittest.TestCase):
             self.assertNotEqual(call_args[0][0], "You cannot carry another 'apple'.")
         self.game.player_character.add_to_inventory.assert_called_once_with("apple", 1)
 
-    @patch.dict('game_engine.game_state.DEFAULT_ITEMS', TEST_ITEMS_FOR_TAKE, clear=True)
+    @patch.dict('game_engine.item_interaction_handler.DEFAULT_ITEMS', TEST_ITEMS_FOR_TAKE, clear=True)
     def test_take_item_with_value_behaves_stackable(self):
         self.game.player_character.inventory = [{"name": "coin", "quantity": 1}]
         self.game.dynamic_location_items[self.game.current_location_name] = [{"name": "coin", "quantity": 1}]
@@ -397,7 +397,7 @@ class TestGameStateCommands(unittest.TestCase):
         self.game.player_character.add_to_inventory.assert_called_once_with("coin", 1)
 
 
-    @patch.dict('game_engine.game_state.DEFAULT_ITEMS', TEST_ITEMS_FOR_TAKE, clear=True)
+    @patch.dict('game_engine.item_interaction_handler.DEFAULT_ITEMS', TEST_ITEMS_FOR_TAKE, clear=True)
     def test_take_add_to_inventory_fails_generic(self):
         self.game.player_character.inventory = []
         self.game.dynamic_location_items[self.game.current_location_name] = [{"name": "apple", "quantity": 1}]
@@ -473,7 +473,7 @@ class TestGameStateCommands(unittest.TestCase):
 
 
     # --- Tests for _handle_give_item ---
-    @patch('game_engine.game_state.DEFAULT_ITEMS', {
+    @patch.dict('game_engine.game_config.DEFAULT_ITEMS', {
         "test_apple": {"description": "A simple apple.", "stackable": True, "takeable": True, "value": 5}, # value makes it stackable
         "test_book": {"description": "An old book.", "takeable": True} # Non-stackable by default if no value
     })
@@ -537,7 +537,7 @@ class TestGameStateCommands(unittest.TestCase):
         self.assertTrue(kwargs.get('content', {}).get('from_player'))
         self.assertEqual(self.game.last_significant_event_summary, f"gave test_apple to {mock_npc.name}.")
 
-    @patch('game_engine.game_state.DEFAULT_ITEMS', {"test_banana": {"description": "A ripe banana."}})
+    @patch.dict('game_engine.game_config.DEFAULT_ITEMS', {"test_banana": {"description": "A ripe banana."}}, clear=True)
     def test_give_item_player_does_not_have(self):
         self.game.player_character.inventory = [] # Player has nothing
         self.game.player_character.has_item = MagicMock(return_value=False) # Explicitly mock has_item
@@ -555,7 +555,7 @@ class TestGameStateCommands(unittest.TestCase):
         self.game.gemini_api.get_npc_dialogue.assert_not_called()
         mock_npc.add_player_memory.assert_not_called()
 
-    @patch('game_engine.game_state.DEFAULT_ITEMS', {"test_orange": {"description": "A juicy orange."}})
+    @patch.dict('game_engine.game_config.DEFAULT_ITEMS', {"test_orange": {"description": "A juicy orange."}}, clear=True)
     def test_give_item_npc_not_found(self):
         self.game.player_character.inventory = [{"name": "test_orange", "quantity": 1}]
         self.game.player_character.has_item = MagicMock(return_value=True)
@@ -570,7 +570,7 @@ class TestGameStateCommands(unittest.TestCase):
         self.assertEqual(len(self.game.player_character.inventory), 1) # Player inventory unchanged
         self.game.gemini_api.get_npc_dialogue.assert_not_called()
 
-    @patch('game_engine.game_state.DEFAULT_ITEMS', {
+    @patch.dict('game_engine.game_config.DEFAULT_ITEMS', {
         "test_pear": {"description": "A green pear.", "stackable": True, "takeable": True, "value": 3}
     })
     @patch('random.choice') # To make static fallback predictable
@@ -641,7 +641,7 @@ class TestEventManager(unittest.TestCase):
         self.assertNotIn('context_string', kwargs)
         self.assertNotIn('objectives_summary', kwargs)
 
-@patch.dict('game_engine.game_state.DEFAULT_ITEMS', TEST_GAME_ITEMS, clear=True)
+@patch.dict('game_engine.game_config.DEFAULT_ITEMS', TEST_GAME_ITEMS, clear=True)
 class TestItemEffects(unittest.TestCase):
     def setUp(self):
         self.mock_gemini_configure = patch.object(GeminiAPI, 'configure').start()
@@ -904,10 +904,9 @@ TEST_DEFAULT_ITEMS_LOW_AI = {
 }
 
 
-@patch('game_engine.game_state.CHARACTERS_DATA', TEST_CHAR_DATA_FOR_LOW_AI)
-@patch('game_engine.game_state.LOCATIONS_DATA', TEST_LOC_DATA_FOR_LOW_AI)
-@patch('game_engine.event_manager.DEFAULT_ITEMS', TEST_DEFAULT_ITEMS_LOW_AI) # For event manager item creation
-@patch('game_engine.character_module.CHARACTERS_DATA', TEST_CHAR_DATA_FOR_LOW_AI) # For character module loading
+@patch.dict('game_engine.character_module.CHARACTERS_DATA', TEST_CHAR_DATA_FOR_LOW_AI, clear=True)
+@patch.dict('game_engine.location_module.LOCATIONS_DATA', TEST_LOC_DATA_FOR_LOW_AI, clear=True)
+@patch.dict('game_engine.game_config.DEFAULT_ITEMS', TEST_DEFAULT_ITEMS_LOW_AI, clear=True)
 class TestLowAIMode(unittest.TestCase):
     def setUp(self):
         self.game = Game()
@@ -996,7 +995,7 @@ class TestLowAIMode(unittest.TestCase):
         expected_reflection = "You ponder your next move."
         self.mock_random_choice.return_value = expected_reflection
 
-        with patch('game_engine.game_state.STATIC_PLAYER_REFLECTIONS', [expected_reflection, "Another thought"]):
+        with patch('game_engine.item_interaction_handler.STATIC_PLAYER_REFLECTIONS', [expected_reflection, "Another thought"]):
             self.game._handle_think_command()
 
         self.mock_print_color.assert_any_call(f"Inner thought: \"{expected_reflection}\"", Colors.GREEN)
@@ -1012,7 +1011,7 @@ class TestLowAIMode(unittest.TestCase):
         # We don't need to mock random.choice here if we check for partial static output.
         # However, to be precise, we can mock the function itself.
         expected_scenery_obs = f"You observe the {scenery_target}. It is as it seems."
-        with patch('game_engine.game_state.generate_static_scenery_observation', return_value=expected_scenery_obs):
+        with patch('game_engine.item_interaction_handler.generate_static_scenery_observation', return_value=expected_scenery_obs):
             self.game._handle_look_command(scenery_target)
 
         # Check if the static observation was printed (color might vary based on implementation)
@@ -1024,7 +1023,7 @@ class TestLowAIMode(unittest.TestCase):
         # (This depends on how base_desc_for_skill_check is handled for static scenery)
         # For now, we just ensure the primary AI call is skipped. A more robust test would check base_desc.
 
-    @patch('game_engine.game_state.DEFAULT_ITEMS', {
+    @patch('game_engine.item_interaction_handler.DEFAULT_ITEMS', {
         "fresh newspaper": {"description": "Today's news.", "readable": True}
     })
     def test_read_newspaper_low_ai_mode(self):
@@ -1260,8 +1259,8 @@ class TestGeminiAPIConfiguration(unittest.TestCase):
         # Check that the correct model options were printed
         model_prompt_calls = [args[0] for args, _ in self.mock_print_func.call_args_list if args and isinstance(args[0], str)]
 
-        self.assertTrue(any("Gemini 3 Pro Preview (Default) (ID: gemini-3-pro-preview)" in call for call in model_prompt_calls))
-        self.assertTrue(any("Gemini 3 Flash Preview (ID: gemini-3-flash-preview)" in call for call in model_prompt_calls))
+        self.assertTrue(any("Gemini 3 Pro Preview (ID: gemini-3-pro-preview)" in call for call in model_prompt_calls))
+        self.assertTrue(any("Gemini 3 Flash Preview (Default) (ID: gemini-3-flash-preview)" in call for call in model_prompt_calls))
 
         # Check that the input prompt was for choices 1-2
         input_prompt_found = False
