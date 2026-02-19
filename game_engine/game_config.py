@@ -168,6 +168,7 @@ PLAYER_APPARENT_STATES = [
 # --- UI Elements ---
 PROMPT_ARROW = f"{Colors.GREEN}> {Colors.RESET}"
 SEPARATOR_LINE = Colors.DIM + ("-" * 60) + Colors.RESET
+SPINNER_FRAMES = ["|", "/", "-", "\\"]
 
 # --- NPC Memory Configuration ---
 HIGHLY_NOTABLE_ITEMS_FOR_MEMORY = [

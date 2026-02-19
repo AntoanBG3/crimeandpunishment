@@ -1796,7 +1796,6 @@ class Game:
                 if not player_dialogue: self._print_color("You remain silent for a moment.", Colors.DIM); pass
                 used_ai_dialogue = False
                 if self.gemini_api.model:
-                    self._print_color("Thinking...", Colors.DIM + Colors.MAGENTA)
                     ai_response = self.gemini_api.get_npc_dialogue(target_npc, self.player_character, player_dialogue, self.current_location_name, self.get_current_time_period(), self.get_relationship_text(target_npc.relationship_with_player), target_npc.get_player_memory_summary(self.game_time), self.player_character.apparent_state, self.player_character.get_notable_carried_items_summary(), self._get_recent_events_summary(), self._get_objectives_summary(target_npc), self._get_objectives_summary(self.player_character))
                     used_ai_dialogue = True
                 else: ai_response = random.choice(["Yes?", "Hmm.", "What is it?", "I am busy.", f"{target_npc.greeting if hasattr(target_npc, 'greeting') else '...'}"]); self._print_color(f"{Colors.DIM}(Using placeholder dialogue){Colors.RESET}", Colors.DIM)
@@ -2056,7 +2055,6 @@ class Game:
         persuasion_skill_check_result_text = "SUCCESS due to their skillful argument" if success else "FAILURE despite their efforts"
         used_ai_dialogue = False
         if self.gemini_api.model:
-            self._print_color("Thinking...", Colors.DIM + Colors.MAGENTA)
             ai_response = self.gemini_api.get_npc_dialogue_persuasion_attempt(target_npc, self.player_character, player_persuasive_statement=statement_text, current_location_name=self.current_location_name, current_time_period=self.get_current_time_period(), relationship_status_text=self.get_relationship_text(target_npc.relationship_with_player), npc_memory_summary=target_npc.get_player_memory_summary(self.game_time), player_apparent_state=self.player_character.apparent_state, player_notable_items_summary=self.player_character.get_notable_carried_items_summary(), recent_game_events_summary=self._get_recent_events_summary(), npc_objectives_summary=self._get_objectives_summary(target_npc), player_objectives_summary=self._get_objectives_summary(self.player_character), persuasion_skill_check_result_text=persuasion_skill_check_result_text)
             used_ai_dialogue = True
         else: ai_response = f"Hmm, '{statement_text}', you say? That's... something to consider. (Skill: {persuasion_skill_check_result_text})"; self._print_color(f"{Colors.DIM}(Using placeholder dialogue for persuasion){Colors.RESET}", Colors.DIM)

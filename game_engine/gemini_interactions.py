@@ -6,6 +6,8 @@ import importlib
 import importlib.util
 import re
 import sys
+import threading
+import time
 from types import SimpleNamespace
 
 # --- Self-contained API Configuration Constants ---
@@ -13,7 +15,7 @@ API_CONFIG_FILE = "gemini_config.json"
 GEMINI_API_KEY_ENV_VAR = "GEMINI_API_KEY"
 DEFAULT_GEMINI_MODEL_NAME = 'gemini-3-flash-preview'
 
-from .game_config import Colors
+from .game_config import Colors, SPINNER_FRAMES
 
 
 class NaturalLanguageParser:
@@ -89,6 +91,13 @@ class NaturalLanguageParser:
         )
 
         model = self._select_intent_model()
+        spinner_stop = threading.Event()
+        spinner_thread = threading.Thread(
+            target=self.gemini_api._run_spinner,
+            args=(spinner_stop,),
+            daemon=True,
+        )
+        spinner_thread.start()
         try:
             response = model.generate_content(
                 prompt,
@@ -96,6 +105,11 @@ class NaturalLanguageParser:
             )
         except Exception:
             return default_response
+        finally:
+            spinner_stop.set()
+            spinner_thread.join()
+            sys.stdout.write("\r" + " " * 60 + "\r")
+            sys.stdout.flush()
 
         raw_text = response.text.strip() if hasattr(response, "text") and response.text else ""
         payload = self.gemini_api._extract_json_payload(raw_text)
@@ -168,6 +182,17 @@ class GeminiAPI:
                 contents=prompt,
                 config=config or None,
             )
+
+    def _run_spinner(self, stop_event):
+        """Animate a spinner on stdout while the AI is thinking."""
+        frames = SPINNER_FRAMES
+        i = 0
+        while not stop_event.is_set():
+            frame = frames[i % len(frames)]
+            sys.stdout.write(f"\r{Colors.DIM}{Colors.MAGENTA}{frame} AI is thinking...{Colors.RESET}")
+            sys.stdout.flush()
+            i += 1
+            stop_event.wait(0.1)
 
     def _log_message(self, text, color, end="\n"):
         if hasattr(self, '_print_color_func') and callable(self._print_color_func):
@@ -448,6 +473,13 @@ class GeminiAPI:
     def _generate_content_with_fallback(self, prompt, error_message_context="generating content"):
         if not self.model:
             return f"(OOC: Gemini API not configured or key invalid. Cannot fulfill request for {error_message_context}.)"
+        spinner_stop = threading.Event()
+        spinner_thread = threading.Thread(
+            target=self._run_spinner,
+            args=(spinner_stop,),
+            daemon=True,
+        )
+        spinner_thread.start()
         try:
             safety_settings=[
                 {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
@@ -492,6 +524,11 @@ class GeminiAPI:
             if getattr(e, "grpc_status_code", None) == 7:
                  return f"(OOC: API key error - Permission Denied. My thoughts are muddled.)"
             return f"(OOC: My thoughts are... muddled due to an error: {str(e)[:100]}...)"
+        finally:
+            spinner_stop.set()
+            spinner_thread.join()
+            sys.stdout.write("\r" + " " * 60 + "\r")
+            sys.stdout.flush()
 
     def _extract_json_payload(self, text):
         if not text:
