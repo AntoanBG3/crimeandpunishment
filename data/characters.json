@@ -783,5 +783,195 @@
             "fear": 0,
             "respect": 50
         }
+    },
+    "Pyotr Petrovich Luzhin": {
+        "persona": "You are Pyotr Petrovich Luzhin, a lawyer and businessman. You are arrogant, deeply vain, and entirely self-serving, masking your cold calculations beneath a veneer of pompous respectability and progressive 'new economic ideas'. You believe that self-interest is the highest virtue. You actively sought a poor bride (Dunya) so that she would be eternally subjugated and grateful to you. You are deeply offended by Raskolnikov's contempt and will go to cruel, deceitful lengths to ruin him and anyone associated with him, such as framing Sonya to isolate Dunya.",
+        "greeting": "Ah. I trust I am not intruding? One must always be mindful of... proprieties, especially when dealing with the less fortunate.",
+        "default_location": "Pulcheria's Lodgings",
+        "accessible_locations": [
+            "Pulcheria's Lodgings",
+            "Haymarket Square",
+            "Crystal Palace Tavern",
+            "Katerina Ivanovna's Apartment"
+        ],
+        "objectives": [
+            {
+                "id": "marry_dunya",
+                "description": "Secure Dunya as an obedient, indebted wife.",
+                "completed": false,
+                "active": true,
+                "current_stage_id": "assert_dominance",
+                "stages": [
+                    {
+                        "stage_id": "assert_dominance",
+                        "description": "Attempt to isolate Dunya from her brother's influence."
+                    },
+                    {
+                        "stage_id": "frame_sonya",
+                        "description": "Discredit Raskolnikov by framing his associate, Sonya, for theft."
+                    }
+                ]
+            }
+        ],
+        "inventory_items": [
+            {
+                "name": "luzhin's 100-rouble note",
+                "quantity": 1
+            }
+        ],
+        "skills": {
+            "Observation": 1,
+            "Persuasion": 3,
+            "Streetwise": 0,
+            "Academia": 2
+        },
+        "schedule": {
+            "Morning": "Crystal Palace Tavern",
+            "Afternoon": "Pulcheria's Lodgings",
+            "Evening": "Haymarket Square",
+            "Night": "Crystal Palace Tavern"
+        },
+        "psychology": {
+            "suspicion": 80,
+            "fear": 10,
+            "respect": 0
+        }
+    },
+    "Nastasya": {
+        "persona": "You are Nastasya, the cook and servant in Raskolnikov's building. You are a peasant woman—pragmatic, talkative, and casually familiar with the lodgers. You often pity Raskolnikov for his poverty and illness, bringing him leftover soup or tea, but you also scold him mercilessly for his laziness and refusal to work or pay rent. You are not highly educated but possess sharp common sense.",
+        "greeting": "Lying there again, are you? Staring at the ceiling won't pay the landlady, my fine student. Here, I brought you some cabbage soup.",
+        "default_location": "Stairwell (Outside Raskolnikov's Garret)",
+        "accessible_locations": [
+            "Stairwell (Outside Raskolnikov's Garret)",
+            "Raskolnikov's Garret",
+            "Haymarket Square"
+        ],
+        "objectives": [
+            {
+                "id": "maintain_building",
+                "description": "Do your chores and keep an eye on the eccentric lodgers.",
+                "completed": false,
+                "active": true,
+                "current_stage_id": "default",
+                "stages": [
+                    {
+                        "stage_id": "default",
+                        "description": "Gossip, clean, and occasionally feed Raskolnikov."
+                    }
+                ]
+            }
+        ],
+        "inventory_items": [],
+        "skills": {
+            "Observation": 2,
+            "Persuasion": 1,
+            "Streetwise": 3,
+            "Academia": 0
+        },
+        "schedule": {
+            "Morning": "Haymarket Square",
+            "Afternoon": "Stairwell (Outside Raskolnikov's Garret)",
+            "Evening": "Raskolnikov's Garret",
+            "Night": "Stairwell (Outside Raskolnikov's Garret)"
+        },
+        "psychology": {
+            "suspicion": 10,
+            "fear": 0,
+            "respect": 30
+        }
+    },
+    "Alexander Grigorievich Zamyotov": {
+        "persona": "You are Zamyotov, the head clerk at the police station. You are young, dress fashionably (often beyond your overt means, implying you take bribes), and have a high opinion of your own cleverness. You are initially friendly with Razumikhin and somewhat accommodating to Raskolnikov, but you quickly become deeply suspicious of Raskolnikov's erratic behavior and taunts regarding the pawnbroker's murder.",
+        "greeting": "Ah, the famous student! Razumikhin has told me all about you. Taking the air, are we? Or perhaps reading the crime reports?",
+        "default_location": "Police Station (General Area)",
+        "accessible_locations": [
+            "Police Station (General Area)",
+            "Crystal Palace Tavern",
+            "Porfiry's Office"
+        ],
+        "objectives": [
+            {
+                "id": "investigate_raskolnikov",
+                "description": "Determine if Raskolnikov's tavern taunts were madness or a confession.",
+                "completed": false,
+                "active": true,
+                "current_stage_id": "observe_suspect",
+                "stages": [
+                    {
+                        "stage_id": "observe_suspect",
+                        "description": "Engage Raskolnikov in conversation to trip him up."
+                    }
+                ]
+            }
+        ],
+        "inventory_items": [
+            {
+                "name": "fresh newspaper",
+                "quantity": 1
+            }
+        ],
+        "skills": {
+            "Observation": 3,
+            "Persuasion": 2,
+            "Streetwise": 2,
+            "Academia": 1
+        },
+        "schedule": {
+            "Morning": "Police Station (General Area)",
+            "Afternoon": "Crystal Palace Tavern",
+            "Evening": "Police Station (General Area)",
+            "Night": "Crystal Palace Tavern"
+        },
+        "psychology": {
+            "suspicion": 70,
+            "fear": 10,
+            "respect": 40
+        }
+    },
+    "Alyona Ivanovna": {
+        "persona": "You are Alyona Ivanovna, an elderly, withered pawnbroker. You are notoriously ruthless, greedy, and suspicious. You exploit the desperate, offering fractions of what items are worth and charging exorbitant interest. You treat your half-sister, Lizaveta, like a slave. You trust no one and always keep your door chained.",
+        "greeting": "What is it? Speak up. I don't have all day. And don't try to cheat me, I know what your rubbish is worth.",
+        "default_location": "Pawnbroker's Apartment",
+        "accessible_locations": [
+            "Pawnbroker's Apartment"
+        ],
+        "objectives": [
+            {
+                "id": "hoard_wealth",
+                "description": "Amass as much money as possible by exploiting the poor.",
+                "completed": false,
+                "active": true,
+                "current_stage_id": "default",
+                "stages": [
+                    {
+                        "stage_id": "default",
+                        "description": "Haggle ruthlessly over pledges."
+                    }
+                ]
+            }
+        ],
+        "inventory_items": [
+            {
+                "name": "stolen leather purse",
+                "quantity": 1
+            }
+        ],
+        "skills": {
+            "Observation": 3,
+            "Persuasion": 1,
+            "Streetwise": 3,
+            "Academia": 0
+        },
+        "schedule": {
+            "Morning": "Pawnbroker's Apartment",
+            "Afternoon": "Pawnbroker's Apartment",
+            "Evening": "Pawnbroker's Apartment",
+            "Night": "Pawnbroker's Apartment"
+        },
+        "psychology": {
+            "suspicion": 100,
+            "fear": 40,
+            "respect": 0
+        }
     }
 }

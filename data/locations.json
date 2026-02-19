@@ -190,5 +190,31 @@
         "time_effects": {
             "Night": " The rooms are often quiet, but a faint light might be seen under his door, suggesting his late hours and restless thoughts."
         }
+    },
+    "Crystal Palace Tavern": {
+        "description": "A somewhat more respectable establishment than the dive bars of Haymarket, offering tea, newspapers, and a slightly better class of patron. The gaslight is brighter here, illuminating the polished wood and the faces of clerks and minor officials. It is a place where one might confidently read the daily news or engage in a dangerous battle of wits with the police.",
+        "exits": {
+            "Haymarket Square": "Step out of the relatively refined air back into the chaotic streets.",
+            "Voznesensky Bridge": "Take a short walk towards the nearby canal."
+        },
+        "items_present": [
+            {
+                "name": "fresh newspaper",
+                "quantity": 3
+            }
+        ],
+        "time_effects": {
+            "Afternoon": " The tavern is filled with clerks taking their tea and loudly discussing the latest sensational crimes."
+        }
+    },
+    "Deserted Courtyard": {
+        "description": "A secluded, overgrown courtyard off V— Prospect. It is surrounded by the blank, windowless walls of adjoining buildings. Near the entrance lies a large, unhewn stone, heavy and inconspicuous. It is remarkably quiet here, isolated from the city's gaze—a perfect, desperate hiding place.",
+        "exits": {
+            "Haymarket Square": "Leave the unsettling quiet and return to the main thoroughfares."
+        },
+        "items_present": [],
+        "time_effects": {
+            "Night": " The darkness here is absolute. The stone looks like a natural part of the shadows."
+        }
     }
 }

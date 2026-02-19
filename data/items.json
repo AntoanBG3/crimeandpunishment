@@ -87,5 +87,46 @@
         "is_notable": true,
         "hidden_in_location": "Pawnbroker's Apartment",
         "use_effect_player": "examine_bundle_and_face_guilt_for_Lizaveta"
+    },
+    "father's silver watch": {
+        "description": "A heavy silver watch with a globe engraved on the back. It is one of Raskolnikov's last remaining ties to his family's respectable past, destined to be pawned for a fraction of its worth.",
+        "takeable": true,
+        "value": 15,
+        "is_notable": true,
+        "use_effect_player": "reflect_on_family_expectations"
+    },
+    "gold ring with red stones": {
+        "description": "A delicate gold ring set with three small red stones, a keepsake from Dunya. Holding it evokes a sharp pang of guilt over the sacrifices his family makes for him.",
+        "takeable": true,
+        "value": 10,
+        "is_notable": true,
+        "use_effect_player": "feel_guilt_for_dunya"
+    },
+    "stolen leather purse": {
+        "description": "A heavy, chamois-leather purse taken from the pawnbroker's neck. It is stuffed tightly with notes and wrapped pledges. Its very existence is a crushing burden, and the thought of opening it induces panic.",
+        "takeable": true,
+        "is_notable": true,
+        "hidden_in_location": "Pawnbroker's Apartment",
+        "use_effect_player": "trigger_paranoia_and_refuse_to_open"
+    },
+    "lizaveta's copper cross": {
+        "description": "A simple copper cross that originally belonged to Lizaveta, later exchanged with Sonya. It represents the intertwined fates of the victims and the innocent.",
+        "takeable": true,
+        "is_notable": true,
+        "use_effect_player": "contemplate_lizavetas_innocence"
+    },
+    "luzhin's 100-rouble note": {
+        "description": "A crisp, high-denomination banknote. It feels less like wealth and more like a trap. It is a tool of manipulation wielded by those who believe money can buy anything.",
+        "takeable": true,
+        "value": 100,
+        "is_notable": true,
+        "owner": "Pyotr Petrovich Luzhin",
+        "use_effect_player": "recognize_manipulation"
+    },
+    "marmeladov's crushed hat": {
+        "description": "A ruined, mud-stained hat belonging to the late Marmeladov. It smells faintly of hay and stale alcohol, a tragic summary of a ruined life.",
+        "takeable": true,
+        "owner": "Katerina Ivanovna Marmeladova",
+        "use_effect_player": "mourn_the_fallen"
     }
 }
