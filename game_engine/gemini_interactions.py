@@ -11,7 +11,7 @@ from types import SimpleNamespace
 # --- Self-contained API Configuration Constants ---
 API_CONFIG_FILE = "gemini_config.json"
 GEMINI_API_KEY_ENV_VAR = "GEMINI_API_KEY"
-DEFAULT_GEMINI_MODEL_NAME = 'gemini-3-pro-preview'
+DEFAULT_GEMINI_MODEL_NAME = 'gemini-3-flash-preview'
 
 from .game_config import Colors
 
