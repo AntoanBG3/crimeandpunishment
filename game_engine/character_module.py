@@ -5,7 +5,10 @@ import logging
 import json
 from .game_config import DEBUG_LOGS
 
-def load_characters_data(data_path='data/characters.json'):
+def load_characters_data(data_path=None):
+    from .game_config import get_data_path
+    if data_path is None:
+        data_path = get_data_path('data/characters.json')
     """Loads character data from a JSON file."""
     try:
         with open(data_path, 'r', encoding='utf-8') as f:

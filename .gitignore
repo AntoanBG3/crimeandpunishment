@@ -17,6 +17,7 @@ dist/
 *.egg-info/
 *.spec
 test_game_flow.sh
+.codex/
 
 
 # User-generated configuration and save files

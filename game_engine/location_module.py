@@ -3,7 +3,10 @@ import json
 import logging # It's good practice to log errors
 from .game_config import DEFAULT_ITEMS
 
-def load_locations_data(data_path='data/locations.json'):
+def load_locations_data(data_path=None):
+    from .game_config import get_data_path
+    if data_path is None:
+        data_path = get_data_path('data/locations.json')
     """Loads location data from a JSON file."""
     try:
         with open(data_path, 'r', encoding='utf-8') as f:

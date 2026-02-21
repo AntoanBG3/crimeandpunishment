@@ -1,6 +1,28 @@
 # game_config.py
 import json
 import logging
+import sys
+import os
+
+def get_base_path():
+    try:
+        base_path = sys._MEIPASS
+        logging.info(f"Using MEIPASS: {base_path}")
+    except AttributeError:
+        base_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+        logging.info(f"Using dirname: {base_path}")
+    return base_path
+
+def get_data_path(relative_path):
+    p = os.path.join(get_base_path(), relative_path)
+    if not os.path.exists(p):
+        print(f"ERROR: Could not find data path explicitly at: {p}")
+        # Try to resolve relative to CWD instead as an absolute last resort 
+        alt_p = os.path.join(os.getcwd(), relative_path)
+        if os.path.exists(alt_p):
+             print(f"Found it at alt_p: {alt_p}")
+             return alt_p
+    return p
 
 # --- ANSI Color Codes ---
 class Colors:
@@ -114,7 +136,9 @@ TIME_PERIODS = {
 MAX_TIME_UNITS_PER_DAY = 240
 
 # --- Default Item Definitions ---
-def load_default_items(data_path='data/items.json'):
+def load_default_items(data_path=None):
+    if data_path is None:
+        data_path = get_data_path('data/items.json')
     """Loads default item data from a JSON file."""
     try:
         with open(data_path, 'r', encoding='utf-8') as f:
