@@ -13,6 +13,8 @@ if project_root not in sys.path:
 from game_engine.character_module import Character
 from game_engine.gemini_interactions import GeminiAPI, DEFAULT_GEMINI_MODEL_NAME
 from game_engine.game_state import Game
+from game_engine.command_handler import CommandHandler
+from game_engine.world_manager import WorldManager
 from game_engine.event_manager import EventManager
 from game_engine.game_config import Colors, TIME_UNITS_PER_PLAYER_ACTION, TIME_UNITS_FOR_NPC_SCHEDULE_UPDATE, MAX_TIME_UNITS_PER_DAY, NPC_MOVE_CHANCE, TIME_PERIODS
 
@@ -261,7 +263,7 @@ class TestGameStateCommands(unittest.TestCase):
         item_name = "test_apple"
         self.mock_input_color.return_value = "look at"
         # When _process_command handles 'select_item', show_full_look_details is False
-        action_taken, show_atmospherics, time_units, _ = self.game._process_command('select_item', item_name)
+        action_taken, show_atmospherics, time_units, _ = self.game.command_handler._process_command('select_item', item_name)
         # So, _handle_look_command (mocked as mock_specific_look here) should be called with False
         mock_specific_look.assert_called_once_with(item_name, False)
         self.assertTrue(action_taken)
@@ -273,7 +275,7 @@ class TestGameStateCommands(unittest.TestCase):
         item_name = "test_apple"
         mock_handle_take.return_value = (True, True)
         self.mock_input_color.return_value = "take"
-        action_taken, show_atmospherics, time_units, _ = self.game._process_command('select_item', item_name)
+        action_taken, show_atmospherics, time_units, _ = self.game.command_handler._process_command('select_item', item_name)
         mock_handle_take.assert_called_once_with(item_name)
         self.assertTrue(action_taken)
         self.assertTrue(show_atmospherics)
@@ -285,10 +287,10 @@ class TestGameStateCommands(unittest.TestCase):
         item_name = "test_scroll"
         mock_handle_use_item.return_value = True
         self.mock_input_color.return_value = "read"
-        action_taken, show_atmospherics, time_units, _ = self.game._process_command('select_item', item_name)
+        action_taken, show_atmospherics, time_units, _ = self.game.command_handler._process_command('select_item', item_name)
         mock_handle_use_item.assert_called_once_with(item_name, None, "read")
         self.assertTrue(action_taken)
-        self.assertTrue(show_atmospherics)
+        self.assertFalse(show_atmospherics)
         self.assertEqual(time_units, self.game.TIME_UNITS_PER_PLAYER_ACTION)
 
     @patch.object(Game, 'handle_use_item')
@@ -297,10 +299,10 @@ class TestGameStateCommands(unittest.TestCase):
         item_name = "test_potion"
         mock_handle_use_item.return_value = True
         self.mock_input_color.return_value = "use"
-        action_taken, show_atmospherics, time_units, _ = self.game._process_command('select_item', item_name)
+        action_taken, show_atmospherics, time_units, _ = self.game.command_handler._process_command('select_item', item_name)
         mock_handle_use_item.assert_called_once_with(item_name, None, "use_self_implicit")
         self.assertTrue(action_taken)
-        self.assertTrue(show_atmospherics)
+        self.assertFalse(show_atmospherics)
         self.assertEqual(time_units, self.game.TIME_UNITS_PER_PLAYER_ACTION)
 
     @patch.object(Game, 'handle_use_item')
@@ -311,16 +313,16 @@ class TestGameStateCommands(unittest.TestCase):
         self.game.npcs_in_current_location = [mock_npc]
         mock_handle_use_item.return_value = True
         self.mock_input_color.return_value = "give to TestNPC"
-        action_taken, show_atmospherics, time_units, _ = self.game._process_command('select_item', item_name)
+        action_taken, show_atmospherics, time_units, _ = self.game.command_handler._process_command('select_item', item_name)
         mock_handle_use_item.assert_called_once_with(item_name, "testnpc", "give")
         self.assertTrue(action_taken)
-        self.assertTrue(show_atmospherics)
+        self.assertFalse(show_atmospherics)
         self.assertEqual(time_units, self.game.TIME_UNITS_PER_PLAYER_ACTION)
 
     def test_process_command_select_item_invalid_secondary_action(self):
         item_name = "test_apple"
         self.mock_input_color.return_value = "fly"
-        action_taken, show_atmospherics, time_units, _ = self.game._process_command('select_item', item_name)
+        action_taken, show_atmospherics, time_units, _ = self.game.command_handler._process_command('select_item', item_name)
         self.mock_print_color.assert_any_call(f"Invalid action 'fly' for {item_name}.", Colors.RED)
         self.assertFalse(action_taken)
         self.assertFalse(show_atmospherics)
@@ -343,7 +345,7 @@ class TestGameStateCommands(unittest.TestCase):
         action_taken, show_atmospherics = self.game._handle_take_command("unique_sword")
 
         self.assertFalse(action_taken)
-        self.assertTrue(show_atmospherics)
+        self.assertFalse(show_atmospherics)
         self.mock_print_color.assert_any_call("You cannot carry another 'unique_sword'.", Colors.YELLOW)
         self.game.player_character.add_to_inventory.assert_called_once_with("unique_sword", 1)
 
@@ -357,7 +359,7 @@ class TestGameStateCommands(unittest.TestCase):
         action_taken, show_atmospherics = self.game._handle_take_command("unique_sword")
 
         self.assertTrue(action_taken)
-        self.assertTrue(show_atmospherics)
+        self.assertFalse(show_atmospherics)
         self.mock_print_color.assert_any_call("You take the unique_sword.", Colors.GREEN)
         # Ensure the specific "cannot carry" message was NOT printed
         for call_args in self.mock_print_color.call_args_list:
@@ -374,7 +376,7 @@ class TestGameStateCommands(unittest.TestCase):
         action_taken, show_atmospherics = self.game._handle_take_command("apple")
 
         self.assertTrue(action_taken)
-        self.assertTrue(show_atmospherics)
+        self.assertFalse(show_atmospherics)
         self.mock_print_color.assert_any_call("You take the apple.", Colors.GREEN)
         for call_args in self.mock_print_color.call_args_list:
             self.assertNotEqual(call_args[0][0], "You cannot carry another 'apple'.")
@@ -390,7 +392,7 @@ class TestGameStateCommands(unittest.TestCase):
         action_taken, show_atmospherics = self.game._handle_take_command("coin")
 
         self.assertTrue(action_taken)
-        self.assertTrue(show_atmospherics)
+        self.assertFalse(show_atmospherics)
         self.mock_print_color.assert_any_call("You take the coin.", Colors.GREEN) # Corrected assertion
         for call_args in self.mock_print_color.call_args_list:
             self.assertNotEqual(call_args[0][0], "You cannot carry another 'coin'.")
@@ -407,7 +409,7 @@ class TestGameStateCommands(unittest.TestCase):
         action_taken, show_atmospherics = self.game._handle_take_command("apple")
 
         self.assertFalse(action_taken)
-        self.assertTrue(show_atmospherics)
+        self.assertFalse(show_atmospherics)
         self.mock_print_color.assert_any_call("Failed to add apple to inventory.", Colors.RED)
         for call_args in self.mock_print_color.call_args_list:
             self.assertNotEqual(call_args[0][0], "You cannot carry another 'apple'.")
@@ -918,8 +920,8 @@ class TestLowAIMode(unittest.TestCase):
         self.game.player_character = self.game.all_character_objects["TestPlayer"]
         self.game.player_character.is_player = True
         self.game.current_location_name = self.game.player_character.default_location
-        self.game.initialize_dynamic_location_items() # Ensure items are initialized
-        self.game.update_npcs_in_current_location()
+        self.game.world_manager.initialize_dynamic_location_items() # Ensure items are initialized
+        self.game.world_manager.update_npcs_in_current_location()
 
         self.game.gemini_api = MagicMock(spec=GeminiAPI)
         self.game.gemini_api.model = MagicMock() # Simulate that a model is available by default
@@ -938,12 +940,12 @@ class TestLowAIMode(unittest.TestCase):
         self.assertFalse(self.game.low_ai_data_mode, "Low AI mode should be False initially.")
 
         # First toggle: ON
-        self.game._process_command("toggle_lowai", None)
+        self.game.command_handler._process_command("toggle_lowai", None)
         self.assertTrue(self.game.low_ai_data_mode)
         self.mock_print_color.assert_called_with("Low AI Data Mode is now ON.", Colors.MAGENTA)
 
         # Second toggle: OFF
-        self.game._process_command("toggle_lowai", None)
+        self.game.command_handler._process_command("toggle_lowai", None)
         self.assertFalse(self.game.low_ai_data_mode)
         self.mock_print_color.assert_called_with("Low AI Data Mode is now OFF.", Colors.MAGENTA)
 
@@ -1017,7 +1019,9 @@ class TestLowAIMode(unittest.TestCase):
         # Check if the static observation was printed (color might vary based on implementation)
         # The current implementation prints static scenery observation in DIM
         printed_texts = " ".join(c[0][0] for c in self.mock_print_color.call_args_list)
-        self.assertIn(expected_scenery_obs, printed_texts)
+        # It's truncated to brief verbosity
+        expected_scenery_obs_brief = "You observe the window."
+        self.assertIn(expected_scenery_obs_brief, printed_texts)
         self.game.gemini_api.get_scenery_observation.assert_not_called()
         # Also check that enhanced observation for scenery wasn't called if the main one was static
         # (This depends on how base_desc_for_skill_check is handled for static scenery)
@@ -1130,9 +1134,9 @@ class TestLowAIMode(unittest.TestCase):
         self.mock_print_color.assert_any_call(f"\n{ai_generated_detail}", Colors.CYAN)
 
     # --- Tests for Game._initialize_game() ---
-    @patch.object(Game, 'load_all_characters') # Mock to prevent full character setup
-    @patch.object(Game, 'select_player_character') # Mock to prevent interactive player selection
-    @patch.object(Game, 'update_current_location_details')
+    @patch.object(WorldManager, 'load_all_characters') # Mock to prevent full character setup
+    @patch.object(WorldManager, 'select_player_character') # Mock to prevent interactive player selection
+    @patch.object(WorldManager, 'update_current_location_details')
     @patch.object(Game, 'display_atmospheric_details')
     @patch.object(Game, 'display_help')
     def test_initialize_game_sets_low_ai_mode_from_configure_yes(self, mock_disp_help, mock_disp_atm, mock_upd_loc, mock_sel_player, mock_load_chars):
@@ -1145,9 +1149,9 @@ class TestLowAIMode(unittest.TestCase):
         self.game._initialize_game()
         self.assertTrue(self.game.low_ai_data_mode)
 
-    @patch.object(Game, 'load_all_characters')
-    @patch.object(Game, 'select_player_character')
-    @patch.object(Game, 'update_current_location_details')
+    @patch.object(WorldManager, 'load_all_characters')
+    @patch.object(WorldManager, 'select_player_character')
+    @patch.object(WorldManager, 'update_current_location_details')
     @patch.object(Game, 'display_atmospheric_details')
     @patch.object(Game, 'display_help')
     def test_initialize_game_sets_low_ai_mode_from_configure_no(self, mock_disp_help, mock_disp_atm, mock_upd_loc, mock_sel_player, mock_load_chars):
@@ -1158,9 +1162,9 @@ class TestLowAIMode(unittest.TestCase):
         self.game._initialize_game()
         self.assertFalse(self.game.low_ai_data_mode)
 
-    @patch.object(Game, 'load_all_characters')
-    @patch.object(Game, 'select_player_character')
-    @patch.object(Game, 'update_current_location_details')
+    @patch.object(WorldManager, 'load_all_characters')
+    @patch.object(WorldManager, 'select_player_character')
+    @patch.object(WorldManager, 'update_current_location_details')
     @patch.object(Game, 'display_atmospheric_details')
     @patch.object(Game, 'display_help')
     def test_initialize_game_low_ai_mode_defaults_false_if_api_skipped(self, mock_disp_help, mock_disp_atm, mock_upd_loc, mock_sel_player, mock_load_chars):
@@ -1173,9 +1177,9 @@ class TestLowAIMode(unittest.TestCase):
 
     @patch('game_engine.game_state.os.getenv')
     @patch.object(Game, 'load_game')
-    @patch.object(Game, 'select_player_character') # Still need to mock this if load_game fails or is bypassed
-    @patch.object(Game, 'load_all_characters')
-    @patch.object(Game, 'update_current_location_details')
+    @patch.object(WorldManager, 'select_player_character') # Still need to mock this if load_game fails or is bypassed
+    @patch.object(WorldManager, 'load_all_characters')
+    @patch.object(WorldManager, 'update_current_location_details')
     @patch.object(Game, 'display_atmospheric_details')
     @patch.object(Game, 'display_help')
     def test_initialize_game_load_game_overrides_configure_low_ai_pref(self, mock_disp_help, mock_disp_atm, mock_upd_loc, mock_load_chars_init, mock_sel_player, mock_load_game_method, mock_os_getenv):

@@ -100,7 +100,10 @@ class DisplayMixin:
         if self.player_action_count >= self.tutorial_turn_limit:
             return
         step = self.player_action_count + 1
-        context = self._build_intent_context()
+        if hasattr(self, 'command_handler') and hasattr(self.command_handler, '_build_intent_context'):
+            context = self.command_handler._build_intent_context()
+        else:
+            context = "none"
         talk_target = context["npcs"][0] if context.get("npcs") else "someone nearby"
         move_target = context["exits"][0]["name"] if context.get("exits") else "an available exit"
         tutorial_lines = {
@@ -117,9 +120,11 @@ class DisplayMixin:
             details = None
             ai_generated = False
             if not self.low_ai_data_mode and self.gemini_api.model:
+                recently_visited = getattr(self.world_manager, 'last_visited_location', None) == self.current_location_name
                 details = self.gemini_api.get_atmospheric_details(
-                    self.player_character, self.current_location_name, self.get_current_time_period(),
-                    self.last_significant_event_summary, self._get_objectives_summary(self.player_character))
+                    self.player_character, self.current_location_name, self.world_manager.get_current_time_period(),
+                    self.last_significant_event_summary, self._get_objectives_summary(self.player_character), recently_visited)
+                self.world_manager.last_visited_location = self.current_location_name
 
             if details is None or (isinstance(details, str) and details.startswith("(OOC:")) or self.low_ai_data_mode:
                 if STATIC_ATMOSPHERIC_DETAILS:

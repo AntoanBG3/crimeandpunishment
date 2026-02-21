@@ -3,6 +3,7 @@ import random
 import copy
 import logging
 import json
+from typing import Any, Dict, List, Optional
 from .game_config import DEBUG_LOGS
 
 def load_characters_data(data_path=None):
@@ -95,7 +96,7 @@ class Character:
         return "\nRecent Journal Entries:\n" + "\n".join(self.journal_entries[-count:])
 
 
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         return {
             "name": self.name,
             "current_location": self.current_location,
@@ -113,7 +114,7 @@ class Character:
         }
 
     @classmethod
-    def from_dict(cls, data, static_char_data):
+    def from_dict(cls, data: Dict[str, Any], static_char_data: Optional[Dict[str, Any]]) -> 'Character':
         static_char_data_safe = static_char_data if static_char_data is not None else {}
         
         char = cls(

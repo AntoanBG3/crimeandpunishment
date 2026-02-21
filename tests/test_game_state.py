@@ -40,6 +40,7 @@ class TestGameState(unittest.TestCase):
         expected_save_data = {
             "player_character_name": "Test Player",
             "current_location_name": "start_location",
+            "visited_locations": [],
             "game_time": 100,
             "current_day": 1,
             "all_character_objects_state": {"Test Player": self.game.player_character.to_dict()},
@@ -54,9 +55,10 @@ class TestGameState(unittest.TestCase):
             "low_ai_data_mode": False,
             "player_action_count": 0,
             "color_theme": "default",
-            "verbosity_level": "standard",
+            "verbosity_level": "brief",
             "turn_headers_enabled": True,
-            "command_history": []
+            "command_history": [],
+            "visited_locations": []
         }
 
         mock_json_dump.assert_called_once()
@@ -70,6 +72,7 @@ class TestGameState(unittest.TestCase):
         mock_save_data = {
             "player_character_name": "Test Player",
             "current_location_name": "start_location",
+            "visited_locations": [],
             "game_time": 100,
             "current_day": 1,
             "all_character_objects_state": {"Test Player": self.game.player_character.to_dict()},
@@ -100,7 +103,7 @@ class TestGameState(unittest.TestCase):
 
     def test_advance_time(self):
         initial_time = self.game.game_time
-        self.game.advance_time(10)
+        self.game.world_manager.advance_time(10)
         self.assertEqual(self.game.game_time, initial_time + 10)
 
     @patch('random.random', return_value=0.1)
@@ -109,7 +112,7 @@ class TestGameState(unittest.TestCase):
         self.game.all_character_objects["Test NPC"] = npc
         self.game.game_time = 0 # Morning
         with patch.dict('game_engine.location_module.LOCATIONS_DATA', {"loc_A": {}, "loc_B": {}}, clear=True):
-            self.game.update_npc_locations_by_schedule()
+            self.game.world_manager.update_npc_locations_by_schedule()
         self.assertEqual(npc.current_location, "loc_B")
 
     @patch('game_engine.game_state.random.randint', return_value=5)
@@ -132,6 +135,7 @@ class TestGameState(unittest.TestCase):
         mock_json_load.return_value = {
             "player_character_name": "Test Player",
             "current_location_name": "start_location",
+            "visited_locations": [],
             "game_time": 100,
             "current_day": 1,
             "all_character_objects_state": {"Test Player": self.game.player_character.to_dict()},
@@ -160,14 +164,14 @@ class TestGameState(unittest.TestCase):
         self.game.autosave_interval_actions = 1
         self.game.actions_since_last_autosave = 0
         with patch.object(self.game, 'save_game') as mock_save:
-            self.game._update_world_state_after_action("look", True, TIME_UNITS_PER_PLAYER_ACTION)
+            self.game.world_manager._update_world_state_after_action("look", True, TIME_UNITS_PER_PLAYER_ACTION)
         mock_save.assert_called_once_with("autosave", is_autosave=True)
 
     def test_get_contextual_command_examples_includes_context(self):
         self.game.npcs_in_current_location = [Character("Sonya", "", "", "start_location", ["start_location"])]
         self.game.dynamic_location_items = {"start_location": [{"name": "coin"}]}
         with patch.dict('game_engine.location_module.LOCATIONS_DATA', {"start_location": {"exits": {"street": "A street"}}}, clear=True):
-            examples = self.game._get_contextual_command_examples()
+            examples = self.game.command_handler._get_contextual_command_examples()
         self.assertIn("look", examples)
         self.assertIn("talk to Sonya", examples)
 
@@ -185,6 +189,7 @@ class TestGameState(unittest.TestCase):
         mock_save_data = {
             "player_character_name": "Test Player",
             "current_location_name": "start_location",
+            "visited_locations": [],
             "game_time": 100,
             "current_day": 1,
             "all_character_objects_state": {"Test Player": self.game.player_character.to_dict()},
@@ -220,7 +225,7 @@ class TestGameState(unittest.TestCase):
         self.game.command_history = ["look"]
         with patch.object(self.game, '_input_color', return_value="!!"), \
              patch.object(self.game, '_print_color'):
-            command, argument = self.game._get_player_input()
+            command, argument = self.game.command_handler._get_player_input()
         self.assertEqual(command, "look")
         self.assertIsNone(argument)
 
@@ -228,7 +233,7 @@ class TestGameState(unittest.TestCase):
         self.game.command_history = []
         with patch.object(self.game, '_input_color', return_value="!!"), \
              patch.object(self.game, '_print_color') as mock_print:
-            command, argument = self.game._get_player_input()
+            command, argument = self.game.command_handler._get_player_input()
         self.assertIsNone(command)
         self.assertIsNone(argument)
         mock_print.assert_any_call("No previous command to repeat yet.", Colors.YELLOW)
@@ -236,18 +241,18 @@ class TestGameState(unittest.TestCase):
     def test_process_history_command(self):
         self.game.command_history = ["look", "inventory"]
         with patch.object(self.game, '_print_color') as mock_print:
-            action_taken, show_atmospherics, _, _ = self.game._process_command("history", None)
+            action_taken, show_atmospherics, _, _ = self.game.command_handler._process_command("history", None)
         self.assertFalse(action_taken)
         self.assertFalse(show_atmospherics)
         printed = "\n".join(call.args[0] for call in mock_print.call_args_list if call.args)
         self.assertIn("Recent Commands", printed)
 
     def test_theme_and_verbosity_commands(self):
-        self.game._process_command("theme", "mono")
+        self.game.command_handler._process_command("theme", "mono")
         self.assertEqual(self.game.color_theme, "mono")
-        self.game._process_command("verbosity", "brief")
+        self.game.command_handler._process_command("verbosity", "brief")
         self.assertEqual(self.game.verbosity_level, "brief")
-        self.game._process_command("theme", "default")
+        self.game.command_handler._process_command("theme", "default")
 
 
 if __name__ == '__main__':

@@ -31,7 +31,7 @@ class NPCInteractionHandler:
         if not self.npcs_in_current_location: self._print_color("There's no one here to talk to.", Colors.DIM); return False, False
         if not self.player_character: self._print_color("Cannot talk: Player character not available.", Colors.RED); return False, False
         target_name_input = argument.lower()
-        target_npc, ambiguous = self._get_matching_npc(target_name_input)
+        target_npc, ambiguous = self.command_handler._get_matching_npc(target_name_input)
         if ambiguous:
             return False, False
         if target_npc:
@@ -80,7 +80,7 @@ class NPCInteractionHandler:
                 if len(self.current_conversation_log) > MAX_CONVERSATION_LOG_LINES: self.current_conversation_log.pop(0)
                 self.last_significant_event_summary = f"spoke with {target_npc.name} who said: \"{ai_response[:50]}...\""
                 if self.check_conversation_conclusion(ai_response): self._print_color(f"\nThe conversation with {Colors.YELLOW}{target_npc.name}{Colors.RESET} seems to have concluded.", Colors.MAGENTA); conversation_active = False
-                self.advance_time(TIME_UNITS_PER_PLAYER_ACTION)
+                self.world_manager.advance_time(TIME_UNITS_PER_PLAYER_ACTION)
                 if self.event_manager.check_and_trigger_events(): self.last_significant_event_summary = "an event occurred during conversation."
             self._record_npc_post_interaction_memories(target_npc, "during conversation")
             if self.player_character.name == "Rodion Raskolnikov" and target_npc and target_npc.name == "Porfiry Petrovich":
@@ -112,4 +112,4 @@ class NPCInteractionHandler:
         target_npc.add_player_memory(memory_type="persuasion_attempt", turn=self.game_time, content={"statement": statement_text[:100], "outcome": "success" if success else "failure", "npc_response_snippet": ai_response[:70]}, sentiment_impact=sentiment_impact_base)
         self.last_significant_event_summary = f"attempted to persuade {target_npc.name} regarding '{statement_text[:30]}...'."
         self._record_npc_post_interaction_memories(target_npc, "during persuasion attempt")
-        self.advance_time(TIME_UNITS_PER_PLAYER_ACTION); return True, True
+        self.world_manager.advance_time(TIME_UNITS_PER_PLAYER_ACTION); return True, True

@@ -5,6 +5,7 @@ import re
 import random
 import copy
 import difflib
+from typing import Set, Optional, List, Dict, Any, Tuple
 
 from .game_config import (Colors, SAVE_GAME_FILE, # API_CONFIG_FILE, GEMINI_MODEL_NAME removed
                          CONCLUDING_PHRASES, POSITIVE_KEYWORDS, NEGATIVE_KEYWORDS,
@@ -33,13 +34,15 @@ from .item_interaction_handler import ItemInteractionHandler
 from .npc_interaction_handler import NPCInteractionHandler
 from .world_manager import WorldManager
 
-class Game(DisplayMixin, CommandHandler, ItemInteractionHandler, NPCInteractionHandler, WorldManager):
-    def __init__(self):
-        self.player_character = None
-        self.all_character_objects = {}
-        self.npcs_in_current_location = []
+class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler, EventManager):
+    def __init__(self) -> None:
+        self.world_manager = WorldManager(self)
+        self.command_handler = CommandHandler(self)
+        self.player_character: Optional[Any] = None
+        self.all_character_objects: Dict[str, Any] = {}
+        self.npcs_in_current_location: List[Any] = []
         self.current_location_name = None
-        self.dynamic_location_items = {}
+        self.dynamic_location_items: Dict[str, Any] = {}
 
         self.gemini_api = GeminiAPI()
         self.nl_parser = NaturalLanguageParser(self.gemini_api)
@@ -53,33 +56,33 @@ class Game(DisplayMixin, CommandHandler, ItemInteractionHandler, NPCInteractionH
         self.last_significant_event_summary = None
 
         self.current_location_description_shown_this_visit = False
-        self.visited_locations = set()
+        self.visited_locations: Set[str] = set()
 
         self.player_notoriety_level = 0
         self.known_facts_about_crime = ["An old pawnbroker and her sister were murdered recently."]
         self.key_events_occurred = ["Game started."]
-        self.numbered_actions_context = []
+        self.numbered_actions_context: List[Any] = []
         self.current_conversation_log = []
-        self.overheard_rumors = []
+        self.overheard_rumors: List[str] = []
         self.low_ai_data_mode = False
         self.autosave_interval_actions = 10
         self.actions_since_last_autosave = 0
         self.player_action_count = 0
         self.tutorial_turn_limit = 5
-        self.command_history = []
+        self.command_history: List[Tuple[str, str]] = []
         self.max_command_history = 25
         self.turn_headers_enabled = True
         self.last_turn_result_icon = "..."
         self.verbosity_level = DEFAULT_VERBOSITY_LEVEL
         self.color_theme = DEFAULT_COLOR_THEME
-        self.last_ai_generated_text = None
-        self.last_ai_generation_source = None
+        self.last_ai_generated_text: Optional[str] = None
+        self.last_ai_generation_source: Optional[str] = None
         apply_color_theme(self.color_theme)
 
-    def _get_current_game_time_period_str(self):
-        return f"Day {self.current_day}, {self.get_current_time_period()}"
+    def _get_current_game_time_period_str(self) -> str:
+        return f"Day {self.current_day}, {self.world_manager.get_current_time_period()}"
 
-    def _get_objectives_summary(self, character):
+    def _get_objectives_summary(self, character: Optional[Character]) -> str:
         if not character or not character.objectives:
             return "No particular objectives."
 
@@ -99,18 +102,18 @@ class Game(DisplayMixin, CommandHandler, ItemInteractionHandler, NPCInteractionH
         prefix = "Your current objectives: " if character.is_player else f"{character.name}'s current objectives: "
         return prefix + "; ".join(active_objective_details) + "."
 
-    def _get_recent_events_summary(self, count=3):
+    def _get_recent_events_summary(self, count: int = 3) -> str:
         if not self.key_events_occurred:
             return "Nothing much has happened yet."
         return "Key recent events: " + "; ".join(self.key_events_occurred[-count:])
 
-    def _get_known_facts_summary(self):
+    def _get_known_facts_summary(self) -> str:
         if not self.known_facts_about_crime:
             return "No specific details are widely known about the recent crime."
         return "Known facts about the crime: " + "; ".join(self.known_facts_about_crime)
 
 
-    def _remember_ai_output(self, text, source_label):
+    def _remember_ai_output(self, text: Optional[str], source_label: str) -> None:
         if not text or not isinstance(text, str):
             return
         if text.startswith("(OOC:"):
@@ -144,7 +147,7 @@ class Game(DisplayMixin, CommandHandler, ItemInteractionHandler, NPCInteractionH
 
 
 
-    def get_relationship_text(self, score):
+    def get_relationship_text(self, score: int) -> str:
         if score > 5: return "very positive"
         if score > 2: return "positive"
         if score < -5: return "very negative"
@@ -157,7 +160,7 @@ class Game(DisplayMixin, CommandHandler, ItemInteractionHandler, NPCInteractionH
 
 
 
-    def _get_save_file_path(self, slot_name=None):
+    def _get_save_file_path(self, slot_name: Optional[str] = None) -> Optional[str]:
         if not slot_name:
             return SAVE_GAME_FILE
         sanitized = re.sub(r"[^a-zA-Z0-9_-]", "", str(slot_name).strip().lower())
@@ -165,7 +168,7 @@ class Game(DisplayMixin, CommandHandler, ItemInteractionHandler, NPCInteractionH
             return None
         return f"savegame_{sanitized}.json"
 
-    def save_game(self, slot_name=None, is_autosave=False):
+    def save_game(self, slot_name: Optional[str] = None, is_autosave: bool = False) -> None:
         if not self.player_character: self._print_color("Cannot save: Game not fully initialized.", Colors.RED); return
         save_file = self._get_save_file_path(slot_name)
         if not save_file:
@@ -199,7 +202,7 @@ class Game(DisplayMixin, CommandHandler, ItemInteractionHandler, NPCInteractionH
                 self._print_color(f"Game saved to {save_file}", Colors.GREEN)
         except Exception as e: self._print_color(f"Error saving game: {e}", Colors.RED)
 
-    def load_game(self, slot_name=None):
+    def load_game(self, slot_name: Optional[str] = None) -> bool:
         save_file = self._get_save_file_path(slot_name)
         if not save_file:
             self._print_color("Invalid save slot name. Use letters, numbers, hyphens, or underscores.", Colors.RED)
@@ -241,16 +244,17 @@ class Game(DisplayMixin, CommandHandler, ItemInteractionHandler, NPCInteractionH
                 self.all_character_objects[char_name] = Character.from_dict(char_state_data, static_data)
             player_name = game_state_data.get("player_character_name")
             if player_name and player_name in self.all_character_objects:
-                self.player_character = self.all_character_objects[player_name]; self.player_character.is_player = True
+                self.player_character = self.all_character_objects[player_name]
+                if self.player_character: self.player_character.is_player = True
             else: self._print_color(f"Error: Saved player character '{player_name}' not found or invalid. Load failed.", Colors.RED); self.player_character = None; return False
             if not self.current_location_name and self.player_character: self.current_location_name = self.player_character.current_location
-            if not self.dynamic_location_items: self.initialize_dynamic_location_items()
-            self.update_npcs_in_current_location(); self._print_color("Game loaded successfully.", Colors.GREEN)
+            if not self.dynamic_location_items: self.world_manager.initialize_dynamic_location_items()
+            self.world_manager.update_npcs_in_current_location(); self._print_color("Game loaded successfully.", Colors.GREEN)
             self._display_load_recap()
-            self.update_current_location_details(from_explicit_look_cmd=False); return True
+            self.world_manager.update_current_location_details(from_explicit_look_cmd=False); return True
         except Exception as e: self._print_color(f"Error loading game: {e}", Colors.RED); self.player_character = None; return False
 
-    def _initialize_game(self):
+    def _initialize_game(self) -> bool:
         # Call configure and get results
         config_results = self.gemini_api.configure(self._print_color, self._input_color)
 
@@ -258,15 +262,15 @@ class Game(DisplayMixin, CommandHandler, ItemInteractionHandler, NPCInteractionH
         # No need for an additional print here unless desired for game-level confirmation.
 
         self._print_color("\n--- Crime and Punishment: A Text Adventure ---", Colors.CYAN + Colors.BOLD)
-        self._validate_item_data()
+        self.world_manager._validate_item_data()
 
         game_loaded_successfully = False
         # Non-interactive mode: Automatically start a new game if GEMINI_API_KEY is set
         if os.getenv("GEMINI_API_KEY"):
             self._print_color("Starting a new game...", Colors.MAGENTA)
             self.low_ai_data_mode = config_results.get("low_ai_preference", False)
-            self.load_all_characters()
-            if not self.select_player_character(non_interactive=True):
+            self.world_manager.load_all_characters()
+            if not self.world_manager.select_player_character(non_interactive=True):
                 self._print_color("Critical Error: Could not initialize player character. Exiting.", Colors.RED)
                 return False
         else:
@@ -280,13 +284,13 @@ class Game(DisplayMixin, CommandHandler, ItemInteractionHandler, NPCInteractionH
 
             if not game_loaded_successfully:
                 self.low_ai_data_mode = config_results.get("low_ai_preference", False)
-                self.load_all_characters()
-                if not self.select_player_character():
+                self.world_manager.load_all_characters()
+                if not self.world_manager.select_player_character():
                     self._print_color("Critical Error: Could not initialize player character. Exiting.", Colors.RED)
                     return False
         if not self.player_character or not self.current_location_name: self._print_color("Game initialization failed critically. Exiting.", Colors.RED); return False
         if not game_loaded_successfully:
-            self.update_current_location_details(from_explicit_look_cmd=False); self.display_atmospheric_details()
+            self.world_manager.update_current_location_details(from_explicit_look_cmd=False); self.display_atmospheric_details()
         self._print_color("\n--- Game Start ---", Colors.CYAN + Colors.BOLD)
         if not game_loaded_successfully: self.display_help()
         return True
@@ -301,24 +305,24 @@ class Game(DisplayMixin, CommandHandler, ItemInteractionHandler, NPCInteractionH
 
 
 
-    def run(self):
+    def run(self) -> None:
         if not self._initialize_game(): return
         while True:
             if not LOCATIONS_DATA.get(self.current_location_name):
                  self._print_color(f"Critical Error: Current location '{self.current_location_name}' data not found. Exiting.", Colors.RED); break
             self._print_turn_header()
             self._display_tutorial_hint()
-            self._handle_ambient_rumors(); command, argument = self._get_player_input()
+            self.world_manager._handle_ambient_rumors(); command, argument = self.command_handler._get_player_input()
             if command is None and argument is None: continue
-            self._record_command_history(command, argument)
-            action_taken, show_atmospherics, time_units, special_flag = self._process_command(command, argument)
+            self.command_handler._record_command_history(command, argument)
+            action_taken, show_atmospherics, time_units, special_flag = self.command_handler._process_command(command, argument)
             if special_flag == "load_triggered":
                 self.last_turn_result_icon = "LOAD"
                 continue
             if special_flag:
                 self.last_turn_result_icon = "QUIT"
                 break
-            self._update_world_state_after_action(command, action_taken, time_units)
+            self.world_manager._update_world_state_after_action(command, action_taken, time_units)
             self._display_turn_feedback(show_atmospherics, command)
             if action_taken:
                 self.last_turn_result_icon = "OK"
@@ -326,7 +330,7 @@ class Game(DisplayMixin, CommandHandler, ItemInteractionHandler, NPCInteractionH
                 self.last_turn_result_icon = "INFO"
             else:
                 self.last_turn_result_icon = "NOOP"
-            if self._check_game_ending_conditions(): break
+            if self.world_manager._check_game_ending_conditions(): break
 
 
 
@@ -340,7 +344,7 @@ class Game(DisplayMixin, CommandHandler, ItemInteractionHandler, NPCInteractionH
 
 
 
-    def _handle_think_command(self):
+    def _handle_think_command(self) -> None:
         if not self.player_character: self._print_color("Cannot think: Player character not available.", Colors.RED); return
         self._print_color("You pause to reflect...", Colors.MAGENTA)
         full_reflection_context = self._get_objectives_summary(self.player_character) + \
@@ -357,7 +361,7 @@ class Game(DisplayMixin, CommandHandler, ItemInteractionHandler, NPCInteractionH
         reflection = None
         ai_generated = False
         if not self.low_ai_data_mode and self.gemini_api.model:
-            reflection = self.gemini_api.get_player_reflection(self.player_character, self.current_location_name, self.get_current_time_period(), full_reflection_context)
+            reflection = self.gemini_api.get_player_reflection(self.player_character, self.current_location_name, self.world_manager.get_current_time_period(), full_reflection_context)
 
         if reflection is None or (isinstance(reflection, str) and reflection.startswith("(OOC:")) or self.low_ai_data_mode:
             if STATIC_PLAYER_REFLECTIONS:
@@ -373,7 +377,7 @@ class Game(DisplayMixin, CommandHandler, ItemInteractionHandler, NPCInteractionH
             self._remember_ai_output(final_reflection, "think")
         self.last_significant_event_summary = "was lost in thought."
 
-    def _handle_wait_command(self):
+    def _handle_wait_command(self) -> int:
         self._print_color("You wait for a while...", Colors.MAGENTA); self.last_significant_event_summary = "waited, letting time and thoughts drift."
         return TIME_UNITS_PER_PLAYER_ACTION * random.randint(3, 6)
 

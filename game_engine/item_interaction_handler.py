@@ -80,7 +80,7 @@ class ItemInteractionHandler:
             self._print_color("Cannot inspect location items: Player character not available.", Colors.RED)
             return True
         player_character = self.player_character
-        item_info, ambiguous = self._get_matching_location_item(target_to_look_at)
+        item_info, ambiguous = self.command_handler._get_matching_location_item(target_to_look_at)
         if ambiguous:
             return True
         if item_info:
@@ -103,7 +103,7 @@ class ItemInteractionHandler:
 
     def _handle_look_at_inventory_item(self, target_to_look_at):
         if self.player_character:
-            inv_item_info, ambiguous = self._get_matching_inventory_item(target_to_look_at)
+            inv_item_info, ambiguous = self.command_handler._get_matching_inventory_item(target_to_look_at)
             if ambiguous:
                 return True
             if inv_item_info:
@@ -130,7 +130,7 @@ class ItemInteractionHandler:
             return True
         player_character = self.player_character
         current_location_name = self.current_location_name or "Unknown Location"
-        npc, ambiguous = self._get_matching_npc(target_to_look_at)
+        npc, ambiguous = self.command_handler._get_matching_npc(target_to_look_at)
         if ambiguous:
             return True
         if npc:
@@ -243,7 +243,7 @@ class ItemInteractionHandler:
         self.numbered_actions_context.clear(); action_number = 1
         current_location_data = LOCATIONS_DATA.get(self.current_location_name)
         is_general_look = (argument is None or argument.lower() in ["around", ""])
-        self.update_current_location_details(from_explicit_look_cmd=is_general_look)
+        self.world_manager.update_current_location_details(from_explicit_look_cmd=is_general_look)
 
         if argument and not is_general_look:
             target_to_look_at = argument.lower()
@@ -309,7 +309,7 @@ class ItemInteractionHandler:
         if not self.player_character: self._print_color("Cannot take items: Player character not available.", Colors.RED); return False, False
         item_to_take_name = argument.lower()
         location_items = self.dynamic_location_items.get(self.current_location_name, [])
-        item_found_in_loc, ambiguous = self._get_matching_location_item(item_to_take_name)
+        item_found_in_loc, ambiguous = self.command_handler._get_matching_location_item(item_to_take_name)
         item_idx_in_loc = -1
         if item_found_in_loc:
             item_idx_in_loc = location_items.index(item_found_in_loc)
@@ -356,7 +356,7 @@ class ItemInteractionHandler:
         if not argument: self._print_color("What do you want to drop?", Colors.RED); return False, False
         if not self.player_character: self._print_color("Cannot drop items: Player character not available.", Colors.RED); return False, False
         item_to_drop_name_input = argument.lower()
-        item_in_inventory_obj, ambiguous = self._get_matching_inventory_item(item_to_drop_name_input)
+        item_in_inventory_obj, ambiguous = self.command_handler._get_matching_inventory_item(item_to_drop_name_input)
         if ambiguous:
             return False, False
         if item_in_inventory_obj:
@@ -431,7 +431,7 @@ class ItemInteractionHandler:
             reflection = None
             prompt_context = "re-reading mother's letter about Dunya and Luzhin, feeling guilt and responsibility"
             if not self.low_ai_data_mode and self.gemini_api.model:
-                reflection = self.gemini_api.get_player_reflection(player_character, current_location_name, self.get_current_time_period(), prompt_context)
+                reflection = self.gemini_api.get_player_reflection(player_character, current_location_name, self.world_manager.get_current_time_period(), prompt_context)
 
             if reflection is None or (isinstance(reflection, str) and reflection.startswith("(OOC:")) or self.low_ai_data_mode:
                 if STATIC_PLAYER_REFLECTIONS:

@@ -698,14 +698,19 @@ class GeminiAPI:
         return self._generate_content_with_fallback(prompt, f"player reflection for {player_character.name}")
 
     def get_atmospheric_details(self, player_character, location_name, time_period,
-                                recent_event_summary=None, player_objective_focus=None):
+                                recent_event_summary=None, player_objective_focus=None, recently_visited=False):
         context = (f"{player_character.name} (state: {player_character.apparent_state}, preoccupied with: {player_objective_focus if player_objective_focus else 'usual thoughts'}) "
                    f"is in {location_name} during {time_period}. ")
         if recent_event_summary: context += f"Recently, {recent_event_summary}. "
+        
+        brevity_instruction = "Describe subtle, psychologically resonant detail (1-2 sentences)."
+        if recently_visited:
+            brevity_instruction = "Keep it extremely brief (1 short sentence), as the character was just here. Focus on a single fleeting detail."
+            
         prompt = f"""
         **Task: Evoke Dostoevsky's St. Petersburg atmosphere via {player_character.name}'s perception.**
         **Context:** {context}
-        **Instructions:** Describe subtle, psychologically resonant detail (1-2 sentences). Enhance mood, Dostoevskian tone. Sensory/Symbolic. Reflect internal state. Not a plot point. Output only description.
+        **Instructions:** {brevity_instruction} Enhance mood, Dostoevskian tone. Sensory/Symbolic. Reflect internal state. Not a plot point. Output only description.
         Generate the atmospheric detail now:
         """
         return self._generate_content_with_fallback(prompt, "atmospheric details")

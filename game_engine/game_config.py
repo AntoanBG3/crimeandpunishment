@@ -92,7 +92,7 @@ def apply_color_theme(theme_name):
 
 
 DEFAULT_COLOR_THEME = "default"
-DEFAULT_VERBOSITY_LEVEL = "standard"
+DEFAULT_VERBOSITY_LEVEL = "brief"
 VERBOSITY_LEVELS = ("brief", "standard", "rich")
 
 # Ensure theme attributes are consistently initialized through one code path.
