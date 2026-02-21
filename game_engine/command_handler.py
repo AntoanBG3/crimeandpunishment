@@ -418,11 +418,11 @@ class CommandHandler:
             elif secondary_action_input == "read":
                 action_taken = self.handle_use_item(item_name_selected, None, "read")
                 time_units = TIME_UNITS_PER_PLAYER_ACTION if action_taken else 0
-                return action_taken, True, time_units, False
+                return action_taken, False, time_units, False
             elif secondary_action_input == "use":
                 action_taken = self.handle_use_item(item_name_selected, None, "use_self_implicit")
                 time_units = TIME_UNITS_PER_PLAYER_ACTION if action_taken else 0
-                return action_taken, True, time_units, False
+                return action_taken, False, time_units, False
             elif secondary_action_input.startswith("give to "):
                 target_npc_name = secondary_action_input.replace("give to ", "").strip()
                 if not target_npc_name:
@@ -430,7 +430,7 @@ class CommandHandler:
                     return False, False, 0, False
                 action_taken = self.handle_use_item(item_name_selected, target_npc_name, "give")
                 time_units = TIME_UNITS_PER_PLAYER_ACTION if action_taken else 0
-                return action_taken, True, time_units, False
+                return action_taken, False, time_units, False
             elif secondary_action_input.startswith("use on "):
                 target_for_use = secondary_action_input.replace("use on ", "").strip()
                 if not target_for_use:
@@ -438,7 +438,7 @@ class CommandHandler:
                     return False, False, 0, False
                 action_taken = self.handle_use_item(item_name_selected, target_for_use, "use_on")
                 time_units = TIME_UNITS_PER_PLAYER_ACTION if action_taken else 0
-                return action_taken, True, time_units, False
+                return action_taken, False, time_units, False
             else:
                 self._print_color(f"Invalid action '{secondary_action_input}' for {item_name_selected}.", Colors.RED)
                 return False, False, 0, False
@@ -455,7 +455,7 @@ class CommandHandler:
         elif command == "inventory": self._handle_inventory_command(); action_taken_this_turn = False; show_atmospherics_this_turn = False
         elif command == "take": action_taken_this_turn, show_atmospherics_this_turn = self._handle_take_command(argument)
         elif command == "drop": action_taken_this_turn, show_atmospherics_this_turn = self._handle_drop_command(argument)
-        elif command == "use": action_taken_this_turn = self._handle_use_command(argument); show_atmospherics_this_turn = True
+        elif command == "use": action_taken_this_turn = self._handle_use_command(argument); show_atmospherics_this_turn = False
         elif command == "objectives": self.display_objectives(); action_taken_this_turn = False; show_atmospherics_this_turn = False
         elif command == "think": self._handle_think_command(); show_atmospherics_this_turn = True
         elif command == "wait": time_to_advance = self._handle_wait_command(); show_atmospherics_this_turn = True

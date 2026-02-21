@@ -181,9 +181,15 @@ class WorldManager:
         time_str = f"({self._get_current_game_time_period_str()})"
         self._print_color(f"\n--- {self.current_location_name} {time_str} ---", Colors.CYAN + Colors.BOLD)
         if from_explicit_look_cmd or not self.current_location_description_shown_this_visit:
+            is_first_visit = self.current_location_name not in self.visited_locations
             base_description = location_data.get("description", "A non-descript place.")
             time_effect_desc = location_data.get("time_effects", {}).get(self.get_current_time_period(), "")
-            print(base_description + " " + time_effect_desc)
+            if is_first_visit or from_explicit_look_cmd:
+                print(base_description + " " + time_effect_desc)
+                self.visited_locations.add(self.current_location_name)
+            else:
+                brief_desc = base_description.split('.')[0] + "."
+                print(brief_desc + " " + time_effect_desc)
             self.current_location_description_shown_this_visit = True
         self.update_npcs_in_current_location()
 

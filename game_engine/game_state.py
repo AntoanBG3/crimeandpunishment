@@ -53,6 +53,7 @@ class Game(DisplayMixin, CommandHandler, ItemInteractionHandler, NPCInteractionH
         self.last_significant_event_summary = None
 
         self.current_location_description_shown_this_visit = False
+        self.visited_locations = set()
 
         self.player_notoriety_level = 0
         self.known_facts_about_crime = ["An old pawnbroker and her sister were murdered recently."]
@@ -180,6 +181,7 @@ class Game(DisplayMixin, CommandHandler, ItemInteractionHandler, NPCInteractionH
             "player_notoriety_level": self.player_notoriety_level,
             "known_facts_about_crime": self.known_facts_about_crime,
             "key_events_occurred": self.key_events_occurred,
+            "visited_locations": list(self.visited_locations),
             "current_location_description_shown_this_visit": self.current_location_description_shown_this_visit,
             "chosen_gemini_model": self.gemini_api.chosen_model_name,
             "low_ai_data_mode": self.low_ai_data_mode,
@@ -213,6 +215,7 @@ class Game(DisplayMixin, CommandHandler, ItemInteractionHandler, NPCInteractionH
             self.player_notoriety_level = game_state_data.get("player_notoriety_level", 0)
             self.known_facts_about_crime = game_state_data.get("known_facts_about_crime", ["An old pawnbroker and her sister were murdered recently."])
             self.key_events_occurred = game_state_data.get("key_events_occurred", ["Game loaded."])
+            self.visited_locations = set(game_state_data.get("visited_locations", []))
             self.current_location_description_shown_this_visit = game_state_data.get("current_location_description_shown_this_visit", False)
             self.low_ai_data_mode = game_state_data.get("low_ai_data_mode", False)
             self.player_action_count = game_state_data.get("player_action_count", 0)

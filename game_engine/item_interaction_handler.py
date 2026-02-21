@@ -336,7 +336,7 @@ class ItemInteractionHandler:
                     taken_item_name = item_found_in_loc["name"]; taken_item_props = DEFAULT_ITEMS.get(taken_item_name, {}) # Changed: self.game_config
                     if taken_item_props.get("readable"): self._print_color(f"(Hint: You can now 'read {taken_item_name}'.)", Colors.DIM)
                     elif taken_item_props.get("use_effect_player") and taken_item_name != "worn coin": self._print_color(f"(Hint: You can try to 'use {taken_item_name}'.)", Colors.DIM)
-                    return True, True
+                    return True, False
                 else:
                     # Check if the failure was due to trying to take a non-stackable item already possessed
                     item_name_failed_to_add = item_found_in_loc["name"]
@@ -348,8 +348,8 @@ class ItemInteractionHandler:
                     else:
                         # Generic failure message if not the specific non-stackable case
                         self._print_color(f"Failed to add {item_name_failed_to_add} to inventory.", Colors.RED)
-                    return False, True # Action was attempted (hence True for show_atmospherics) but failed
-            else: self._print_color(f"You can't take the {item_found_in_loc['name']}.", Colors.YELLOW); return False, True
+                    return False, False # Action was attempted (hence True for show_atmospherics) but failed
+            else: self._print_color(f"You can't take the {item_found_in_loc['name']}.", Colors.YELLOW); return False, False
         else: self._print_color(f"You don't see any '{item_to_take_name}' here to take.", Colors.RED); return False, False
 
     def _handle_drop_command(self, argument):
@@ -371,8 +371,8 @@ class ItemInteractionHandler:
                 for npc in self.npcs_in_current_location:
                     if npc.name != self.player_character.name:
                         npc.add_player_memory(memory_type="player_action_observed", turn=self.game_time, content={"action": "dropped_item", "item_name": item_name_to_drop, "quantity": drop_quantity, "location": self.current_location_name}, sentiment_impact=0)
-                return True, True
-            else: self._print_color(f"You try to drop {item_name_to_drop}, but something is wrong.", Colors.RED); return False, True
+                return True, False
+            else: self._print_color(f"You try to drop {item_name_to_drop}, but something is wrong.", Colors.RED); return False, False
         else: self._print_color(f"You don't have '{item_to_drop_name_input}' to drop.", Colors.RED); return False, False
 
     def _handle_use_command(self, argument):
