@@ -1,48 +1,47 @@
 <p align="center">
-  <strong>🪓 Crime and Punishment</strong><br>
+  <strong>Crime and Punishment</strong><br>
   <em>A Generative Text Adventure</em>
 </p>
 
 <p align="center">
-  <a href="https://github.com/AntoanBG3/crimeandpunishment/releases"><img src="https://img.shields.io/github/v/release/AntoanBG3/crimeandpunishment?style=flat-square&label=latest%20release" alt="Latest Release"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT License"></a>
-  <img src="https://img.shields.io/badge/python-3.10%2B-yellow?style=flat-square" alt="Python 3.10+">
-  <img src="https://img.shields.io/badge/powered%20by-Gemini%20API-4285F4?style=flat-square" alt="Gemini API">
+  <a href="https://github.com/AntoanBG3/crimeandpunishment/releases"><img src="https://img.shields.io/github/v/release/AntoanBG3/crimeandpunishment?style=for-the-badge&color=darkred" alt="Latest Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-black?style=for-the-badge" alt="MIT License"></a>
+  <img src="https://img.shields.io/badge/python-3.10%2B-blue?style=for-the-badge" alt="Python 3.10+">
+  <img src="https://img.shields.io/badge/powered%20by-Gemini%20API-orange?style=for-the-badge" alt="Gemini API">
 </p>
 
 ---
 
-> *"To go wrong in one's own way is better than to go right in someone else's."*
+> *"To go wrong in one's own way is better than to go right in someone else's."*  
 > — Fyodor Dostoevsky
 
-Step into 19th-century St. Petersburg and inhabit the minds of Dostoevsky's most iconic characters. Every conversation, every observation, every moral crossroad is shaped in real time by Google's Gemini API — creating a text adventure where the novel's world genuinely *reacts* to you.
+Step into 19th-century St. Petersburg and inhabit the minds of Dostoevsky's most iconic characters. **Crime and Punishment** is a terminal-based text adventure dynamically powered by the **Google Gemini API**. Every conversation, observation, and moral crossroad is generated and shaped in real-time, creating a world that genuinely *reacts* to your choices.
 
 ---
 
-## ✨ Highlights
+## Features
 
-| | Feature | What it means for gameplay |
-|---|---|---|
-| 🎭 | **Three playable protagonists** | Play as **Raskolnikov**, **Sonya**, or **Porfiry** — each with unique objectives, inventories, skills, and psychological profiles |
-| 🧠 | **AI-driven NPCs** | Characters remember past conversations, pursue their own goals, and adjust tone based on relationship scores and psychology |
-| 🗺️ | **Living city** | NPCs follow daily schedules, move between locations, and interact with each other — even when you're not around |
-| 📖 | **Branching objectives** | Multi-stage quest lines that mirror the novel's arc: Raskolnikov's *Grapple with Crime*, Sonya's *Guide Raskolnikov*, Porfiry's pursuit of truth |
-| 🎲 | **Skill checks** | d6 + skill value vs. difficulty — persuasion, observation, and more determine outcomes of key interactions |
-| 📰 | **Dynamic events** | Marmeladov's tavern confession, Katerina's public lament, anonymous notes, street-life vignettes, NPC-to-NPC encounters |
-| 🌫️ | **Atmospheric generation** | AI-crafted descriptions that shift with time of day, location, and your character's mental state |
-| 💾 | **Named save slots** | Multiple named saves plus autosave keep your progress safe across sessions |
+- **Three Playable Protagonists** – Play as **Raskolnikov**, **Sonya**, or **Porfiry**. Each character has unique objectives, inventories, skills, and distinct psychological profiles.
+- **AI-Driven NPCs** – The inhabitants of St. Petersburg remember past interactions, hold grudges, pursue their own goals, and dynamically adjust their tone based on your relationship and psychological state.
+- **A Living City** – The world operates continuously. NPCs follow daily schedules, move between locations independently, and interact with each other in emergent ways.
+- **Branching Objectives** – Experience multi-stage quest lines mirroring the novel. Help Raskolnikov *Grapple with Crime*, guide him as Sonya, or pursue the truth as Porfiry.
+- **RPG Mechanics & Skill Checks** – Utilize a D6 + Modifier system. Skills like *Persuasion*, *Observation*, and others actively determine the outcomes of key interactions.
+- **Atmospheric Generation** – The game’s text adapts dynamically based on the time of day, your exact location, and your character’s current mental state, creating unparalleled ambiance.
+- **Robust Save System** – Multiple named save slots and autosave securely preserve your progress.
 
-## 🕹️ Quick Start
+---
 
-### Option A — Download a release (recommended)
+## Quick Start
+
+### Option A — Download a Release (Recommended)
 
 1. Go to the [**Releases**](https://github.com/AntoanBG3/crimeandpunishment/releases) page.
 2. Download the executable for your OS.
-3. Run it:
-   - **Windows:** double-click the `.exe`
+3. Run the application:
+   - **Windows:** Double-click the `.exe` file.
    - **Linux / macOS:** `chmod +x <file> && ./<file>`
 
-### Option B — Run from source
+### Option B — Run from Source
 
 ```bash
 # Clone the repository
@@ -51,8 +50,10 @@ cd crimeandpunishment
 
 # Create a virtual environment & install dependencies
 python -m venv .venv
-.venv\Scripts\activate      # Windows
-# source .venv/bin/activate  # Linux / macOS
+# On Windows
+.\venv\Scripts\activate      
+# On Linux / macOS
+# source .venv/bin/activate  
 
 pip install -r requirements.txt
 
@@ -60,71 +61,82 @@ pip install -r requirements.txt
 python main.py
 ```
 
-### 🔑 First-run API setup
+### First-Run API Setup
 
-On first launch the game will prompt you for a **Google Gemini API key**. You can also set the `GEMINI_API_KEY` environment variable or place a `gemini_config.json` file in the project root. Get your key here: [ai.google.dev](https://ai.google.dev/gemini-api/docs/api-key).
+On your first launch, the game will prompt you for a **Google Gemini API key**. You can confidently provide it in-game, set the `GEMINI_API_KEY` environment variable, or place a `gemini_config.json` file in the project's root directory. Get your key here: [ai.google.dev](https://ai.google.dev/gemini-api/docs/api-key).
 
-> **No key? No problem.** The game ships with static fallback text for every AI-generated element, so you can explore St. Petersburg in a reduced-AI mode if you prefer.
+> **No key? No problem.** The game seamlessly ships with a robust set of static fallback text for every AI-generated element. You can still fully explore St. Petersburg in a deterministic, reduced-AI mode.
 
-## 📜 Commands at a Glance
+---
 
-| Command | Alias | Description |
-|---|---|---|
-| `look [target]` | `l` | Observe your surroundings, an NPC, item, or scenery |
-| `talk to <name>` | `speak to`, `ask` | Start a conversation with a character |
-| `move to <place>` | `go to` | Travel to a connected location |
-| `take <item>` | `pick up`, `grab` | Pick up an item from the environment |
-| `drop <item>` | | Leave an item at the current location |
-| `use <item>` | | Use or read an item from your inventory |
-| `give <item> to <name>` | | Hand an item to an NPC |
-| `persuade <name>` | | Attempt a persuasion skill check on an NPC |
-| `inventory` | `i` | List carried items |
-| `status` | `stats` | Show character stats, psychology, and relationships |
-| `objectives` | `goals`, `quests` | Review your current objectives |
-| `think` | `reflect` | Trigger an AI-generated inner monologue |
-| `journal` | `diary` | Review your journal entries |
-| `wait` | | Pass time and let the world advance |
-| `save [slot]` / `load [slot]` | | Save or load your game |
-| `help [category]` | | Show commands — optionally filtered by `movement`, `social`, `items`, or `meta` |
-| `theme <name>` | | Switch color theme (`default`, `muted`, `none`) |
-| `verbosity <level>` | `density` | Adjust text density |
-| `quit` | `exit` | Exit the game |
+## Commands at a Glance
 
-Natural-language input is also supported — the NLP parser will try to interpret free-form sentences into game actions.
+The game features an intelligent **Natural Language Parser (NLP)** that translates your free-form sentences into game actions (e.g., *"Pick up the axe and go to the tavern"*).
 
-## 🏗️ Project Structure
+Below are the core, deterministic commands:
+
+| Action | Command | Alias / Variations | Description |
+|---|---|---|---|
+| **Observe** | `look [target]` | `l` | Examine your surroundings, a character, or an item. |
+| **Travel** | `move to <place>` | `go to` | Move to a connected, adjacent location. |
+| **Chat** | `talk to <name>` | `speak to`, `ask` | Initiate a conversation with an NPC. |
+| **Persuade** | `persuade <name>` | | Attempt a skill check to influence an NPC. |
+| **Take** | `take <item>` | `pick up`, `grab` | Add an ambient item to your inventory. |
+| **Drop** | `drop <item>` | | Leave a carried item at your current location. |
+| **Inventory** | `inventory` | `i` | View the items you are currently carrying. |
+| **Give** | `give <item> to <name>` | | Hand an item directly to an NPC. |
+| **Use** | `use <item>` | | Use or read an item from your inventory. |
+| **Status** | `status` | `stats` | Check psychological states, skills, and relationships. |
+| **Goals** | `objectives` | `quests` | Review your current missions and storyline progress. |
+| **Ponder** | `think` | `reflect` | Generate an internal monologue reflecting your mental state. |
+| **Diary** | `journal` | | Review your securely gathered personal journal entries. |
+| **Pass Time** | `wait` | | Allow time to pass and the world to organically advance. |
+| **Progress**| `save [slot]` / `load` | | Manually manage your specific game saves. |
+| **Style** | `theme <name>` | | Switch color themes between `default`, `muted`, or `none`. |
+| **Density** | `verbosity <level>`| `density` | Adjust the amount and detail of generated text. |
+| **Help** | `help [category]` | | Show commands. Filter by `movement`, `social`, `items`, or `meta`. |
+| **Exit** | `quit` | `exit` | Leave the game and return to your terminal. |
+
+---
+
+## Project Architecture
 
 ```
 CrimeAndPunishment/
-├── main.py                      # Entry point
+├── main.py                      # Application Entry Point
 ├── game_engine/
-│   ├── game_state.py            # Core game loop, commands, world state
-│   ├── character_module.py      # Character class — inventory, skills, objectives, memory
-│   ├── event_manager.py         # Scripted & emergent story events
-│   ├── gemini_interactions.py   # Gemini API wrapper & NLP intent parser
-│   ├── game_config.py           # Colors, constants, static fallbacks
-│   └── location_module.py       # Location data loader
+│   ├── game_state.py            # Core engine loop, command processing, temporal mechanics
+│   ├── character_module.py      # Entity mechanics (inventory, skills, objectives, AI memory)
+│   ├── event_manager.py         # Systems for scripted scenarios & emergent events
+│   ├── gemini_interactions.py   # Secure Google Gemini API wrapper & intent parsing
+│   ├── game_config.py           # Aesthetic configuration, constants, fallback systems
+│   └── location_module.py       # Spatial data loader and graph traversal
 ├── data/
-│   ├── characters.json          # NPC & protagonist definitions
-│   ├── items.json               # Item catalogue with properties & effects
-│   └── locations.json           # Map of St. Petersburg locations & exits
-├── tests/                       # Pytest test suite
-├── docs/                        # Design documents
-├── requirements.txt
-└── LICENSE                      # MIT
+│   ├── characters.json          # Protagonist specifications & NPC definitions
+│   ├── items.json               # Item catalogues outlining properties & mechanical effects
+│   └── locations.json           # Graphical map of St. Petersburg connections
+├── tests/                       # Automated Pytest suite for deterministic verification
+├── docs/                        # Foundational design documents & architecture schemas
+├── requirements.txt             # Virtual environment dependencies
+└── LICENSE                      # Open-source MIT License
 ```
 
-## 🧪 Running Tests
+---
+
+## Running Tests
+To ensure the engine logic and deterministic behaviors remain fully functional during development:
 
 ```bash
-pip install pytest
-pytest tests/
+pip install pytest coverage
+python -m unittest discover tests
 ```
 
-## 🤝 Contributing
+---
 
-Contributions, bug reports, and ideas are welcome! Feel free to open an issue or submit a pull request.
+## Contributing
+Contributions, bug reports, and features are welcome! Feel free to open an issue or proactively submit a pull request. Make sure tests continue to pass!
 
-## 📄 License
+---
 
-This project is licensed under the **MIT License** — see [LICENSE](LICENSE) for details.
+## License
+This project is open-sourced under the **MIT License**. See the [LICENSE](LICENSE) file for comprehensive details.
