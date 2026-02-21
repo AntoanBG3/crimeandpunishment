@@ -1,8 +1,7 @@
- Byte-compiled / optimized / C extensions
+# Byte-compiled / optimized / C extensions
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
 
 # Virtual Environments
 venv/
@@ -11,7 +10,7 @@ env/
 .env/
 ENV/
 
-# Distribution / packaging
+# Distribution / packaging / builds
 build/
 dist/
 *.egg-info/
@@ -19,23 +18,33 @@ dist/
 test_game_flow.sh
 .codex/
 
+# Testing & Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
 
 # User-generated configuration and save files
-# These should not be in version control.
-# gemini_config.json contains your secret API key.
 gemini_config.json
-# savegame.json is specific to a user's playthrough.
+gemini_config.json.*
 savegame.json
+savegame*.json
 
 # IDE / Editor specific files
 .vscode/
 .idea/
 *.sublime-project
 *.sublime-workspace
+*.swp
+*.swo
 
 # OS-specific files
 .DS_Store
 Thumbs.db
 
-# Log files
+# Log files and crash reports
 *.log
+crash_report.txt
+
+# Misc
+.codex/
