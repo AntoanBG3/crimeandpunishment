@@ -48,9 +48,7 @@ class TestCharacterModule(unittest.TestCase):
 
         char_dict = self.character.to_dict()
 
-        self.assertEqual(
-            char_dict["psychology"], {"suspicion": 35, "fear": 10, "respect": 65}
-        )
+        self.assertEqual(char_dict["psychology"], {"suspicion": 35, "fear": 10, "respect": 65})
 
     def test_from_dict(self):
         char_data = {

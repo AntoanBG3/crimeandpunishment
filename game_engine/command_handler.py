@@ -87,11 +87,7 @@ class CommandHandler:
             return None, ambiguous
         return (
             next(
-                (
-                    item_info
-                    for item_info in location_items
-                    if item_info["name"] == match
-                ),
+                (item_info for item_info in location_items if item_info["name"] == match),
                 None,
             ),
             False,
@@ -100,10 +96,7 @@ class CommandHandler:
     def _get_matching_inventory_item(self, target):
         if not self.game_state.player_character:
             return None, False
-        options = [
-            item_info["name"]
-            for item_info in self.game_state.player_character.inventory
-        ]
+        options = [item_info["name"] for item_info in self.game_state.player_character.inventory]
         match, ambiguous = self._resolve_prefix_match(
             target,
             options,
@@ -136,11 +129,7 @@ class CommandHandler:
             return None, ambiguous
         return (
             next(
-                (
-                    npc
-                    for npc in self.game_state.npcs_in_current_location
-                    if npc.name == match
-                ),
+                (npc for npc in self.game_state.npcs_in_current_location if npc.name == match),
                 None,
             ),
             False,
@@ -176,9 +165,7 @@ class CommandHandler:
         return command in known_commands
 
     def _build_intent_context(self):
-        current_location_data = LOCATIONS_DATA.get(
-            self.game_state.current_location_name, {}
-        )
+        current_location_data = LOCATIONS_DATA.get(self.game_state.current_location_name, {})
         exits = []
         for exit_target, exit_desc in current_location_data.get("exits", {}).items():
             exits.append({"name": exit_target, "description": exit_desc})
@@ -190,24 +177,17 @@ class CommandHandler:
         ]
         npcs = [npc.name for npc in self.game_state.npcs_in_current_location]
         inventory = (
-            [
-                item_info["name"]
-                for item_info in self.game_state.player_character.inventory
-            ]
+            [item_info["name"] for item_info in self.game_state.player_character.inventory]
             if self.game_state.player_character
             else []
         )
         return {"exits": exits, "items": items, "npcs": npcs, "inventory": inventory}
 
     def _handle_unknown_intent(self):
-        self.game_state._print_color(
-            "Your mind is too clouded to focus on that.", Colors.YELLOW
-        )
+        self.game_state._print_color("Your mind is too clouded to focus on that.", Colors.YELLOW)
         context_examples = self._get_contextual_command_examples()
         if context_examples:
-            self.game_state._print_color(
-                f"Try: {', '.join(context_examples)}", Colors.DIM
-            )
+            self.game_state._print_color(f"Try: {', '.join(context_examples)}", Colors.DIM)
 
     def _get_contextual_command_examples(self):
         context = self._build_intent_context()
@@ -234,13 +214,8 @@ class CommandHandler:
 
     def _interpret_with_nlp(self, raw_input):
         context = self._build_intent_context()
-        intent_payload = self.game_state.nl_parser.parse_player_intent(
-            raw_input, context
-        )
-        if (
-            intent_payload.get("intent") == "unknown"
-            or intent_payload.get("confidence", 0.0) < 0.7
-        ):
+        intent_payload = self.game_state.nl_parser.parse_player_intent(raw_input, context)
+        if intent_payload.get("intent") == "unknown" or intent_payload.get("confidence", 0.0) < 0.7:
             self._handle_unknown_intent()
             return None, None
         intent = intent_payload.get("intent")
@@ -485,9 +460,7 @@ class CommandHandler:
                             )
                             hint_types_added.add("move")
                             break
-        active_hint_display_strings = [
-            h["display_string"] for h in prompt_hint_objects[:2]
-        ]
+        active_hint_display_strings = [h["display_string"] for h in prompt_hint_objects[:2]]
         hint_string = (
             f" (Hint: {Colors.DIM}{' | '.join(active_hint_display_strings)}{Colors.RESET})"
             if active_hint_display_strings
@@ -511,9 +484,7 @@ class CommandHandler:
         fast_input = raw_action_input.strip().lower()
         if fast_input == "!!":
             if not self.game_state.command_history:
-                self.game_state._print_color(
-                    "No previous command to repeat yet.", Colors.YELLOW
-                )
+                self.game_state._print_color("No previous command to repeat yet.", Colors.YELLOW)
                 return None, None
             repeated_command = self.game_state.command_history[-1]
             self.game_state._print_color(f"Repeating: {repeated_command}", Colors.DIM)
@@ -534,22 +505,20 @@ class CommandHandler:
         try:
             action_number = int(raw_action_input)
             if 1 <= action_number <= len(self.game_state.numbered_actions_context):
-                action_info = self.game_state.numbered_actions_context[
-                    action_number - 1
-                ]
+                action_info = self.game_state.numbered_actions_context[action_number - 1]
                 action_type = action_info["type"]
                 target = action_info["target"]
                 if action_type == "move":
                     return "move to", target
-                elif action_type == "talk":
+                if action_type == "talk":
                     return "talk to", target
-                elif action_type == "take":
+                if action_type == "take":
                     return "take", target
-                elif action_type == "look_at_item":
+                if action_type == "look_at_item":
                     return "look", target
-                elif action_type == "look_at_npc":
+                if action_type == "look_at_npc":
                     return "look", target
-                elif action_info["type"] == "select_item":
+                if action_info["type"] == "select_item":
                     return ("select_item", action_info["target"])
             else:
                 parsed_command, parsed_argument = self.parse_action(raw_action_input)
@@ -586,9 +555,7 @@ class CommandHandler:
             )
             return
         self.game_state.color_theme = applied_theme
-        self.game_state._print_color(
-            f"Theme set to {self.game_state.color_theme}.", Colors.GREEN
-        )
+        self.game_state._print_color(f"Theme set to {self.game_state.color_theme}.", Colors.GREEN)
 
     def _handle_verbosity_command(self, argument):
         if not argument:
@@ -637,9 +604,7 @@ class CommandHandler:
             )
             return False
         if not self.game_state.gemini_api.model or self.game_state.low_ai_data_mode:
-            self.game_state._print_color(
-                "Retry/rephrase requires active AI mode.", Colors.YELLOW
-            )
+            self.game_state._print_color("Retry/rephrase requires active AI mode.", Colors.YELLOW)
             return False
 
         if mode == "retry":
@@ -679,7 +644,7 @@ class CommandHandler:
         if command == "quit":
             self.game_state._print_color("Exiting game. Goodbye.", Colors.MAGENTA)
             return False, False, 0, True
-        elif command == "select_item":
+        if command == "select_item":
             item_name_selected = argument
             secondary_action_input = (
                 self.game_state._input_color(
@@ -695,55 +660,48 @@ class CommandHandler:
                     item_name_selected, show_full_look_details
                 )  # _handle_look_command doesn't return action_taken flags
                 return True, True, TIME_UNITS_PER_PLAYER_ACTION, False
-            elif secondary_action_input == "take":
+            if secondary_action_input == "take":
                 action_taken, show_atmospherics = self.game_state._handle_take_command(
                     item_name_selected
                 )
                 time_units = TIME_UNITS_PER_PLAYER_ACTION if action_taken else 0
                 return action_taken, show_atmospherics, time_units, False
-            elif secondary_action_input == "read":
-                action_taken = self.game_state.handle_use_item(
-                    item_name_selected, None, "read"
-                )
+            if secondary_action_input == "read":
+                action_taken = self.game_state.handle_use_item(item_name_selected, None, "read")
                 time_units = TIME_UNITS_PER_PLAYER_ACTION if action_taken else 0
                 return action_taken, False, time_units, False
-            elif secondary_action_input == "use":
+            if secondary_action_input == "use":
                 action_taken = self.game_state.handle_use_item(
                     item_name_selected, None, "use_self_implicit"
                 )
                 time_units = TIME_UNITS_PER_PLAYER_ACTION if action_taken else 0
                 return action_taken, False, time_units, False
-            elif secondary_action_input.startswith("give to "):
+            if secondary_action_input.startswith("give to "):
                 target_npc_name = secondary_action_input.replace("give to ", "").strip()
                 if not target_npc_name:
-                    self.game_state._print_color(
-                        "Who do you want to give it to?", Colors.RED
-                    )
+                    self.game_state._print_color("Who do you want to give it to?", Colors.RED)
                     return False, False, 0, False
                 action_taken = self.game_state.handle_use_item(
                     item_name_selected, target_npc_name, "give"
                 )
                 time_units = TIME_UNITS_PER_PLAYER_ACTION if action_taken else 0
                 return action_taken, False, time_units, False
-            elif secondary_action_input.startswith("use on "):
+            if secondary_action_input.startswith("use on "):
                 target_for_use = secondary_action_input.replace("use on ", "").strip()
                 if not target_for_use:
-                    self.game_state._print_color(
-                        "What do you want to use it on?", Colors.RED
-                    )
+                    self.game_state._print_color("What do you want to use it on?", Colors.RED)
                     return False, False, 0, False
                 action_taken = self.game_state.handle_use_item(
                     item_name_selected, target_for_use, "use_on"
                 )
                 time_units = TIME_UNITS_PER_PLAYER_ACTION if action_taken else 0
                 return action_taken, False, time_units, False
-            else:
-                self.game_state._print_color(
-                    f"Invalid action '{secondary_action_input}' for {item_name_selected}.",
-                    Colors.RED,
-                )
-                return False, False, 0, False
-        elif command == "save":
+            self.game_state._print_color(
+                f"Invalid action '{secondary_action_input}' for {item_name_selected}.",
+                Colors.RED,
+            )
+            return False, False, 0, False
+        if command == "save":
             self.game_state.save_game(argument)
             action_taken_this_turn = False
             show_atmospherics_this_turn = False
@@ -846,9 +804,7 @@ class CommandHandler:
             show_atmospherics_this_turn = False
         else:
             suggestions = self._get_command_suggestions(command)
-            suggestion_text = (
-                f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
-            )
+            suggestion_text = f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
             self.game_state._print_color(
                 f"Unknown command: '{command}'. Type 'help' for a list of actions.{suggestion_text}",
                 Colors.RED,

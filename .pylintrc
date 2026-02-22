@@ -11,7 +11,10 @@ disable=
     R0913,
     R0914,
     R0915,
-    W0212
+    R0917,
+    W0212,
+    W0718,
+    W1203
 
 [FORMAT]
 max-line-length=100

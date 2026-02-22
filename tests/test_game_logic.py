@@ -120,44 +120,26 @@ class TestInventoryDescription(unittest.TestCase):
         )
         self.char.inventory = []
 
-    @patch.dict(
-        "game_engine.game_config.DEFAULT_ITEMS", DEFAULT_ITEMS_TEST_DATA, clear=True
-    )
+    @patch.dict("game_engine.game_config.DEFAULT_ITEMS", DEFAULT_ITEMS_TEST_DATA, clear=True)
     def test_empty_inventory(self):
-        self.assertEqual(
-            self.char.get_inventory_description(), "You are carrying nothing."
-        )
+        self.assertEqual(self.char.get_inventory_description(), "You are carrying nothing.")
 
-    @patch.dict(
-        "game_engine.game_config.DEFAULT_ITEMS", DEFAULT_ITEMS_TEST_DATA, clear=True
-    )
+    @patch.dict("game_engine.game_config.DEFAULT_ITEMS", DEFAULT_ITEMS_TEST_DATA, clear=True)
     def test_single_non_stackable_item(self):
         self.char.inventory = [{"name": "sword"}]
-        self.assertEqual(
-            self.char.get_inventory_description(), "You are carrying: sword."
-        )
+        self.assertEqual(self.char.get_inventory_description(), "You are carrying: sword.")
 
-    @patch.dict(
-        "game_engine.game_config.DEFAULT_ITEMS", DEFAULT_ITEMS_TEST_DATA, clear=True
-    )
+    @patch.dict("game_engine.game_config.DEFAULT_ITEMS", DEFAULT_ITEMS_TEST_DATA, clear=True)
     def test_single_stackable_item_quantity_one(self):
         self.char.inventory = [{"name": "apple", "quantity": 1}]
-        self.assertEqual(
-            self.char.get_inventory_description(), "You are carrying: apple."
-        )
+        self.assertEqual(self.char.get_inventory_description(), "You are carrying: apple.")
 
-    @patch.dict(
-        "game_engine.game_config.DEFAULT_ITEMS", DEFAULT_ITEMS_TEST_DATA, clear=True
-    )
+    @patch.dict("game_engine.game_config.DEFAULT_ITEMS", DEFAULT_ITEMS_TEST_DATA, clear=True)
     def test_single_stackable_item_quantity_many(self):
         self.char.inventory = [{"name": "apple", "quantity": 3}]
-        self.assertEqual(
-            self.char.get_inventory_description(), "You are carrying: apple (x3)."
-        )
+        self.assertEqual(self.char.get_inventory_description(), "You are carrying: apple (x3).")
 
-    @patch.dict(
-        "game_engine.game_config.DEFAULT_ITEMS", DEFAULT_ITEMS_TEST_DATA, clear=True
-    )
+    @patch.dict("game_engine.game_config.DEFAULT_ITEMS", DEFAULT_ITEMS_TEST_DATA, clear=True)
     def test_multiple_items(self):
         self.char.inventory = [
             {"name": "sword"},
@@ -174,32 +156,22 @@ class TestInventoryDescription(unittest.TestCase):
     @patch("game_engine.game_config.DEFAULT_ITEMS", DEFAULT_ITEMS_TEST_DATA)
     def test_item_with_command_suffix_displayed_cleanly(self):
         self.char.inventory = [{"name": "potion use_effect_player:drink"}]
-        self.assertEqual(
-            self.char.get_inventory_description(), "You are carrying: potion."
-        )
+        self.assertEqual(self.char.get_inventory_description(), "You are carrying: potion.")
 
     @patch("game_engine.game_config.DEFAULT_ITEMS", DEFAULT_ITEMS_TEST_DATA)
     def test_item_with_command_suffix_stackable(self):
-        self.char.inventory = [
-            {"name": "potion use_effect_player:drink", "quantity": 3}
-        ]
-        self.assertEqual(
-            self.char.get_inventory_description(), "You are carrying: potion (x3)."
-        )
+        self.char.inventory = [{"name": "potion use_effect_player:drink", "quantity": 3}]
+        self.assertEqual(self.char.get_inventory_description(), "You are carrying: potion (x3).")
 
     @patch("game_engine.game_config.DEFAULT_ITEMS", DEFAULT_ITEMS_TEST_DATA)
     def test_item_with_value_and_suffix_stackable(self):
         self.char.inventory = [{"name": "coin use_effect_player:spend", "quantity": 5}]
-        self.assertEqual(
-            self.char.get_inventory_description(), "You are carrying: coin (x5)."
-        )
+        self.assertEqual(self.char.get_inventory_description(), "You are carrying: coin (x5).")
 
     @patch("game_engine.game_config.DEFAULT_ITEMS", DEFAULT_ITEMS_TEST_DATA)
     def test_mangled_name_not_in_default_items_but_base_is(self):
         self.char.inventory = [{"name": "scroll use_effect_player:read", "quantity": 1}]
-        self.assertEqual(
-            self.char.get_inventory_description(), "You are carrying: scroll."
-        )
+        self.assertEqual(self.char.get_inventory_description(), "You are carrying: scroll.")
 
     @patch("game_engine.game_config.DEFAULT_ITEMS", DEFAULT_ITEMS_TEST_DATA)
     def test_mangled_name_where_base_not_in_default_items(self):
@@ -280,9 +252,7 @@ class TestGeminiDialogueQuotes(unittest.TestCase):
         self.assertEqual(response, "This is the actual response.")
 
     @patch.object(GeminiAPI, "_generate_content_with_fallback")
-    def test_ai_response_with_both_escaped_and_surrounding_quotes(
-        self, mock_generate_content
-    ):
+    def test_ai_response_with_both_escaped_and_surrounding_quotes(self, mock_generate_content):
         mock_generate_content.return_value = '"NPC says: \\"Okay!\\""'
         response = self.api.get_npc_dialogue(
             self.npc,
@@ -396,12 +366,8 @@ class TestGameStateCommands(unittest.TestCase):
             ]
         )
 
-        self.assertIn(
-            "test_apple (x3) - A juicy red apple, looking crisp.", printed_content
-        )
-        self.assertIn(
-            "test_sword - A long, sharp sword, gleaming slightly.", printed_content
-        )
+        self.assertIn("test_apple (x3) - A juicy red apple, looking crisp.", printed_content)
+        self.assertIn("test_sword - A long, sharp sword, gleaming slightly.", printed_content)
         self.assertIn("test_coin - A single gold coin.", printed_content)
 
         expected_context_actions = [
@@ -425,8 +391,8 @@ class TestGameStateCommands(unittest.TestCase):
         item_name = "test_apple"
         self.mock_input_color.return_value = "look at"
         # When _process_command handles 'select_item', show_full_look_details is False
-        action_taken, show_atmospherics, time_units, _ = (
-            self.game.command_handler._process_command("select_item", item_name)
+        action_taken, show_atmospherics, time_units, _ = self.game.command_handler._process_command(
+            "select_item", item_name
         )
         # So, _handle_look_command (mocked as mock_specific_look here) should be called with False
         mock_specific_look.assert_called_once_with(item_name, False)
@@ -439,8 +405,8 @@ class TestGameStateCommands(unittest.TestCase):
         item_name = "test_apple"
         mock_handle_take.return_value = (True, True)
         self.mock_input_color.return_value = "take"
-        action_taken, show_atmospherics, time_units, _ = (
-            self.game.command_handler._process_command("select_item", item_name)
+        action_taken, show_atmospherics, time_units, _ = self.game.command_handler._process_command(
+            "select_item", item_name
         )
         mock_handle_take.assert_called_once_with(item_name)
         self.assertTrue(action_taken)
@@ -453,8 +419,8 @@ class TestGameStateCommands(unittest.TestCase):
         item_name = "test_scroll"
         mock_handle_use_item.return_value = True
         self.mock_input_color.return_value = "read"
-        action_taken, show_atmospherics, time_units, _ = (
-            self.game.command_handler._process_command("select_item", item_name)
+        action_taken, show_atmospherics, time_units, _ = self.game.command_handler._process_command(
+            "select_item", item_name
         )
         mock_handle_use_item.assert_called_once_with(item_name, None, "read")
         self.assertTrue(action_taken)
@@ -467,12 +433,10 @@ class TestGameStateCommands(unittest.TestCase):
         item_name = "test_potion"
         mock_handle_use_item.return_value = True
         self.mock_input_color.return_value = "use"
-        action_taken, show_atmospherics, time_units, _ = (
-            self.game.command_handler._process_command("select_item", item_name)
+        action_taken, show_atmospherics, time_units, _ = self.game.command_handler._process_command(
+            "select_item", item_name
         )
-        mock_handle_use_item.assert_called_once_with(
-            item_name, None, "use_self_implicit"
-        )
+        mock_handle_use_item.assert_called_once_with(item_name, None, "use_self_implicit")
         self.assertTrue(action_taken)
         self.assertFalse(show_atmospherics)
         self.assertEqual(time_units, self.game.TIME_UNITS_PER_PLAYER_ACTION)
@@ -486,8 +450,8 @@ class TestGameStateCommands(unittest.TestCase):
         self.game.npcs_in_current_location = [mock_npc]
         mock_handle_use_item.return_value = True
         self.mock_input_color.return_value = "give to TestNPC"
-        action_taken, show_atmospherics, time_units, _ = (
-            self.game.command_handler._process_command("select_item", item_name)
+        action_taken, show_atmospherics, time_units, _ = self.game.command_handler._process_command(
+            "select_item", item_name
         )
         mock_handle_use_item.assert_called_once_with(item_name, "testnpc", "give")
         self.assertTrue(action_taken)
@@ -497,12 +461,10 @@ class TestGameStateCommands(unittest.TestCase):
     def test_process_command_select_item_invalid_secondary_action(self):
         item_name = "test_apple"
         self.mock_input_color.return_value = "fly"
-        action_taken, show_atmospherics, time_units, _ = (
-            self.game.command_handler._process_command("select_item", item_name)
+        action_taken, show_atmospherics, time_units, _ = self.game.command_handler._process_command(
+            "select_item", item_name
         )
-        self.mock_print_color.assert_any_call(
-            f"Invalid action 'fly' for {item_name}.", Colors.RED
-        )
+        self.mock_print_color.assert_any_call(f"Invalid action 'fly' for {item_name}.", Colors.RED)
         self.assertFalse(action_taken)
         self.assertFalse(show_atmospherics)
         self.assertEqual(time_units, 0)
@@ -533,9 +495,7 @@ class TestGameStateCommands(unittest.TestCase):
             {"name": "unique_sword"}
         ]
         self.game.player_character.add_to_inventory = MagicMock(return_value=False)
-        self.game.player_character.has_item = MagicMock(
-            return_value=True
-        )  # Player already has it
+        self.game.player_character.has_item = MagicMock(return_value=True)  # Player already has it
 
         action_taken, show_atmospherics = self.game._handle_take_command("unique_sword")
 
@@ -544,9 +504,7 @@ class TestGameStateCommands(unittest.TestCase):
         self.mock_print_color.assert_any_call(
             "You cannot carry another 'unique_sword'.", Colors.YELLOW
         )
-        self.game.player_character.add_to_inventory.assert_called_once_with(
-            "unique_sword", 1
-        )
+        self.game.player_character.add_to_inventory.assert_called_once_with("unique_sword", 1)
 
     @patch.dict(
         "game_engine.item_interaction_handler.DEFAULT_ITEMS",
@@ -567,17 +525,11 @@ class TestGameStateCommands(unittest.TestCase):
 
         self.assertTrue(action_taken)
         self.assertFalse(show_atmospherics)
-        self.mock_print_color.assert_any_call(
-            "You take the unique_sword.", Colors.GREEN
-        )
+        self.mock_print_color.assert_any_call("You take the unique_sword.", Colors.GREEN)
         # Ensure the specific "cannot carry" message was NOT printed
         for call_args in self.mock_print_color.call_args_list:
-            self.assertNotEqual(
-                call_args[0][0], "You cannot carry another 'unique_sword'."
-            )
-        self.game.player_character.add_to_inventory.assert_called_once_with(
-            "unique_sword", 1
-        )
+            self.assertNotEqual(call_args[0][0], "You cannot carry another 'unique_sword'.")
+        self.game.player_character.add_to_inventory.assert_called_once_with("unique_sword", 1)
 
     @patch.dict(
         "game_engine.item_interaction_handler.DEFAULT_ITEMS",
@@ -590,9 +542,7 @@ class TestGameStateCommands(unittest.TestCase):
             {"name": "apple", "quantity": 1}
         ]
         self.game.player_character.add_to_inventory = MagicMock(return_value=True)
-        self.game.player_character.has_item = MagicMock(
-            return_value=True
-        )  # Player has some apples
+        self.game.player_character.has_item = MagicMock(return_value=True)  # Player has some apples
 
         action_taken, show_atmospherics = self.game._handle_take_command("apple")
 
@@ -646,9 +596,7 @@ class TestGameStateCommands(unittest.TestCase):
 
         self.assertFalse(action_taken)
         self.assertFalse(show_atmospherics)
-        self.mock_print_color.assert_any_call(
-            "Failed to add apple to inventory.", Colors.RED
-        )
+        self.mock_print_color.assert_any_call("Failed to add apple to inventory.", Colors.RED)
         for call_args in self.mock_print_color.call_args_list:
             self.assertNotEqual(call_args[0][0], "You cannot carry another 'apple'.")
         self.game.player_character.add_to_inventory.assert_called_once_with("apple", 1)
@@ -674,9 +622,7 @@ class TestGameStateCommands(unittest.TestCase):
         mock_razumikhin.conversation_histories = {}  # Initialize conversation histories
         mock_razumikhin.update_relationship = MagicMock()
         mock_razumikhin.add_player_memory = MagicMock()
-        mock_razumikhin.get_player_memory_summary = MagicMock(
-            return_value="Fond memories."
-        )
+        mock_razumikhin.get_player_memory_summary = MagicMock(return_value="Fond memories.")
         mock_razumikhin.get_objective_by_id = MagicMock(return_value=None)
         # Mock methods needed for get_npc_dialogue context for NPC
         mock_razumikhin.get_objectives_summary = MagicMock(
@@ -687,9 +633,7 @@ class TestGameStateCommands(unittest.TestCase):
         self.game.all_character_objects["Dmitri Razumikhin"] = mock_razumikhin
 
         # Mock Gemini API for subsequent dialogue
-        self.game.gemini_api.model = (
-            MagicMock()
-        )  # Ensure API model is considered available
+        self.game.gemini_api.model = MagicMock()  # Ensure API model is considered available
         self.game.gemini_api.get_npc_dialogue = MagicMock(
             return_value="Just thinking, Razumikhin. Just thinking."
         )
@@ -698,9 +642,7 @@ class TestGameStateCommands(unittest.TestCase):
         self.game._get_recent_events_summary = MagicMock(
             return_value="The usual St. Petersburg gloom."
         )
-        self.game._get_objectives_summary = MagicMock(
-            return_value="Survive."
-        )  # For player
+        self.game._get_objectives_summary = MagicMock(return_value="Survive.")  # For player
         self.game.get_current_time_period = MagicMock(return_value="Evening")
         self.game.player_character.current_location = (
             self.game.current_location_name
@@ -717,9 +659,7 @@ class TestGameStateCommands(unittest.TestCase):
 
         # Assertions
         # Check that the NPC's name was printed with _print_color(..., end="")
-        self.mock_print_color.assert_any_call(
-            f"{mock_razumikhin.name}: ", Colors.YELLOW, end=""
-        )
+        self.mock_print_color.assert_any_call(f"{mock_razumikhin.name}: ", Colors.YELLOW, end="")
         # Check that the NPC's greeting was printed with print()
         self.mock_print.assert_any_call(f'"{mock_razumikhin.greeting}"')
 
@@ -733,9 +673,7 @@ class TestGameStateCommands(unittest.TestCase):
         self.assertEqual(
             dialogue_args[1], self.game.player_character
         )  # player_character is the second
-        self.assertEqual(
-            dialogue_args[2], "Hello there!"
-        )  # player_dialogue_input is the third
+        self.assertEqual(dialogue_args[2], "Hello there!")  # player_dialogue_input is the third
 
     # --- Tests for _handle_give_item ---
     @patch.dict(
@@ -758,13 +696,9 @@ class TestGameStateCommands(unittest.TestCase):
         self.game.player_character.inventory = [{"name": "test_apple", "quantity": 1}]
         # Mock remove_from_inventory to check it's called and simulate success
         self.game.player_character.remove_from_inventory = MagicMock(return_value=True)
-        self.game.player_character.has_item = MagicMock(
-            return_value=True
-        )  # Player has the item
+        self.game.player_character.has_item = MagicMock(return_value=True)  # Player has the item
         # Ensure player_character has attributes needed for dialogue context
-        self.game.player_character.name = (
-            "TestPlayerGive"  # Specific name for clarity if needed
-        )
+        self.game.player_character.name = "TestPlayerGive"  # Specific name for clarity if needed
         self.game.player_character.apparent_state = "generous"
         self.game.player_character.get_notable_carried_items_summary = MagicMock(
             return_value="an apple"
@@ -809,9 +743,7 @@ class TestGameStateCommands(unittest.TestCase):
 
         # Assertions
         self.assertTrue(success)
-        self.game.player_character.remove_from_inventory.assert_called_once_with(
-            "test_apple", 1
-        )
+        self.game.player_character.remove_from_inventory.assert_called_once_with("test_apple", 1)
         mock_npc.add_to_inventory.assert_called_once_with("test_apple", 1)
         self.game.gemini_api.get_npc_dialogue.assert_called_once()
         dialogue_args, dialogue_kwargs = self.game.gemini_api.get_npc_dialogue.call_args
@@ -860,9 +792,7 @@ class TestGameStateCommands(unittest.TestCase):
         success = self.game.handle_use_item("test_banana", "TestNPC", "give")
 
         self.assertFalse(success)
-        self.mock_print_color.assert_any_call(
-            "You don't have 'test_banana' to give.", Colors.RED
-        )
+        self.mock_print_color.assert_any_call("You don't have 'test_banana' to give.", Colors.RED)
         self.assertEqual(len(mock_npc.inventory), 0)  # NPC inventory unchanged
         self.game.gemini_api.get_npc_dialogue.assert_not_called()
         mock_npc.add_player_memory.assert_not_called()
@@ -885,9 +815,7 @@ class TestGameStateCommands(unittest.TestCase):
         self.mock_print_color.assert_any_call(
             "You don't see 'MissingNPC' here to give anything to.", Colors.RED
         )
-        self.assertEqual(
-            len(self.game.player_character.inventory), 1
-        )  # Player inventory unchanged
+        self.assertEqual(len(self.game.player_character.inventory), 1)  # Player inventory unchanged
         self.game.gemini_api.get_npc_dialogue.assert_not_called()
 
     @patch.dict(
@@ -926,9 +854,7 @@ class TestGameStateCommands(unittest.TestCase):
         success = self.game.handle_use_item("test_pear", "TestNPC", "give")
 
         self.assertTrue(success)
-        self.game.player_character.remove_from_inventory.assert_called_once_with(
-            "test_pear", 1
-        )
+        self.game.player_character.remove_from_inventory.assert_called_once_with("test_pear", 1)
         mock_npc.add_to_inventory.assert_called_once_with("test_pear", 1)
         self.game.gemini_api.get_npc_dialogue.assert_not_called()  # Gemini API should not be called in low AI mode
         self.mock_print_color.assert_any_call(
@@ -944,25 +870,19 @@ class TestEventManager(unittest.TestCase):
         self.mock_game = MagicMock(spec=Game)
         self.mock_game.gemini_api = MagicMock(spec=GeminiAPI)
         self.mock_game.gemini_api.model = MagicMock()  # Add model attribute here
-        self.mock_game.gemini_api.get_player_reflection = MagicMock(
-            return_value="A deep thought."
-        )
+        self.mock_game.gemini_api.get_player_reflection = MagicMock(return_value="A deep thought.")
         self.mock_game.player_character = MagicMock(spec=Character)
         self.mock_game.player_character.name = "Rodion Raskolnikov"
         self.mock_game.player_character.apparent_state = "thoughtful"
         self.mock_game.player_character.add_player_memory = MagicMock()
-        self.mock_game.player_character.get_objective_by_id = MagicMock(
-            return_value=None
-        )
+        self.mock_game.player_character.get_objective_by_id = MagicMock(return_value=None)
         self.mock_game.player_character.activate_objective = MagicMock()
         self.mock_game.player_character.has_item = MagicMock(return_value=False)
         self.mock_game.player_character.add_to_inventory = MagicMock()
         self.mock_game.low_ai_data_mode = False  # Add the attribute
         self.mock_game.current_location_name = "Raskolnikov's Garret"
         self.mock_game.get_current_time_period = MagicMock(return_value="Morning")
-        self.mock_game._get_objectives_summary = MagicMock(
-            return_value="Some objectives."
-        )
+        self.mock_game._get_objectives_summary = MagicMock(return_value="Some objectives.")
         self.mock_game._print_color = MagicMock()
         self.mock_game.last_significant_event_summary = ""
         self.mock_game.key_events_occurred = []
@@ -973,12 +893,8 @@ class TestEventManager(unittest.TestCase):
         self.event_manager.action_letter_from_mother()
         self.mock_game.gemini_api.get_player_reflection.assert_called_once()
         args, kwargs = self.mock_game.gemini_api.get_player_reflection.call_args
-        self.assertEqual(
-            kwargs.get("player_character"), self.mock_game.player_character
-        )
-        self.assertEqual(
-            kwargs.get("current_location_name"), self.mock_game.current_location_name
-        )
+        self.assertEqual(kwargs.get("player_character"), self.mock_game.player_character)
+        self.assertEqual(kwargs.get("current_location_name"), self.mock_game.current_location_name)
         self.assertEqual(
             kwargs.get("current_time_period"),
             self.mock_game.get_current_time_period.return_value,
@@ -1016,9 +932,7 @@ class TestItemEffects(unittest.TestCase):
         self.game.game_time = 100
         self.game.current_location_name = "TestLocation"
         self.game._print_color = MagicMock()
-        self.game._get_current_game_time_period_str = MagicMock(
-            return_value="Day 1, Morning"
-        )
+        self.game._get_current_game_time_period_str = MagicMock(return_value="Day 1, Morning")
 
     def tearDown(self):
         patch.stopall()
@@ -1027,9 +941,7 @@ class TestItemEffects(unittest.TestCase):
         self.player.apparent_state = "feverish"
         self.player.inventory.append({"name": "tattered handkerchief", "quantity": 1})
         with patch("random.random", return_value=0.1):
-            self.game.handle_use_item(
-                "tattered handkerchief", None, "use_self_implicit"
-            )
+            self.game.handle_use_item("tattered handkerchief", None, "use_self_implicit")
         self.assertIn(self.player.apparent_state, ["less feverish", "feverish"])
         if self.player.apparent_state == "less feverish":
             self.game._print_color.assert_any_call(
@@ -1205,18 +1117,14 @@ class TestCharacterObjectives(unittest.TestCase):
         self.assertTrue(obj["active"])
         self.assertFalse(obj["completed"])
 
-        self.assertFalse(
-            self.char.advance_objective_stage("quest1", "non_existent_stage")
-        )
+        self.assertFalse(self.char.advance_objective_stage("quest1", "non_existent_stage"))
 
     def test_advance_to_ending_stage_completes_objective(self):
         obj1_copy = copy.deepcopy(self.obj_template_1)
         self.char.objectives.append(obj1_copy)
         self.char.activate_objective("quest1")
 
-        self.assertTrue(
-            self.char.advance_objective_stage("quest1", "s3")
-        )  # s3 is an ending stage
+        self.assertTrue(self.char.advance_objective_stage("quest1", "s3"))  # s3 is an ending stage
         obj = self.char.get_objective_by_id("quest1")
         self.assertEqual(obj["current_stage_id"], "s3")
         self.assertTrue(obj["completed"])
@@ -1243,16 +1151,12 @@ class TestCharacterObjectives(unittest.TestCase):
         self.char.activate_objective("quest1")
 
         # Advance to the linking/ending stage of quest1
-        self.char.advance_objective_stage(
-            "quest1", obj1_linked["stages"][-1]["stage_id"]
-        )
+        self.char.advance_objective_stage("quest1", obj1_linked["stages"][-1]["stage_id"])
 
         linked_obj = self.char.get_objective_by_id("quest2")
         self.assertIsNotNone(linked_obj)
         self.assertTrue(linked_obj["active"])
-        self.assertEqual(
-            linked_obj["current_stage_id"], linked_obj["stages"][0]["stage_id"]
-        )
+        self.assertEqual(linked_obj["current_stage_id"], linked_obj["stages"][0]["stage_id"])
 
     def test_objective_linking_on_completion_advances_active_linked_objective_to_specific_stage(
         self,
@@ -1274,13 +1178,9 @@ class TestCharacterObjectives(unittest.TestCase):
 
         self.char.objectives = [obj1_linked, obj2_for_linking]
         self.char.activate_objective("quest1")
-        self.char.activate_objective(
-            "quest2"
-        )  # Quest2 is already active, at "start_q2"
+        self.char.activate_objective("quest2")  # Quest2 is already active, at "start_q2"
 
-        self.char.advance_objective_stage(
-            "quest1", obj1_linked["stages"][-1]["stage_id"]
-        )
+        self.char.advance_objective_stage("quest1", obj1_linked["stages"][-1]["stage_id"])
 
         linked_obj = self.char.get_objective_by_id("quest2")
         self.assertIsNotNone(linked_obj)
@@ -1346,20 +1246,14 @@ TEST_DEFAULT_ITEMS_LOW_AI = {
     TEST_CHAR_DATA_FOR_LOW_AI,
     clear=True,
 )
-@patch.dict(
-    "game_engine.location_module.LOCATIONS_DATA", TEST_LOC_DATA_FOR_LOW_AI, clear=True
-)
-@patch.dict(
-    "game_engine.game_config.DEFAULT_ITEMS", TEST_DEFAULT_ITEMS_LOW_AI, clear=True
-)
+@patch.dict("game_engine.location_module.LOCATIONS_DATA", TEST_LOC_DATA_FOR_LOW_AI, clear=True)
+@patch.dict("game_engine.game_config.DEFAULT_ITEMS", TEST_DEFAULT_ITEMS_LOW_AI, clear=True)
 class TestLowAIMode(unittest.TestCase):
     def setUp(self):
         self.game = Game()
         # Simplified setup: directly initialize player without selection process
         self.game.all_character_objects = {
-            name: Character.from_dict(
-                {"name": name, "is_player": (name == "TestPlayer")}, data
-            )
+            name: Character.from_dict({"name": name, "is_player": (name == "TestPlayer")}, data)
             for name, data in TEST_CHAR_DATA_FOR_LOW_AI.items()
         }
         self.game.player_character = self.game.all_character_objects["TestPlayer"]
@@ -1369,42 +1263,30 @@ class TestLowAIMode(unittest.TestCase):
         self.game.world_manager.update_npcs_in_current_location()
 
         self.game.gemini_api = MagicMock(spec=GeminiAPI)
-        self.game.gemini_api.model = (
-            MagicMock()
-        )  # Simulate that a model is available by default
-        self.game.gemini_api.chosen_model_name = (
-            "test_low_ai_model"  # Add for save/load
-        )
+        self.game.gemini_api.model = MagicMock()  # Simulate that a model is available by default
+        self.game.gemini_api.chosen_model_name = "test_low_ai_model"  # Add for save/load
         self.game.event_manager = EventManager(self.game)  # Re-init with mocked game
 
         # Common mocks
         self.mock_print_color = patch.object(self.game, "_print_color").start()
-        self.mock_input_color = patch.object(
-            self.game, "_input_color"
-        ).start()  # Added this
+        self.mock_input_color = patch.object(self.game, "_input_color").start()  # Added this
         self.mock_random_choice = patch("random.choice").start()
 
     def tearDown(self):
         patch.stopall()
 
     def test_toggle_low_ai_data_mode(self):
-        self.assertFalse(
-            self.game.low_ai_data_mode, "Low AI mode should be False initially."
-        )
+        self.assertFalse(self.game.low_ai_data_mode, "Low AI mode should be False initially.")
 
         # First toggle: ON
         self.game.command_handler._process_command("toggle_lowai", None)
         self.assertTrue(self.game.low_ai_data_mode)
-        self.mock_print_color.assert_called_with(
-            "Low AI Data Mode is now ON.", Colors.MAGENTA
-        )
+        self.mock_print_color.assert_called_with("Low AI Data Mode is now ON.", Colors.MAGENTA)
 
         # Second toggle: OFF
         self.game.command_handler._process_command("toggle_lowai", None)
         self.assertFalse(self.game.low_ai_data_mode)
-        self.mock_print_color.assert_called_with(
-            "Low AI Data Mode is now OFF.", Colors.MAGENTA
-        )
+        self.mock_print_color.assert_called_with("Low AI Data Mode is now OFF.", Colors.MAGENTA)
 
     @patch("game_engine.game_state.SAVE_GAME_FILE", "test_savegame_low_ai.json")
     def test_low_ai_data_mode_save_and_load(self):
@@ -1422,16 +1304,12 @@ class TestLowAIMode(unittest.TestCase):
         new_game = Game()
         # Minimal setup for load_game to run without crashing
         new_game.gemini_api = MagicMock(spec=GeminiAPI)  # Mock API for new instance too
-        new_game.gemini_api.chosen_model_name = (
-            None  # It would be None before load typically
-        )
+        new_game.gemini_api.chosen_model_name = None  # It would be None before load typically
         new_game._print_color = MagicMock()  # Mock print for new instance
 
         loaded_successfully = new_game.load_game()
         self.assertTrue(loaded_successfully, "Game should load successfully.")
-        self.assertTrue(
-            new_game.low_ai_data_mode, "Low AI mode should be True after loading."
-        )
+        self.assertTrue(new_game.low_ai_data_mode, "Low AI mode should be True after loading.")
 
         # Clean up the test save file
         if os.path.exists("test_savegame_low_ai.json"):
@@ -1507,9 +1385,7 @@ class TestLowAIMode(unittest.TestCase):
     )
     def test_read_newspaper_low_ai_mode(self):
         self.game.low_ai_data_mode = True
-        self.game.player_character.inventory = [
-            {"name": "fresh newspaper", "quantity": 1}
-        ]
+        self.game.player_character.inventory = [{"name": "fresh newspaper", "quantity": 1}]
         self.game.gemini_api.get_newspaper_article_snippet = MagicMock()
 
         expected_snippet = "The headlines are dull today."
@@ -1537,9 +1413,7 @@ class TestLowAIMode(unittest.TestCase):
         self.game.low_ai_data_mode = True
         self.game.gemini_api.get_player_reflection = MagicMock()
         # Specific setup for this event if needed, e.g., player location
-        self.game.player_character.name = (
-            "Rodion Raskolnikov"  # Event is specific to him
-        )
+        self.game.player_character.name = "Rodion Raskolnikov"  # Event is specific to him
         self.game.current_location_name = "Raskolnikov's Garret"
 
         expected_reflection = "The letter brings a wave of despair."
@@ -1566,18 +1440,12 @@ class TestLowAIMode(unittest.TestCase):
 
         # Check that the static content was used to create the note
         found_note = False
-        for item_data in self.game.dynamic_location_items.get(
-            self.game.current_location_name, []
-        ):
+        for item_data in self.game.dynamic_location_items.get(self.game.current_location_name, []):
             if item_data["name"] == "anonymous note":
-                self.assertEqual(
-                    item_data.get("generated_content"), STATIC_ANONYMOUS_NOTE_CONTENT
-                )
+                self.assertEqual(item_data.get("generated_content"), STATIC_ANONYMOUS_NOTE_CONTENT)
                 found_note = True
                 break
-        self.assertTrue(
-            found_note, "anonymous note with static content should be created."
-        )
+        self.assertTrue(found_note, "anonymous note with static content should be created.")
         self.game.gemini_api.get_generated_text_document.assert_not_called()
 
     def test_event_attempt_npc_npc_interaction_low_ai_mode(self):
@@ -1599,9 +1467,7 @@ class TestLowAIMode(unittest.TestCase):
             self.game.event_manager.attempt_npc_npc_interaction()
 
         printed_text = " ".join(
-            c[0][0]
-            for c in self.mock_print_color.call_args_list
-            if isinstance(c[0][0], str)
+            c[0][0] for c in self.mock_print_color.call_args_list if isinstance(c[0][0], str)
         )
         # The static interactions might have newlines or specific formatting
         # We'll check if the core text is present.
@@ -1633,9 +1499,7 @@ class TestLowAIMode(unittest.TestCase):
         self.game.low_ai_data_mode = False
 
         ai_generated_detail = "A truly unique atmospheric detail from AI."
-        self.game.gemini_api.get_atmospheric_details = MagicMock(
-            return_value=ai_generated_detail
-        )
+        self.game.gemini_api.get_atmospheric_details = MagicMock(return_value=ai_generated_detail)
 
         self.game.display_atmospheric_details()
 
@@ -1643,9 +1507,7 @@ class TestLowAIMode(unittest.TestCase):
         self.mock_print_color.assert_any_call(f"\n{ai_generated_detail}", Colors.CYAN)
 
     # --- Tests for Game._initialize_game() ---
-    @patch.object(
-        WorldManager, "load_all_characters"
-    )  # Mock to prevent full character setup
+    @patch.object(WorldManager, "load_all_characters")  # Mock to prevent full character setup
     @patch.object(
         WorldManager, "select_player_character"
     )  # Mock to prevent interactive player selection
@@ -1666,9 +1528,7 @@ class TestLowAIMode(unittest.TestCase):
         )
         # Mock input for "load or new game" prompt to select new game
         self.mock_input_color.return_value = ""
-        mock_sel_player.return_value = (
-            True  # Ensure select_player_character indicates success
-        )
+        mock_sel_player.return_value = True  # Ensure select_player_character indicates success
 
         self.game._initialize_game()
         self.assertTrue(self.game.low_ai_data_mode)
@@ -1748,9 +1608,7 @@ class TestLowAIMode(unittest.TestCase):
 
         # Configure mock for self.game.load_game()
         def side_effect_load_game():
-            self.game.low_ai_data_mode = (
-                True  # Simulate that loaded game had True for low_ai
-            )
+            self.game.low_ai_data_mode = True  # Simulate that loaded game had True for low_ai
             # Simulate other necessary attributes being set by load_game for _initialize_game to proceed
             self.game.player_character = self.game.all_character_objects[
                 "TestPlayer"
@@ -1790,9 +1648,7 @@ class TestGeminiAPIConfiguration(unittest.TestCase):
         self.patch_load_genai = patch.object(self.api, "_load_genai", return_value=True)
         self.mock_load_genai = self.patch_load_genai.start()
 
-        self.patch_os_path_exists = patch(
-            "game_engine.gemini_interactions.os.path.exists"
-        )
+        self.patch_os_path_exists = patch("game_engine.gemini_interactions.os.path.exists")
         self.mock_os_path_exists = self.patch_os_path_exists.start()
 
         self.patch_open = patch(
@@ -1892,30 +1748,18 @@ class TestGeminiAPIConfiguration(unittest.TestCase):
         low_ai_enabled_msg_found = False
         for call_args in self.mock_input_func.call_args_list:
             args, _ = call_args
-            if (
-                args
-                and isinstance(args[0], str)
-                and "Enable Low AI Data Mode?" in args[0]
-            ):
+            if args and isinstance(args[0], str) and "Enable Low AI Data Mode?" in args[0]:
                 low_ai_prompt_found = True
                 break
         for call_args in self.mock_print_func.call_args_list:
             args, _ = call_args
-            if (
-                args
-                and isinstance(args[0], str)
-                and "Low AI Data Mode will be ENABLED." in args[0]
-            ):
+            if args and isinstance(args[0], str) and "Low AI Data Mode will be ENABLED." in args[0]:
                 low_ai_enabled_msg_found = True
                 break
 
         self.assertTrue(low_ai_prompt_found, "Low AI mode prompt not found.")
-        self.assertTrue(
-            low_ai_enabled_msg_found, "Low AI Mode ENABLED message not found."
-        )
-        self.assertEqual(
-            config_result, {"api_configured": True, "low_ai_preference": True}
-        )
+        self.assertTrue(low_ai_enabled_msg_found, "Low AI Mode ENABLED message not found.")
+        self.assertEqual(config_result, {"api_configured": True, "low_ai_preference": True})
         self.assertIsNotNone(self.api.model)
 
     def test_configure_successful_api_setup_prompts_low_ai_mode_no(self):
@@ -1938,9 +1782,7 @@ class TestGeminiAPIConfiguration(unittest.TestCase):
                 disabled_msg_found = True
                 break
         self.assertTrue(disabled_msg_found, "Low AI Mode DISABLED message not found.")
-        self.assertEqual(
-            config_result, {"api_configured": True, "low_ai_preference": False}
-        )
+        self.assertEqual(config_result, {"api_configured": True, "low_ai_preference": False})
 
     def test_configure_skip_api_returns_low_ai_false(self):
         self.mock_os_getenv.return_value = None
@@ -1948,9 +1790,7 @@ class TestGeminiAPIConfiguration(unittest.TestCase):
         self.mock_input_func.return_value = "skip"  # User types 'skip' for API key
 
         config_result = self.api.configure(self.mock_print_func, self.mock_input_func)
-        self.assertEqual(
-            config_result, {"api_configured": False, "low_ai_preference": False}
-        )
+        self.assertEqual(config_result, {"api_configured": False, "low_ai_preference": False})
         self.assertIsNone(self.api.model)
 
 

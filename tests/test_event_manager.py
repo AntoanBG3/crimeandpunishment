@@ -66,9 +66,7 @@ class TestEventManager(unittest.TestCase):
             "one_time": True,
         }
         self.event_manager.story_events.append(test_event)
-        self.event_manager.triggered_events.add(
-            "one_time_event"
-        )  # Pretend it has already run
+        self.event_manager.triggered_events.add("one_time_event")  # Pretend it has already run
 
         result = self.event_manager.check_and_trigger_events()
 

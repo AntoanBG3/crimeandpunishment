@@ -40,21 +40,15 @@ class WorldManager:
     def advance_time(self, units=TIME_UNITS_PER_PLAYER_ACTION):
         previous_day = self.game_state.current_day
         self.game_state.game_time += units
-        new_day_begins = (
-            self.game_state.game_time // MAX_TIME_UNITS_PER_DAY
-        ) + 1 > previous_day
+        new_day_begins = (self.game_state.game_time // MAX_TIME_UNITS_PER_DAY) + 1 > previous_day
 
         if new_day_begins:
-            self.game_state.current_day = (
-                self.game_state.game_time // MAX_TIME_UNITS_PER_DAY
-            ) + 1
+            self.game_state.current_day = (self.game_state.game_time // MAX_TIME_UNITS_PER_DAY) + 1
             self.game_state._print_color(
                 f"\n{Colors.DIM}--- A new day dawns. It is Day {self.game_state.current_day}. ---{Colors.RESET}",
                 Colors.CYAN + Colors.BOLD,
             )
-            self.game_state.key_events_occurred.append(
-                f"Day {self.game_state.current_day} began."
-            )
+            self.game_state.key_events_occurred.append(f"Day {self.game_state.current_day} began.")
             self.game_state.last_significant_event_summary = (
                 f"a new day (Day {self.game_state.current_day}) began."
             )
@@ -72,8 +66,7 @@ class WorldManager:
                 ]
                 dream_chance = (
                     DREAM_CHANCE_TROUBLED_STATE
-                    if self.game_state.player_character.apparent_state
-                    in troubled_states
+                    if self.game_state.player_character.apparent_state in troubled_states
                     else DREAM_CHANCE_NORMAL_STATE
                 )
                 if random.random() < dream_chance:
@@ -83,16 +76,11 @@ class WorldManager:
                     )
                     relationships_summary = "Relationships are complex."
                     if self.game_state.all_character_objects.get("Sonya Marmeladova"):
-                        sonya_npc = self.game_state.all_character_objects[
-                            "Sonya Marmeladova"
-                        ]
+                        sonya_npc = self.game_state.all_character_objects["Sonya Marmeladova"]
                         relationships_summary = f"Sonya: {self.game_state.get_relationship_text(sonya_npc.relationship_with_player if hasattr(sonya_npc, 'relationship_with_player') else 0)}"
 
                     dream_text = None
-                    if (
-                        not self.game_state.low_ai_data_mode
-                        and self.game_state.gemini_api.model
-                    ):
+                    if not self.game_state.low_ai_data_mode and self.game_state.gemini_api.model:
                         dream_text = self.game_state.gemini_api.get_dream_sequence(
                             self.game_state.player_character,
                             self.game_state._get_recent_events_summary(),
@@ -104,10 +92,7 @@ class WorldManager:
 
                     if (
                         dream_text is None
-                        or (
-                            isinstance(dream_text, str)
-                            and dream_text.startswith("(OOC:")
-                        )
+                        or (isinstance(dream_text, str) and dream_text.startswith("(OOC:"))
                         or self.game_state.low_ai_data_mode
                     ):
                         if STATIC_DREAM_SEQUENCES:
@@ -148,9 +133,7 @@ class WorldManager:
                             ["thoughtful", "remorseful", "hopeful"]
                         )
                     else:
-                        self.game_state.player_character.apparent_state = (
-                            "haunted by dreams"
-                        )
+                        self.game_state.player_character.apparent_state = "haunted by dreams"
                     self.game_state._print_color(
                         f"(The dream leaves you feeling {self.game_state.player_character.apparent_state}.)",
                         Colors.YELLOW,
@@ -180,18 +163,14 @@ class WorldManager:
                 hidden_loc = item_props["hidden_in_location"]
                 if hidden_loc in self.game_state.dynamic_location_items:
                     location_items = self.game_state.dynamic_location_items[hidden_loc]
-                    if not any(
-                        loc_item["name"] == item_name for loc_item in location_items
-                    ):
+                    if not any(loc_item["name"] == item_name for loc_item in location_items):
                         qty_to_add = (
                             item_props.get("quantity", 1)
                             if item_props.get("stackable", False)
                             or item_props.get("value") is not None
                             else 1
                         )
-                        location_items.append(
-                            {"name": item_name, "quantity": qty_to_add}
-                        )
+                        location_items.append({"name": item_name, "quantity": qty_to_add})
 
     def load_all_characters(self, from_save=False):
         if from_save:
@@ -221,18 +200,12 @@ class WorldManager:
         self.initialize_dynamic_location_items()
 
     def select_player_character(self, non_interactive=False):
-        self.game_state._print_color(
-            "\n--- Choose Your Character ---", Colors.CYAN + Colors.BOLD
-        )
+        self.game_state._print_color("\n--- Choose Your Character ---", Colors.CYAN + Colors.BOLD)
         playable_character_names = [
-            name
-            for name, data in CHARACTERS_DATA.items()
-            if not data.get("non_playable", False)
+            name for name, data in CHARACTERS_DATA.items() if not data.get("non_playable", False)
         ]
         if not playable_character_names:
-            self.game_state._print_color(
-                "Error: No playable characters defined!", Colors.RED
-            )
+            self.game_state._print_color("Error: No playable characters defined!", Colors.RED)
             return False
 
         if non_interactive:
@@ -254,20 +227,17 @@ class WorldManager:
                     if 0 <= choice < len(playable_character_names):
                         chosen_name = playable_character_names[choice]
                         break
-                    else:
-                        self.game_state._print_color(
-                            "Invalid choice. Please enter a number from the list.",
-                            Colors.RED,
-                        )
+                    self.game_state._print_color(
+                        "Invalid choice. Please enter a number from the list.",
+                        Colors.RED,
+                    )
                 except ValueError:
                     self.game_state._print_color(
                         "Invalid input. Please enter a number.", Colors.RED
                     )
 
         if chosen_name in self.game_state.all_character_objects:
-            self.game_state.player_character = self.game_state.all_character_objects[
-                chosen_name
-            ]
+            self.game_state.player_character = self.game_state.all_character_objects[chosen_name]
             self.game_state.player_character.is_player = True
             self.game_state.current_location_name = (
                 self.game_state.player_character.default_location
@@ -289,12 +259,11 @@ class WorldManager:
                 Colors.WHITE,
             )
             return True
-        else:
-            self.game_state._print_color(
-                f"Error: Character '{chosen_name}' not found in loaded objects.",
-                Colors.RED,
-            )
-            return False
+        self.game_state._print_color(
+            f"Error: Character '{chosen_name}' not found in loaded objects.",
+            Colors.RED,
+        )
+        return False
 
     def update_npc_locations_by_schedule(self):
         current_time_period = self.get_current_time_period()
@@ -315,8 +284,7 @@ class WorldManager:
                         npc_obj.current_location = scheduled_location
                         if (
                             old_location == self.game_state.current_location_name
-                            and scheduled_location
-                            != self.game_state.current_location_name
+                            and scheduled_location != self.game_state.current_location_name
                         ):
                             moved_npcs_info.append(f"{npc_obj.name} has left.")
                         elif (
@@ -363,8 +331,7 @@ class WorldManager:
             or not self.game_state.current_location_description_shown_this_visit
         ):
             is_first_visit = (
-                self.game_state.current_location_name
-                not in self.game_state.visited_locations
+                self.game_state.current_location_name not in self.game_state.visited_locations
             )
             recently_visited = (
                 getattr(self, "last_visited_location", None)
@@ -376,9 +343,7 @@ class WorldManager:
             )
             if is_first_visit or from_explicit_look_cmd:
                 print(base_description + " " + time_effect_desc)
-                self.game_state.visited_locations.add(
-                    self.game_state.current_location_name
-                )
+                self.game_state.visited_locations.add(self.game_state.current_location_name)
             elif recently_visited:
                 # Extremely brief, just the location name and time basically
                 self.game_state._print_color("(You have returned here.)", Colors.DIM)
@@ -420,9 +385,7 @@ class WorldManager:
 
         for item_name in HIGHLY_NOTABLE_ITEMS_FOR_MEMORY:
             if item_name not in DEFAULT_ITEMS:
-                missing_items.add(
-                    f"Notable items list references unknown item '{item_name}'."
-                )
+                missing_items.add(f"Notable items list references unknown item '{item_name}'.")
 
         for item_name, item_data in DEFAULT_ITEMS.items():
             hidden_location = item_data.get("hidden_in_location")
@@ -457,16 +420,11 @@ class WorldManager:
                 )
             )
             relationship_score_for_rumor = 0
-            if source_npc.name != "A Passerby" and hasattr(
-                source_npc, "relationship_with_player"
-            ):
+            if source_npc.name != "A Passerby" and hasattr(source_npc, "relationship_with_player"):
                 relationship_score_for_rumor = source_npc.relationship_with_player
 
             rumor_text = None
-            if (
-                not self.game_state.low_ai_data_mode
-                and self.game_state.gemini_api.model
-            ):
+            if not self.game_state.low_ai_data_mode and self.game_state.gemini_api.model:
                 rumor_text = self.game_state.gemini_api.get_rumor_or_gossip(
                     source_npc,
                     self.game_state.current_location_name,
@@ -485,9 +443,7 @@ class WorldManager:
                 if STATIC_RUMORS:
                     rumor_text = random.choice(STATIC_RUMORS)
                 else:
-                    rumor_text = (
-                        "The air buzzes with indistinct chatter."  # Ultimate fallback
-                    )
+                    rumor_text = "The air buzzes with indistinct chatter."  # Ultimate fallback
                 rumor_text = self.game_state._apply_verbosity(rumor_text)
                 # Print static rumor with a different color or note if desired
                 self.game_state._print_color(
@@ -495,9 +451,7 @@ class WorldManager:
                     Colors.DIM,
                 )
                 self.game_state._print_color("", Colors.RESET)
-                if (
-                    self.game_state.player_character and rumor_text
-                ):  # Check rumor_text is not None
+                if self.game_state.player_character and rumor_text:  # Check rumor_text is not None
                     self.game_state.player_character.add_journal_entry(
                         "Overheard Rumor (Static)",
                         rumor_text,
@@ -533,9 +487,7 @@ class WorldManager:
                     self.game_state.player_notoriety_level + 0.2, 3
                 )
 
-    def _update_world_state_after_action(
-        self, command, action_taken_this_turn, time_to_advance
-    ):
+    def _update_world_state_after_action(self, command, action_taken_this_turn, time_to_advance):
         if action_taken_this_turn:
             self.game_state.player_action_count += 1
             if command != "talk to":
@@ -581,14 +533,10 @@ class WorldManager:
             self.game_state.player_character
             and self.game_state.player_character.name == "Rodion Raskolnikov"
         ):
-            obj_grapple = self.game_state.player_character.get_objective_by_id(
-                "grapple_with_crime"
-            )
+            obj_grapple = self.game_state.player_character.get_objective_by_id("grapple_with_crime")
             if obj_grapple and obj_grapple.get("completed", False):
-                current_stage = (
-                    self.game_state.player_character.get_current_stage_for_objective(
-                        "grapple_with_crime"
-                    )
+                current_stage = self.game_state.player_character.get_current_stage_for_objective(
+                    "grapple_with_crime"
                 )
                 if current_stage and current_stage.get("is_ending_stage"):
                     self.game_state._print_color(
@@ -603,15 +551,11 @@ class WorldManager:
             self.game_state._print_color("Where do you want to move to?", Colors.RED)
             return False, False
         if not self.game_state.player_character:
-            self.game_state._print_color(
-                "Cannot move: Player character not available.", Colors.RED
-            )
+            self.game_state._print_color("Cannot move: Player character not available.", Colors.RED)
             return False, False
         target_exit_input = argument.lower()
         potential_target_loc_name = None
-        current_location_data = LOCATIONS_DATA.get(
-            self.game_state.current_location_name
-        )
+        current_location_data = LOCATIONS_DATA.get(self.game_state.current_location_name)
         if not current_location_data:
             self.game_state._print_color(
                 f"Error: Data for current location '{self.game_state.current_location_name}' is missing.",
@@ -627,9 +571,7 @@ class WorldManager:
         if potential_target_loc_name:
             old_location = self.game_state.current_location_name
             self.game_state.current_location_name = potential_target_loc_name
-            self.game_state.player_character.current_location = (
-                potential_target_loc_name
-            )
+            self.game_state.player_character.current_location = potential_target_loc_name
             self.game_state.current_location_description_shown_this_visit = False
             self.game_state.last_significant_event_summary = (
                 f"moved from {old_location} to {self.game_state.current_location_name}."
@@ -647,13 +589,10 @@ class WorldManager:
                     Colors.YELLOW + Colors.DIM,
                 )
                 if DEBUG_LOGS:
-                    print(
-                        f"[DEBUG] Notoriety changed to: {self.game_state.player_notoriety_level}"
-                    )
+                    print(f"[DEBUG] Notoriety changed to: {self.game_state.player_notoriety_level}")
             self.update_current_location_details(from_explicit_look_cmd=False)
             return True, True
-        else:
-            self.game_state._print_color(
-                f"You can't find a way to '{target_exit_input}' from here.", Colors.RED
-            )
-            return False, False
+        self.game_state._print_color(
+            f"You can't find a way to '{target_exit_input}' from here.", Colors.RED
+        )
+        return False, False

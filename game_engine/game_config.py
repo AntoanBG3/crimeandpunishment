@@ -107,14 +107,10 @@ SAVE_GAME_FILE = "savegame.json"
 
 # --- Gameplay Constants ---
 DREAM_CHANCE_NORMAL_STATE = 0.05  # Chance of dream on new day if normal state
-DREAM_CHANCE_TROUBLED_STATE = (
-    0.35  # Chance if feverish, agitated etc. on new day/long wait
-)
+DREAM_CHANCE_TROUBLED_STATE = 0.35  # Chance if feverish, agitated etc. on new day/long wait
 RUMOR_CHANCE_PER_NPC_INTERACTION = 0.15  # Chance an NPC shares a rumor during dialogue
 AMBIENT_RUMOR_CHANCE_PUBLIC_PLACE = 0.05  # Chance to overhear ambient rumor in public
-NPC_SHARE_RUMOR_MIN_RELATIONSHIP = (
-    -2
-)  # NPC won't share rumors if relationship is too low
+NPC_SHARE_RUMOR_MIN_RELATIONSHIP = -2  # NPC won't share rumors if relationship is too low
 DEBUG_LOGS = False
 
 # --- Phrases that might indicate a natural end to a conversation ---
