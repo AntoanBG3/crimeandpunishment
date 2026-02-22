@@ -1,5 +1,4 @@
 import blessed
-import time
 
 term = blessed.Terminal()
 
@@ -8,13 +7,13 @@ print("Line 1: Standard output before blessed.")
 # Try to print at the bottom of the terminal
 # (or top, if height is small, to ensure visibility)
 status_line_y = term.height - 1
-if status_line_y < 0: # term.height might be None or 0 if not a full terminal
+if status_line_y < 0:  # term.height might be None or 0 if not a full terminal
     status_line_y = 0
 
 # Ensure x-coordinate is within width if possible, else 0
 status_line_x = 0
 if term.width is not None and 0 >= term.width:
-    status_line_x = term.width -1 if term.width > 0 else 0
+    status_line_x = term.width - 1 if term.width > 0 else 0
 
 
 try:

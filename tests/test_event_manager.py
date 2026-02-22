@@ -1,13 +1,14 @@
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 import os
 import sys
 
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from game_engine.event_manager import EventManager
+from game_engine.event_manager import EventManager  # noqa: E402
+
 
 class TestEventManager(unittest.TestCase):
     def setUp(self):
@@ -31,14 +32,14 @@ class TestEventManager(unittest.TestCase):
             "id": "test_event_1",
             "trigger": lambda: True,
             "action": mock_action,
-            "one_time": True
+            "one_time": True,
         }
         self.event_manager.story_events.append(test_event)
 
         result = self.event_manager.check_and_trigger_events()
 
         self.assertTrue(result)
-        mock_action.assert_called_once_with() # The action is called with no arguments
+        mock_action.assert_called_once_with()  # The action is called with no arguments
         self.assertIn("test_event_1", self.event_manager.triggered_events)
 
     def test_event_not_triggered_if_condition_false(self):
@@ -47,7 +48,7 @@ class TestEventManager(unittest.TestCase):
             "id": "test_event_2",
             "trigger": lambda: False,
             "action": mock_action,
-            "one_time": True
+            "one_time": True,
         }
         self.event_manager.story_events.append(test_event)
 
@@ -62,14 +63,16 @@ class TestEventManager(unittest.TestCase):
             "id": "one_time_event",
             "trigger": lambda: True,
             "action": mock_action,
-            "one_time": True
+            "one_time": True,
         }
         self.event_manager.story_events.append(test_event)
-        self.event_manager.triggered_events.add("one_time_event") # Pretend it has already run
+        self.event_manager.triggered_events.add(
+            "one_time_event"
+        )  # Pretend it has already run
 
         result = self.event_manager.check_and_trigger_events()
 
-        self.assertFalse(result) # Should return False as no new event was triggered
+        self.assertFalse(result)  # Should return False as no new event was triggered
         mock_action.assert_not_called()
 
     def test_repeatable_event_can_trigger_again(self):
@@ -78,7 +81,7 @@ class TestEventManager(unittest.TestCase):
             "id": "repeatable_event",
             "trigger": lambda: True,
             "action": mock_action,
-            "one_time": False
+            "one_time": False,
         }
         self.event_manager.story_events.append(test_event)
         # Even if it was "triggered" before, as long as the "_recent" flag is not set, it should run.
@@ -96,15 +99,18 @@ class TestEventManager(unittest.TestCase):
             "id": "repeatable_event_recent",
             "trigger": lambda: True,
             "action": mock_action,
-            "one_time": False
+            "one_time": False,
         }
         self.event_manager.story_events.append(test_event)
-        self.event_manager.triggered_events.add("repeatable_event_recent_recent") # Set the recent flag
+        self.event_manager.triggered_events.add(
+            "repeatable_event_recent_recent"
+        )  # Set the recent flag
 
         result = self.event_manager.check_and_trigger_events()
 
         self.assertFalse(result)
         mock_action.assert_not_called()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

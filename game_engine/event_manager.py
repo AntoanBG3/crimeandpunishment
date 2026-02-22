@@ -1,8 +1,15 @@
 # event_manager.py
 import random
-from .game_config import (Colors, DEFAULT_ITEMS, DEBUG_LOGS,
-                         STATIC_PLAYER_REFLECTIONS, STATIC_ANONYMOUS_NOTE_CONTENT,
-                         STATIC_STREET_LIFE_EVENTS, STATIC_NPC_NPC_INTERACTIONS)
+from .game_config import (
+    Colors,
+    DEFAULT_ITEMS,
+    DEBUG_LOGS,
+    STATIC_PLAYER_REFLECTIONS,
+    STATIC_ANONYMOUS_NOTE_CONTENT,
+    STATIC_STREET_LIFE_EVENTS,
+    STATIC_NPC_NPC_INTERACTIONS,
+)
+
 
 class EventManager:
     def __init__(self, game_ref):
@@ -14,110 +21,169 @@ class EventManager:
                 "name": "Encounter with Marmeladov",
                 "trigger": self.trigger_marmeladov_encounter,
                 "action": self.action_marmeladov_encounter,
-                "one_time": True
+                "one_time": True,
             },
             {
                 "id": "raskolnikov_receives_letter",
                 "name": "Letter from Mother",
                 "trigger": self.trigger_letter_from_mother,
                 "action": self.action_letter_from_mother,
-                "one_time": True
+                "one_time": True,
             },
             {
                 "id": "katerina_ivanovna_public_lament",
                 "name": "Katerina Ivanovna's Public Lament",
                 "trigger": self.trigger_katerina_public_lament,
                 "action": self.action_katerina_public_lament,
-                "one_time": False # Can happen periodically
+                "one_time": False,  # Can happen periodically
             },
-            { # New event for finding an anonymous note
+            {  # New event for finding an anonymous note
                 "id": "find_anonymous_warning_note",
                 "name": "Find an Anonymous Warning Note",
                 "trigger": self.trigger_find_anonymous_note,
                 "action": self.action_find_anonymous_note,
-                "one_time": True # Or could be multiple different notes
+                "one_time": True,  # Or could be multiple different notes
             },
             {
                 "id": "street_life_haymarket",
                 "name": "Street Life in Haymarket",
                 "trigger": self.trigger_street_life_haymarket,
                 "action": self.action_street_life_haymarket,
-                "one_time": False # Repeatable
-            }
+                "one_time": False,  # Repeatable
+            },
         ]
 
     def _print_event(self, text):
-        self.game._print_color(f"\n{Colors.BOLD}{Colors.MAGENTA}--- Event ---{Colors.RESET}", Colors.MAGENTA)
+        self.game._print_color(
+            f"\n{Colors.BOLD}{Colors.MAGENTA}--- Event ---{Colors.RESET}",
+            Colors.MAGENTA,
+        )
         self.game._print_color(text, Colors.MAGENTA)
-        self.game._print_color(f"{Colors.BOLD}{Colors.MAGENTA}-------------{Colors.RESET}\n", Colors.MAGENTA)
+        self.game._print_color(
+            f"{Colors.BOLD}{Colors.MAGENTA}-------------{Colors.RESET}\n",
+            Colors.MAGENTA,
+        )
 
     # --- Event Triggers ---
     def trigger_marmeladov_encounter(self):
-        return (self.game.player_character and self.game.player_character.name == "Rodion Raskolnikov" and
-                self.game.current_location_name == "Tavern" and
-                self.game.game_time > 20 and self.game.game_time < 70 and # Specific time window
-                "marmeladov_tavern_encounter" not in self.triggered_events)
+        return (
+            self.game.player_character
+            and self.game.player_character.name == "Rodion Raskolnikov"
+            and self.game.current_location_name == "Tavern"
+            and self.game.game_time > 20
+            and self.game.game_time < 70  # Specific time window
+            and "marmeladov_tavern_encounter" not in self.triggered_events
+        )
 
     def trigger_letter_from_mother(self):
-        return (self.game.player_character and self.game.player_character.name == "Rodion Raskolnikov" and
-                self.game.current_location_name == "Raskolnikov's Garret" and
-                self.game.game_time > 10 and self.game.game_time < 60 and
-                "raskolnikov_receives_letter" not in self.triggered_events)
+        return (
+            self.game.player_character
+            and self.game.player_character.name == "Rodion Raskolnikov"
+            and self.game.current_location_name == "Raskolnikov's Garret"
+            and self.game.game_time > 10
+            and self.game.game_time < 60
+            and "raskolnikov_receives_letter" not in self.triggered_events
+        )
 
     def trigger_katerina_public_lament(self):
         katerina = self.game.all_character_objects.get("Katerina Ivanovna Marmeladova")
-        return (katerina and katerina.current_location == "Haymarket Square" and
-                self.game.current_location_name == "Haymarket Square" and
-                self.game.get_current_time_period() in ["Afternoon", "Evening"] and
-                random.random() < 0.10 and # Reduced chance
-                "katerina_ivanovna_public_lament_recent" not in self.triggered_events)
-    
+        return (
+            katerina
+            and katerina.current_location == "Haymarket Square"
+            and self.game.current_location_name == "Haymarket Square"
+            and self.game.get_current_time_period() in ["Afternoon", "Evening"]
+            and random.random() < 0.10  # Reduced chance
+            and "katerina_ivanovna_public_lament_recent" not in self.triggered_events
+        )
+
     def trigger_find_anonymous_note(self):
         # Trigger if Raskolnikov's notoriety is rising and he's in a less secure place
-        return (self.game.player_character and self.game.player_character.name == "Rodion Raskolnikov" and
-                self.game.player_notoriety_level >= 1.5 and
-                self.game.current_location_name in ["Raskolnikov's Garret", "Stairwell (Outside Raskolnikov's Garret)"] and
-                random.random() < 0.25 and # Not too common
-                "find_anonymous_warning_note" not in self.triggered_events)
-
+        return (
+            self.game.player_character
+            and self.game.player_character.name == "Rodion Raskolnikov"
+            and self.game.player_notoriety_level >= 1.5
+            and self.game.current_location_name
+            in ["Raskolnikov's Garret", "Stairwell (Outside Raskolnikov's Garret)"]
+            and random.random() < 0.25  # Not too common
+            and "find_anonymous_warning_note" not in self.triggered_events
+        )
 
     # --- Event Actions ---
     def action_marmeladov_encounter(self):
-        event_desc = ("As you sit nursing a cheap drink, a disheveled man with flushed cheeks and rambling speech stumbles towards your table. "
+        event_desc = (
+            "As you sit nursing a cheap drink, a disheveled man with flushed cheeks and rambling speech stumbles towards your table. "
             "It is Semyon Zakharovich Marmeladov. He begins a lengthy, sorrowful monologue about his misfortunes, his daughter Sonya, "
-            "and his own wretchedness. You listen, or perhaps only half-listen, to his tragic tale.")
+            "and his own wretchedness. You listen, or perhaps only half-listen, to his tragic tale."
+        )
         self._print_event(event_desc)
         if self.game.player_character:
-            self.game.player_character.add_player_memory(memory_type="event_marmeladov_encounter", turn=self.game.game_time, content={"summary": "Listened to Marmeladov's tragic story in the tavern."}, sentiment_impact=1)
+            self.game.player_character.add_player_memory(
+                memory_type="event_marmeladov_encounter",
+                turn=self.game.game_time,
+                content={
+                    "summary": "Listened to Marmeladov's tragic story in the tavern."
+                },
+                sentiment_impact=1,
+            )
             if self.game.player_character.get_objective_by_id("understand_theory"):
-                 self.game.player_character.add_player_memory(memory_type="reflection_marmeladov_suffering", turn=self.game.game_time, content={"summary": "Marmeladov's suffering gives pause to your theories."}, sentiment_impact=1)
-        self.game.last_significant_event_summary = "encountered Marmeladov in the tavern."
+                self.game.player_character.add_player_memory(
+                    memory_type="reflection_marmeladov_suffering",
+                    turn=self.game.game_time,
+                    content={
+                        "summary": "Marmeladov's suffering gives pause to your theories."
+                    },
+                    sentiment_impact=1,
+                )
+        self.game.last_significant_event_summary = (
+            "encountered Marmeladov in the tavern."
+        )
         self.game.key_events_occurred.append("Encountered Marmeladov.")
         # This encounter might add to "known_facts_about_crime" if Marmeladov mentions Sonya's situation vaguely.
         if "Sonya" not in " ".join(self.game.known_facts_about_crime):
-            self.game.known_facts_about_crime.append("Heard of Sonya Marmeladova's difficult circumstances.")
-
+            self.game.known_facts_about_crime.append(
+                "Heard of Sonya Marmeladova's difficult circumstances."
+            )
 
     def action_letter_from_mother(self):
-        event_desc = ("A letter arrives for you, bearing the familiar handwriting of your mother, Pulcheria Alexandrovna. "
+        event_desc = (
+            "A letter arrives for you, bearing the familiar handwriting of your mother, Pulcheria Alexandrovna. "
             "It is filled with news from home, expressions of her deep love and concern for you, and details about Dunya's "
             "unfortunate situation with Mr. Svidrigailov and her subsequent engagement to Mr. Luzhin. "
             "Your mother expresses her hopes that Luzhin might be able to help you in your career. "
-            "The letter speaks of their imminent arrival in St. Petersburg.")
+            "The letter speaks of their imminent arrival in St. Petersburg."
+        )
         self._print_event(event_desc)
         if self.game.player_character:
-            self.game.player_character.add_player_memory(memory_type="event_mother_letter", turn=self.game.game_time, content={"summary": "Received a troubling letter from mother about Dunya and Luzhin."}, sentiment_impact=-1) # "Troubling" suggests negative sentiment
-            obj_help_family = self.game.player_character.get_objective_by_id("help_family")
+            self.game.player_character.add_player_memory(
+                memory_type="event_mother_letter",
+                turn=self.game.game_time,
+                content={
+                    "summary": "Received a troubling letter from mother about Dunya and Luzhin."
+                },
+                sentiment_impact=-1,
+            )  # "Troubling" suggests negative sentiment
+            obj_help_family = self.game.player_character.get_objective_by_id(
+                "help_family"
+            )
             if obj_help_family and not obj_help_family.get("active", True):
                 self.game.player_character.activate_objective("help_family")
             if not self.game.player_character.has_item("mother's letter"):
                 self.game.player_character.add_to_inventory("mother's letter")
-                self.game._print_color("The letter is now in your possession.", Colors.GREEN)
-            self.game._print_color("This news weighs heavily on your mind.", Colors.YELLOW)
+                self.game._print_color(
+                    "The letter is now in your possession.", Colors.GREEN
+                )
+            self.game._print_color(
+                "This news weighs heavily on your mind.", Colors.YELLOW
+            )
 
             # --- Enhanced emotional impact ---
-            self.game.player_character.apparent_state = random.choice(["agitated", "burdened", "thoughtful"])
-            self.game._print_color(f"(The contents of the letter leave you feeling deeply {self.game.player_character.apparent_state}.)", Colors.YELLOW)
+            self.game.player_character.apparent_state = random.choice(
+                ["agitated", "burdened", "thoughtful"]
+            )
+            self.game._print_color(
+                f"(The contents of the letter leave you feeling deeply {self.game.player_character.apparent_state}.)",
+                Colors.YELLOW,
+            )
 
             reflection_context = (
                 f"After reading the distressing letter from his mother about Dunya's engagement to Luzhin, "
@@ -128,7 +194,9 @@ class EventManager:
             )
 
             # Assuming get_objectives_summary is available and suitable for Gemini context
-            objectives_summary = self.game._get_objectives_summary(self.game.player_character)
+            objectives_summary = self.game._get_objectives_summary(
+                self.game.player_character
+            )
             reflection_text = None
 
             if not self.game.low_ai_data_mode and self.game.gemini_api.model:
@@ -137,32 +205,59 @@ class EventManager:
                     current_location_name=self.game.current_location_name,
                     current_time_period=self.game.get_current_time_period(),
                     context_text=reflection_context,
-                    active_objectives_summary=objectives_summary
+                    active_objectives_summary=objectives_summary,
                 )
 
-            if reflection_text is None or (isinstance(reflection_text, str) and reflection_text.startswith("(OOC:")) or self.game.low_ai_data_mode:
+            if (
+                reflection_text is None
+                or (
+                    isinstance(reflection_text, str)
+                    and reflection_text.startswith("(OOC:")
+                )
+                or self.game.low_ai_data_mode
+            ):
                 if STATIC_PLAYER_REFLECTIONS:
                     reflection_text = random.choice(STATIC_PLAYER_REFLECTIONS)
                 else:
-                    reflection_text = "Your mind is a whirl of conflicting emotions and calculations." # Ultimate fallback
-                self.game._print_color(f"Your thoughts race: \"{reflection_text}\"", Colors.DIM) # Static in DIM
-            else: # AI success
-                self.game._print_color(f"Your thoughts race: \"{reflection_text}\"", Colors.CYAN)
+                    reflection_text = "Your mind is a whirl of conflicting emotions and calculations."  # Ultimate fallback
+                self.game._print_color(
+                    f'Your thoughts race: "{reflection_text}"', Colors.DIM
+                )  # Static in DIM
+            else:  # AI success
+                self.game._print_color(
+                    f'Your thoughts race: "{reflection_text}"', Colors.CYAN
+                )
             # --- End enhanced emotional impact ---
 
-        self.game.last_significant_event_summary = "received a letter from his mother about Dunya."
-        self.game.key_events_occurred.append("Received letter from mother regarding Dunya's situation.")
+        self.game.last_significant_event_summary = (
+            "received a letter from his mother about Dunya."
+        )
+        self.game.key_events_occurred.append(
+            "Received letter from mother regarding Dunya's situation."
+        )
 
     def action_katerina_public_lament(self):
-        event_desc = ("A commotion draws your attention. Katerina Ivanovna Marmeladova is in the square, flushed and feverish, "
+        event_desc = (
+            "A commotion draws your attention. Katerina Ivanovna Marmeladova is in the square, flushed and feverish, "
             "her voice rising in a shrill lament. She clutches her children, decrying her fate, the injustice of her poverty, "
-            "and the memory of her supposedly noble birth. A small, unsympathetic crowd gathers to watch the spectacle.")
+            "and the memory of her supposedly noble birth. A small, unsympathetic crowd gathers to watch the spectacle."
+        )
         self._print_event(event_desc)
         katerina = self.game.all_character_objects.get("Katerina Ivanovna Marmeladova")
-        if katerina: katerina.apparent_state = "highly agitated and feverish"
+        if katerina:
+            katerina.apparent_state = "highly agitated and feverish"
         if self.game.player_character:
-            self.game.player_character.add_player_memory(memory_type="event_katerina_lament", turn=self.game.game_time, content={"summary": "Witnessed Katerina Ivanovna's distressing public scene in Haymarket."}, sentiment_impact=-1) # "Distressing" suggests negative sentiment
-        self.game.last_significant_event_summary = "witnessed Katerina Ivanovna's public outburst."
+            self.game.player_character.add_player_memory(
+                memory_type="event_katerina_lament",
+                turn=self.game.game_time,
+                content={
+                    "summary": "Witnessed Katerina Ivanovna's distressing public scene in Haymarket."
+                },
+                sentiment_impact=-1,
+            )  # "Distressing" suggests negative sentiment
+        self.game.last_significant_event_summary = (
+            "witnessed Katerina Ivanovna's public outburst."
+        )
         self.game.key_events_occurred.append("Katerina Ivanovna caused a public scene.")
         self.triggered_events.add("katerina_ivanovna_public_lament_recent")
 
@@ -180,42 +275,76 @@ class EventManager:
                 subject_matter=note_subject,
                 desired_tone=note_tone,
                 key_info_to_include=note_key_info,
-                length_sentences=2
+                length_sentences=2,
             )
 
-        if note_text is None or (isinstance(note_text, str) and note_text.startswith("(OOC:")) or self.game.low_ai_data_mode:
-            note_text = STATIC_ANONYMOUS_NOTE_CONTENT # Direct use of the static string
+        if (
+            note_text is None
+            or (isinstance(note_text, str) and note_text.startswith("(OOC:"))
+            or self.game.low_ai_data_mode
+        ):
+            note_text = STATIC_ANONYMOUS_NOTE_CONTENT  # Direct use of the static string
             # Optionally, add a log or slightly different handling for static note if needed
-        
-        if note_text: # Check if note_text is not None or empty after potential fallback
-            event_desc = f"Tucked into your doorframe (or perhaps slipped under your door), you find a hastily folded piece of paper. It's an anonymous note."
+
+        if (
+            note_text
+        ):  # Check if note_text is not None or empty after potential fallback
+            event_desc = "Tucked into your doorframe (or perhaps slipped under your door), you find a hastily folded piece of paper. It's an anonymous note."
             self._print_event(event_desc)
-            
+
             # Create the "anonymous note" item instance with this specific content
             # Option 1: Add to location (player must then take it)
-            note_item_instance = {"name": "anonymous note", "quantity": 1, "generated_content": note_text}
+            note_item_instance = {
+                "name": "anonymous note",
+                "quantity": 1,
+                "generated_content": note_text,
+            }
             # Ensure the base "anonymous note" is in DEFAULT_ITEMS with readable=True
             if "anonymous note" in DEFAULT_ITEMS:
-                self.game.dynamic_location_items.setdefault(self.game.current_location_name, []).append(note_item_instance)
-                self.game._print_color(f"An {Colors.GREEN}anonymous note{Colors.RESET} appears on the floor.", Colors.YELLOW) # Changed self to self.game
-                self.game.player_character.add_journal_entry("Note Found", f"Found an anonymous note: {note_text[:30]}...", self.game._get_current_game_time_period_str())
+                self.game.dynamic_location_items.setdefault(
+                    self.game.current_location_name, []
+                ).append(note_item_instance)
+                self.game._print_color(
+                    f"An {Colors.GREEN}anonymous note{Colors.RESET} appears on the floor.",
+                    Colors.YELLOW,
+                )  # Changed self to self.game
+                self.game.player_character.add_journal_entry(
+                    "Note Found",
+                    f"Found an anonymous note: {note_text[:30]}...",
+                    self.game._get_current_game_time_period_str(),
+                )
 
-            else: # Fallback if item not defined well
-                 self.game._print_color(f"You find a strange note: \"{note_text}\"", Colors.YELLOW) # Changed self to self.game
+            else:  # Fallback if item not defined well
+                self.game._print_color(
+                    f'You find a strange note: "{note_text}"', Colors.YELLOW
+                )  # Changed self to self.game
 
             if self.game.player_character:
-                self.game.player_character.add_player_memory(memory_type="event_found_anon_note", turn=self.game.game_time, content={"summary": "Found an ominous anonymous note."}, sentiment_impact=-1) # "Ominous" suggests negative sentiment
+                self.game.player_character.add_player_memory(
+                    memory_type="event_found_anon_note",
+                    turn=self.game.game_time,
+                    content={"summary": "Found an ominous anonymous note."},
+                    sentiment_impact=-1,
+                )  # "Ominous" suggests negative sentiment
                 self.game.player_character.apparent_state = "paranoid"
-            self.game.last_significant_event_summary = "found an anonymous warning note."
+            self.game.last_significant_event_summary = (
+                "found an anonymous warning note."
+            )
             self.game.key_events_occurred.append("Found an anonymous warning note.")
-            self.game.player_notoriety_level = min(self.game.player_notoriety_level + 0.5, 3) # Finding a note means someone *is* watching
+            self.game.player_notoriety_level = min(
+                self.game.player_notoriety_level + 0.5, 3
+            )  # Finding a note means someone *is* watching
         else:
-            self._print_event("You thought you saw something, but it was just a trick of the light.")
+            self._print_event(
+                "You thought you saw something, but it was just a trick of the light."
+            )
 
     def trigger_street_life_haymarket(self):
-        return (self.game.current_location_name == "Haymarket Square" and
-                random.random() < 0.10 and
-                "street_life_haymarket_recent" not in self.triggered_events)
+        return (
+            self.game.current_location_name == "Haymarket Square"
+            and random.random() < 0.10
+            and "street_life_haymarket_recent" not in self.triggered_events
+        )
 
     def action_street_life_haymarket(self):
         player_context = "observing the surroundings"
@@ -227,54 +356,82 @@ class EventManager:
             description = self.game.gemini_api.get_street_life_event_description(
                 self.game.current_location_name,
                 self.game.get_current_time_period(),
-                player_context
+                player_context,
             )
 
-        if description is None or (isinstance(description, str) and description.startswith("(OOC:")) or self.game.low_ai_data_mode:
+        if (
+            description is None
+            or (isinstance(description, str) and description.startswith("(OOC:"))
+            or self.game.low_ai_data_mode
+        ):
             if STATIC_STREET_LIFE_EVENTS:
                 description = random.choice(STATIC_STREET_LIFE_EVENTS)
             else:
-                description = "The usual hustle and bustle of the Haymarket continues around you." # Ultimate fallback
+                description = "The usual hustle and bustle of the Haymarket continues around you."  # Ultimate fallback
             # Print static description, perhaps with a different color or note
-            if description: # Ensure not None if list was empty
-                 self.game._print_color(f"\n{Colors.DIM}(Nearby, {description}){Colors.RESET}", Colors.DIM)
-        elif description: # AI success and not OOC
-            self.game._print_color(f"\n{Colors.DIM}(Nearby, {description}){Colors.RESET}", Colors.DIM)
+            if description:  # Ensure not None if list was empty
+                self.game._print_color(
+                    f"\n{Colors.DIM}(Nearby, {description}){Colors.RESET}", Colors.DIM
+                )
+        elif description:  # AI success and not OOC
+            self.game._print_color(
+                f"\n{Colors.DIM}(Nearby, {description}){Colors.RESET}", Colors.DIM
+            )
 
         # Common logic for adding to journal if a description was obtained
         if description and self.game.player_character:
-            self.game.player_character.add_journal_entry("Observation", description, self.game._get_current_game_time_period_str())
+            self.game.player_character.add_journal_entry(
+                "Observation",
+                description,
+                self.game._get_current_game_time_period_str(),
+            )
 
         self.triggered_events.add("street_life_haymarket_recent")
 
-
     def check_and_trigger_events(self):
-        if self.game.game_time % 50 == 0: # Cooldown reset periodically
+        if self.game.game_time % 50 == 0:  # Cooldown reset periodically
             if DEBUG_LOGS:
-                print(f"[DEBUG] EventManager: Checking event cooldowns at game time {self.game.game_time}")
-            events_to_remove = {ev for ev in self.triggered_events if ev.endswith("_recent")}
-            for ev_rem in events_to_remove: self.triggered_events.remove(ev_rem)
+                print(
+                    f"[DEBUG] EventManager: Checking event cooldowns at game time {self.game.game_time}"
+                )
+            events_to_remove = {
+                ev for ev in self.triggered_events if ev.endswith("_recent")
+            }
+            for ev_rem in events_to_remove:
+                self.triggered_events.remove(ev_rem)
 
         for event in self.story_events:
             event_id = event["id"]
             is_one_time = event.get("one_time", True)
-            if is_one_time and event_id in self.triggered_events: continue
-            if not is_one_time and f"{event_id}_recent" in self.triggered_events: continue
+            if is_one_time and event_id in self.triggered_events:
+                continue
+            if not is_one_time and f"{event_id}_recent" in self.triggered_events:
+                continue
             trigger_result = False
             try:
-                if callable(event["trigger"]): trigger_result = event["trigger"]()
+                if callable(event["trigger"]):
+                    trigger_result = event["trigger"]()
             except Exception as e:
-                self.game._print_color(f"Error in event trigger for '{event.get('id', 'unknown event')}': {e}", Colors.RED)
+                self.game._print_color(
+                    f"Error in event trigger for '{event.get('id', 'unknown event')}': {e}",
+                    Colors.RED,
+                )
             if trigger_result:
                 try:
-                    if callable(event["action"]): event["action"]()
-                    if is_one_time: self.triggered_events.add(event_id)
+                    if callable(event["action"]):
+                        event["action"]()
+                    if is_one_time:
+                        self.triggered_events.add(event_id)
                     # For repeatable, action should add "_recent" flag if needed
                     return True
                 except Exception as e:
-                     self.game._print_color(f"Error in event action for '{event.get('id', 'unknown event')}': {e}", Colors.RED)
-                     if is_one_time: self.triggered_events.add(event_id);
-                     return False
+                    self.game._print_color(
+                        f"Error in event action for '{event.get('id', 'unknown event')}': {e}",
+                        Colors.RED,
+                    )
+                    if is_one_time:
+                        self.triggered_events.add(event_id)
+                    return False
         return False
 
     def attempt_npc_npc_interaction(self):
@@ -284,47 +441,76 @@ class EventManager:
             except ValueError:
                 return False
 
-            self.game._print_color(f"\n{Colors.MAGENTA}Nearby, you overhear a brief exchange...{Colors.RESET}", Colors.MAGENTA)
+            self.game._print_color(
+                f"\n{Colors.MAGENTA}Nearby, you overhear a brief exchange...{Colors.RESET}",
+                Colors.MAGENTA,
+            )
             interaction_text = None
 
             if not self.game.low_ai_data_mode and self.game.gemini_api.model:
                 interaction_text = self.game.gemini_api.get_npc_to_npc_interaction(
-                    npc1, npc2,
+                    npc1,
+                    npc2,
                     self.game.current_location_name,
                     self.game.get_current_time_period(),
                     npc1_objectives_summary=self.game._get_objectives_summary(npc1),
-                    npc2_objectives_summary=self.game._get_objectives_summary(npc2)
+                    npc2_objectives_summary=self.game._get_objectives_summary(npc2),
                 )
 
-            if interaction_text is None or (isinstance(interaction_text, str) and interaction_text.startswith("(OOC:")) or self.game.low_ai_data_mode:
+            if (
+                interaction_text is None
+                or (
+                    isinstance(interaction_text, str)
+                    and interaction_text.startswith("(OOC:")
+                )
+                or self.game.low_ai_data_mode
+            ):
                 if STATIC_NPC_NPC_INTERACTIONS:
                     interaction_text = random.choice(STATIC_NPC_NPC_INTERACTIONS)
                 else:
-                    interaction_text = f"{npc1.name} and {npc2.name} exchange a few quiet words." # Ultimate fallback
+                    interaction_text = f"{npc1.name} and {npc2.name} exchange a few quiet words."  # Ultimate fallback
                 # No specific color change for static here, just print it like AI would have.
                 # The (OOC:) check is handled, so it won't print that.
 
-            if interaction_text: # Check if not None from fallback
+            if interaction_text:  # Check if not None from fallback
                 # Print the interaction first
-                lines = interaction_text.split('\n')
+                lines = interaction_text.split("\n")
                 for line in lines:
                     if ":" in line:
                         speaker, dialogue = line.split(":", 1)
-                        self.game._print_color(f"{speaker.strip()}:", Colors.YELLOW, end=""); print(f" \"{dialogue.strip()}\"")
+                        self.game._print_color(
+                            f"{speaker.strip()}:", Colors.YELLOW, end=""
+                        )
+                        print(f' "{dialogue.strip()}"')
                     else:
-                        self.game._print_color(f"{Colors.DIM}{line}{Colors.RESET}", Colors.DIM)
+                        self.game._print_color(
+                            f"{Colors.DIM}{line}{Colors.RESET}", Colors.DIM
+                        )
 
                 # Now, try to identify and process rumors
-                rumor_keywords = ["did you hear", "they say", "i heard that", "word is", "gossip has it", "rumor is"]
+                rumor_keywords = [
+                    "did you hear",
+                    "they say",
+                    "i heard that",
+                    "word is",
+                    "gossip has it",
+                    "rumor is",
+                ]
                 potential_rumor_identified = False
                 extracted_rumor_core = ""
 
-                for line in lines: # Iterate again for rumor check
+                for line in lines:  # Iterate again for rumor check
                     for keyword in rumor_keywords:
                         if keyword in line.lower():
                             try:
-                                rumor_part_index = line.lower().find(keyword) + len(keyword)
-                                rumor_candidate = line[rumor_part_index:].strip(" .,;:!?-").capitalize()
+                                rumor_part_index = line.lower().find(keyword) + len(
+                                    keyword
+                                )
+                                rumor_candidate = (
+                                    line[rumor_part_index:]
+                                    .strip(" .,;:!?-")
+                                    .capitalize()
+                                )
                                 if len(rumor_candidate) > 15:
                                     extracted_rumor_core = rumor_candidate
                                     potential_rumor_identified = True
@@ -335,22 +521,29 @@ class EventManager:
                         break
 
                 if potential_rumor_identified and extracted_rumor_core:
-                    if not hasattr(self.game, 'overheard_rumors'):
+                    if not hasattr(self.game, "overheard_rumors"):
                         self.game.overheard_rumors = []
 
                     MAX_OVERHEARD_RUMORS = 10
                     if len(self.game.overheard_rumors) >= MAX_OVERHEARD_RUMORS:
                         self.game.overheard_rumors.pop(0)
 
-                    rumor_to_add = f"Overheard between {npc1.name} and {npc2.name}: \"{extracted_rumor_core[:150]}...\""
+                    rumor_to_add = f'Overheard between {npc1.name} and {npc2.name}: "{extracted_rumor_core[:150]}..."'
                     if rumor_to_add not in self.game.overheard_rumors:
-                         self.game.overheard_rumors.append(rumor_to_add)
+                        self.game.overheard_rumors.append(rumor_to_add)
 
-                    self.game._print_color(f"\n{Colors.MAGENTA}(You overhear an intriguing snippet of gossip...){Colors.RESET}", Colors.MAGENTA)
+                    self.game._print_color(
+                        f"\n{Colors.MAGENTA}(You overhear an intriguing snippet of gossip...){Colors.RESET}",
+                        Colors.MAGENTA,
+                    )
                     if self.game.player_character:
-                        self.game.player_character.add_journal_entry("Gossip Overheard", extracted_rumor_core, self.game._get_current_game_time_period_str())
+                        self.game.player_character.add_journal_entry(
+                            "Gossip Overheard",
+                            extracted_rumor_core,
+                            self.game._get_current_game_time_period_str(),
+                        )
 
-                return True # Interaction happened (and was printed)
+                return True  # Interaction happened (and was printed)
             else:
                 # self.game._print_color(f"{Colors.MAGENTA}...but it trails off into indistinct murmurs.{Colors.RESET}", Colors.MAGENTA)
                 pass
