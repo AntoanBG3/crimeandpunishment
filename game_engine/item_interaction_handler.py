@@ -1,4 +1,5 @@
 import random
+from typing import Any
 from .game_config import (
     Colors,
     DEFAULT_ITEMS,
@@ -14,6 +15,17 @@ from .location_module import LOCATIONS_DATA
 
 
 class ItemInteractionHandler:
+    """Handle item and scenery inspection interactions for the active game session."""
+
+    # Attributes provided by the composing Game class.
+    player_character: Any = None
+    current_location_name: str | None = None
+    gemini_api: Any = None
+    low_ai_data_mode: bool = False
+    command_handler: Any = None
+    npcs_in_current_location: list[Any] = []
+    game_time: int = 0
+
     def _inspect_item(
         self,
         item_name,

@@ -1,0 +1,17 @@
+[MASTER]
+ignore=.git,__pycache__,.pytest_cache
+
+[MESSAGES CONTROL]
+disable=
+    C0114,
+    C0115,
+    C0116,
+    R0902,
+    R0912,
+    R0913,
+    R0914,
+    R0915,
+    W0212
+
+[FORMAT]
+max-line-length=100
