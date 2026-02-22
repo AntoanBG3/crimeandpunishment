@@ -179,7 +179,7 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler, EventMan
             "command_history": self.command_history[-self.max_command_history :],
         }
         try:
-            with open(save_file, "w") as f:
+            with open(save_file, "w", encoding="utf-8") as f:
                 json.dump(game_state_data, f, indent=4)
             if is_autosave:
                 self._print_color(f"Autosaved to {save_file}", Colors.DIM)
@@ -200,7 +200,7 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler, EventMan
             self._print_color(f"No save file found at {save_file}.", Colors.YELLOW)
             return False
         try:
-            with open(save_file, "r") as f:
+            with open(save_file, "r", encoding="utf-8") as f:
                 game_state_data = json.load(f)
             self.game_time = game_state_data.get("game_time", 0)
             self.current_day = game_state_data.get("current_day", 1)

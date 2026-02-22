@@ -219,7 +219,7 @@ class GeminiAPI:
     def load_api_key_from_file(self):
         try:
             if os.path.exists(API_CONFIG_FILE):
-                with open(API_CONFIG_FILE, "r") as f:
+                with open(API_CONFIG_FILE, "r", encoding="utf-8") as f:
                     config = json.load(f)
                     # Return just the key, model preference is handled separately now
                     return config.get("gemini_api_key")
@@ -230,7 +230,7 @@ class GeminiAPI:
     def save_api_key_to_file(self, api_key):
         try:
             # When saving, also save the currently chosen model name for persistence
-            with open(API_CONFIG_FILE, "w") as f:
+            with open(API_CONFIG_FILE, "w", encoding="utf-8") as f:
                 json.dump(
                     {
                         "gemini_api_key": api_key,
@@ -485,7 +485,7 @@ class GeminiAPI:
     def _handle_config_file_key(self):
         if os.path.exists(API_CONFIG_FILE):
             try:
-                with open(API_CONFIG_FILE, "r") as f:
+                with open(API_CONFIG_FILE, "r", encoding="utf-8") as f:
                     config = json.load(f)
                 key_to_try = config.get("gemini_api_key")
                 if not key_to_try:
