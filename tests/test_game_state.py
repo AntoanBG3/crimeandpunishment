@@ -41,7 +41,7 @@ class TestGameState(unittest.TestCase):
     def test_save_game(self, mock_json_dump, mock_open):
         self.game.save_game()
 
-        mock_open.assert_called_once_with("savegame.json", "w")
+        mock_open.assert_called_once_with("savegame.json", "w", encoding="utf-8")
 
         expected_save_data = {
             "player_character_name": "Test Player",
@@ -151,7 +151,7 @@ class TestGameState(unittest.TestCase):
     @patch("json.dump")
     def test_save_game_with_slot(self, mock_json_dump, mock_open_file):
         self.game.save_game("slot1")
-        mock_open_file.assert_called_once_with("savegame_slot1.json", "w")
+        mock_open_file.assert_called_once_with("savegame_slot1.json", "w", encoding="utf-8")
 
     @patch("os.path.exists", return_value=True)
     @patch("builtins.open", new_callable=mock_open, read_data="{}")
