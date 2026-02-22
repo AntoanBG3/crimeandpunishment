@@ -284,6 +284,15 @@ class CommandHandler:
                 use_on_match.group(3).strip(),
                 "use_on",
             )
+        persuade_match = re.match(
+            r"^(persuade|convince|argue with)\s+(.+?)\s+(?:that|to)\s+(.+)$", action
+        )
+        if persuade_match:
+            return "persuade", (
+                persuade_match.group(2).strip(),
+                persuade_match.group(3).strip(),
+            )
+
         matched_command = None
         best_match_length = 0
         parsed_arg = None
@@ -302,14 +311,6 @@ class CommandHandler:
         if matched_command:
             return matched_command, parsed_arg
         parts = action.split(" ", 1)
-        persuade_match = re.match(
-            r"^(persuade|convince|argue with)\s+(.+?)\s+(?:that|to)\s+(.+)$", action
-        )
-        if persuade_match:
-            return "persuade", (
-                persuade_match.group(2).strip(),
-                persuade_match.group(3).strip(),
-            )
         return parts[0], parts[1] if len(parts) > 1 else None
 
     def _get_player_input(self):
@@ -321,7 +322,7 @@ class CommandHandler:
         prompt_hint_objects = []
         hint_types_added = set()
         if (
-            hasattr(self, "numbered_actions_context")
+            hasattr(self.game_state, "numbered_actions_context")
             and self.game_state.numbered_actions_context
         ):
             if "talk" not in hint_types_added and len(prompt_hint_objects) < 2:
@@ -493,7 +494,7 @@ class CommandHandler:
             else (
                 f" (Hint: {Colors.DIM}type 'look' or 'help'{Colors.RESET})"
                 if not (
-                    hasattr(self, "numbered_actions_context")
+                    hasattr(self.game_state, "numbered_actions_context")
                     and self.game_state.numbered_actions_context
                 )
                 else ""

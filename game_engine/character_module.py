@@ -494,13 +494,23 @@ class Character:
         # Sort primarily by recency (descending), then by absolute sentiment impact (descending)
         sorted_memories = sorted(
             self.memory_about_player,
-            key=lambda m: (m.get("turn", 0), abs(m.get("sentiment_impact", 0))),
+            key=lambda m: (
+                m.get("turn", 0) if isinstance(m, dict) else 0,
+                abs(m.get("sentiment_impact", 0)) if isinstance(m, dict) else 0,
+            ),
             reverse=True,
         )
 
         summary_parts = []
         for mem in sorted_memories[:count]:
-            turn_ago = current_turn - mem.get("turn", current_turn)
+            if isinstance(mem, dict):
+                turn_ago = current_turn - mem.get("turn", current_turn)
+                mem_type = mem.get("type")
+                content = mem.get("content", {})
+            else:
+                turn_ago = 0
+                mem_type = None
+                content = mem
             recency_prefix = ""
             if turn_ago == 0:
                 recency_prefix = "Just now, "
@@ -512,8 +522,6 @@ class Character:
                 recency_prefix = "Some time ago, "
 
             content_str = "details unclear"
-            mem_type = mem.get("type")
-            content = mem.get("content", {})
 
             if mem_type == "received_item":
                 item_name = content.get("item_name", "an item")
