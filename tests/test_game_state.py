@@ -49,9 +49,7 @@ class TestGameState(unittest.TestCase):
             "visited_locations": [],
             "game_time": 100,
             "current_day": 1,
-            "all_character_objects_state": {
-                "Test Player": self.game.player_character.to_dict()
-            },
+            "all_character_objects_state": {"Test Player": self.game.player_character.to_dict()},
             "dynamic_location_items": {"start_location": []},
             "triggered_events": ["event1"],
             "last_significant_event_summary": "Something happened.",
@@ -82,9 +80,7 @@ class TestGameState(unittest.TestCase):
             "visited_locations": [],
             "game_time": 100,
             "current_day": 1,
-            "all_character_objects_state": {
-                "Test Player": self.game.player_character.to_dict()
-            },
+            "all_character_objects_state": {"Test Player": self.game.player_character.to_dict()},
             "dynamic_location_items": {"start_location": []},
             "triggered_events": ["event1"],
             "last_significant_event_summary": "Something happened.",
@@ -167,9 +163,7 @@ class TestGameState(unittest.TestCase):
             "visited_locations": [],
             "game_time": 100,
             "current_day": 1,
-            "all_character_objects_state": {
-                "Test Player": self.game.player_character.to_dict()
-            },
+            "all_character_objects_state": {"Test Player": self.game.player_character.to_dict()},
             "dynamic_location_items": {"start_location": []},
             "triggered_events": ["event1"],
             "last_significant_event_summary": "Something happened.",
@@ -228,27 +222,21 @@ class TestGameState(unittest.TestCase):
     def test_display_help_with_category(self):
         with patch.object(self.game, "_print_color") as mock_print:
             self.game.display_help("movement")
-        printed = "\n".join(
-            call.args[0] for call in mock_print.call_args_list if call.args
-        )
+        printed = "\n".join(call.args[0] for call in mock_print.call_args_list if call.args)
         self.assertIn("Category: movement", printed)
         self.assertIn("move to", printed)
 
     @patch("os.path.exists", return_value=True)
     @patch("builtins.open", new_callable=mock_open, read_data="{}")
     @patch("json.load")
-    def test_load_game_displays_recap(
-        self, mock_json_load, mock_open_file, mock_exists
-    ):
+    def test_load_game_displays_recap(self, mock_json_load, mock_open_file, mock_exists):
         mock_save_data = {
             "player_character_name": "Test Player",
             "current_location_name": "start_location",
             "visited_locations": [],
             "game_time": 100,
             "current_day": 1,
-            "all_character_objects_state": {
-                "Test Player": self.game.player_character.to_dict()
-            },
+            "all_character_objects_state": {"Test Player": self.game.player_character.to_dict()},
             "dynamic_location_items": {"start_location": []},
             "triggered_events": ["event1"],
             "last_significant_event_summary": "Something happened.",
@@ -312,14 +300,12 @@ class TestGameState(unittest.TestCase):
     def test_process_history_command(self):
         self.game.command_history = ["look", "inventory"]
         with patch.object(self.game, "_print_color") as mock_print:
-            action_taken, show_atmospherics, _, _ = (
-                self.game.command_handler._process_command("history", None)
+            action_taken, show_atmospherics, _, _ = self.game.command_handler._process_command(
+                "history", None
             )
         self.assertFalse(action_taken)
         self.assertFalse(show_atmospherics)
-        printed = "\n".join(
-            call.args[0] for call in mock_print.call_args_list if call.args
-        )
+        printed = "\n".join(call.args[0] for call in mock_print.call_args_list if call.args)
         self.assertIn("Recent Commands", printed)
 
     def test_theme_and_verbosity_commands(self):

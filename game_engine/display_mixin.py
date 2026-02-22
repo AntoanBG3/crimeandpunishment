@@ -67,9 +67,7 @@ class DisplayMixin:
         return ", ".join(tags) if tags else "common item"
 
     def _describe_npc_brief(self, npc_name):
-        npc = next(
-            (n for n in self.npcs_in_current_location if n.name == npc_name), None
-        )
+        npc = next((n for n in self.npcs_in_current_location if n.name == npc_name), None)
         if npc is None:
             return "person here"
         return f"appears {npc.apparent_state}"
@@ -116,9 +114,7 @@ class DisplayMixin:
         else:
             context = "none"
         talk_target = context["npcs"][0] if context.get("npcs") else "someone nearby"
-        move_target = (
-            context["exits"][0]["name"] if context.get("exits") else "an available exit"
-        )
+        move_target = context["exits"][0]["name"] if context.get("exits") else "an available exit"
         tutorial_lines = {
             1: "Tutorial 1/5: Start by using 'look' to survey this location.",
             2: f"Tutorial 2/5: Try 'talk to {talk_target}' to open a social path.",
@@ -169,9 +165,7 @@ class DisplayMixin:
     def display_objectives(self):
         self._print_color("\n--- Your Objectives ---", Colors.CYAN + Colors.BOLD)
         if not self.player_character or not self.player_character.objectives:
-            self._print_color(
-                "You have no specific objectives at the moment.", Colors.DIM
-            )
+            self._print_color("You have no specific objectives at the moment.", Colors.DIM)
             return
         active_objectives = [
             obj
@@ -179,24 +173,16 @@ class DisplayMixin:
             if obj.get("active", False) and not obj.get("completed", False)
         ]
         completed_objectives = [
-            obj
-            for obj in self.player_character.objectives
-            if obj.get("completed", False)
+            obj for obj in self.player_character.objectives if obj.get("completed", False)
         ]
         if not active_objectives and not completed_objectives:
-            self._print_color(
-                "You have no specific objectives at the moment.", Colors.DIM
-            )
+            self._print_color("You have no specific objectives at the moment.", Colors.DIM)
             return
         if active_objectives:
             self._print_color("\nOngoing:", Colors.YELLOW + Colors.BOLD)
             for obj in active_objectives:
-                self._print_color(
-                    f"- {obj.get('description', 'Unnamed objective')}", Colors.WHITE
-                )
-                current_stage = self.player_character.get_current_stage_for_objective(
-                    obj.get("id")
-                )
+                self._print_color(f"- {obj.get('description', 'Unnamed objective')}", Colors.WHITE)
+                current_stage = self.player_character.get_current_stage_for_objective(obj.get("id"))
                 if current_stage:
                     self._print_color(
                         f"  Current Stage: {current_stage.get('description', 'No stage description')}",
@@ -207,9 +193,7 @@ class DisplayMixin:
         if completed_objectives:
             self._print_color("\nCompleted:", Colors.GREEN + Colors.BOLD)
             for obj in completed_objectives:
-                self._print_color(
-                    f"- {obj.get('description', 'Unnamed objective')}", Colors.WHITE
-                )
+                self._print_color(f"- {obj.get('description', 'Unnamed objective')}", Colors.WHITE)
 
     def display_help(self, category=None):
         self._print_color("\n--- Available Actions ---", Colors.CYAN + Colors.BOLD)
@@ -294,9 +278,7 @@ class DisplayMixin:
         }
 
         normalized_category = (
-            category.strip().lower()
-            if isinstance(category, str) and category.strip()
-            else "all"
+            category.strip().lower() if isinstance(category, str) and category.strip() else "all"
         )
         if normalized_category == "all":
             actions = [item for group in action_groups.values() for item in group]
@@ -312,9 +294,7 @@ class DisplayMixin:
             actions = [item for group in action_groups.values() for item in group]
 
         for cmd, desc in actions:
-            self._print_color(
-                f"{cmd:<65} {Colors.WHITE}- {desc}{Colors.RESET}", Colors.MAGENTA
-            )
+            self._print_color(f"{cmd:<65} {Colors.WHITE}- {desc}{Colors.RESET}", Colors.MAGENTA)
         self._print_color("", Colors.RESET)
         self._print_color(
             "Tip: use 'help movement', 'help social', 'help items', or 'help meta'.",
@@ -328,9 +308,7 @@ class DisplayMixin:
 
         self._print_color("\n--- Session Recap ---", Colors.CYAN + Colors.BOLD)
         self._print_color(f"Location: {self.current_location_name}", Colors.WHITE)
-        self._print_color(
-            f"Time: {self._get_current_game_time_period_str()}", Colors.WHITE
-        )
+        self._print_color(f"Time: {self._get_current_game_time_period_str()}", Colors.WHITE)
 
         active_objective = None
         for objective in self.player_character.objectives:
@@ -349,9 +327,7 @@ class DisplayMixin:
         else:
             self._print_color("Objective: No active objective.", Colors.WHITE)
 
-        recent_events = (
-            self.key_events_occurred[-3:] if self.key_events_occurred else []
-        )
+        recent_events = self.key_events_occurred[-3:] if self.key_events_occurred else []
         if recent_events:
             self._print_color("Recent events:", Colors.WHITE)
             for event in recent_events:
@@ -370,9 +346,7 @@ class DisplayMixin:
         if relationship_entries:
             self._print_color("Relationship highlights:", Colors.WHITE)
             for _, character_name, relationship_text in relationship_entries[:3]:
-                self._print_color(
-                    f"- {character_name}: {relationship_text}", Colors.DIM
-                )
+                self._print_color(f"- {character_name}: {relationship_text}", Colors.DIM)
 
     def _display_turn_feedback(self, show_atmospherics_this_turn, command):
         if show_atmospherics_this_turn:
@@ -412,12 +386,8 @@ class DisplayMixin:
             f"Notoriety: {Colors.MAGENTA}{notoriety_desc} (Level {self.player_notoriety_level:.1f}){Colors.RESET}",
             Colors.WHITE,
         )
-        ai_mode = (
-            "Low AI / Fallback Friendly" if self.low_ai_data_mode else "AI Dynamic"
-        )
-        self._print_color(
-            f"Narrative Mode: {Colors.CYAN}{ai_mode}{Colors.RESET}", Colors.WHITE
-        )
+        ai_mode = "Low AI / Fallback Friendly" if self.low_ai_data_mode else "AI Dynamic"
+        self._print_color(f"Narrative Mode: {Colors.CYAN}{ai_mode}{Colors.RESET}", Colors.WHITE)
         self._print_color(f"Theme: {self.color_theme}", Colors.WHITE)
         self._print_color(f"Verbosity: {self.verbosity_level}", Colors.WHITE)
         self._print_color(
@@ -443,12 +413,8 @@ class DisplayMixin:
         ]
         if active_objectives:
             for obj in active_objectives:
-                self._print_color(
-                    f"- {obj.get('description', 'Unnamed objective')}", Colors.WHITE
-                )
-                current_stage = self.player_character.get_current_stage_for_objective(
-                    obj.get("id")
-                )
+                self._print_color(f"- {obj.get('description', 'Unnamed objective')}", Colors.WHITE)
+                current_stage = self.player_character.get_current_stage_for_objective(obj.get("id"))
                 if current_stage:
                     self._print_color(
                         f"  Current Stage: {current_stage.get('description', 'No stage description')}",
@@ -485,15 +451,11 @@ class DisplayMixin:
                 hasattr(char_obj, "relationship_with_player")
                 and char_obj.relationship_with_player != 0
             ):
-                relationship_text = self.get_relationship_text(
-                    char_obj.relationship_with_player
-                )
+                relationship_text = self.get_relationship_text(char_obj.relationship_with_player)
                 self._print_color(f"- {char_name}: {relationship_text}", Colors.WHITE)
                 meaningful_relationships = True
         if not meaningful_relationships:
-            self._print_color(
-                "No significant relationships established yet.", Colors.DIM
-            )
+            self._print_color("No significant relationships established yet.", Colors.DIM)
         self._print_color("", Colors.RESET)
 
     def _handle_inventory_command(self):
@@ -507,9 +469,7 @@ class DisplayMixin:
                 else:
                     items_list = items_str.split(", ")
                     for item_with_details in items_list:
-                        self._print_color(
-                            f"- {item_with_details.rstrip('.')}", Colors.GREEN
-                        )
+                        self._print_color(f"- {item_with_details.rstrip('.')}", Colors.GREEN)
                     if items_list:
                         self._print_color(
                             "(Hint: You can 'use [item]', 'read [item]', 'drop [item]', or 'give [item] to [person]'.)",

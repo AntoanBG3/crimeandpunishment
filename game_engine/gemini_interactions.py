@@ -68,12 +68,7 @@ class NaturalLanguageParser:
         inventory = current_context.get("inventory", [])
 
         exits_text = (
-            ", ".join(
-                [
-                    f"{exit_info['name']} ({exit_info['description']})"
-                    for exit_info in exits
-                ]
-            )
+            ", ".join([f"{exit_info['name']} ({exit_info['description']})" for exit_info in exits])
             if exits
             else "none"
         )
@@ -124,9 +119,7 @@ class NaturalLanguageParser:
             sys.stdout.write("\r" + " " * 60 + "\r")
             sys.stdout.flush()
 
-        raw_text = (
-            response.text.strip() if hasattr(response, "text") and response.text else ""
-        )
+        raw_text = response.text.strip() if hasattr(response, "text") and response.text else ""
         payload = self.gemini_api._extract_json_payload(raw_text)
         if not isinstance(payload, dict):
             return default_response
@@ -156,9 +149,7 @@ class GeminiAPI:
         self._print_color_func = lambda text, color, end="\n": print(
             f"{color}{text}{Colors.RESET}", end=end
         )
-        self._input_color_func = lambda prompt, color: input(
-            f"{color}{prompt}{Colors.RESET}"
-        )
+        self._input_color_func = lambda prompt, color: input(f"{color}{prompt}{Colors.RESET}")
 
     def _load_genai(self):
         if self.genai:
@@ -168,9 +159,7 @@ class GeminiAPI:
             self.genai = SimpleNamespace(
                 Client=lambda **kwargs: SimpleNamespace(
                     models=SimpleNamespace(
-                        generate_content=lambda *args, **kwargs: SimpleNamespace(
-                            text="test"
-                        )
+                        generate_content=lambda *args, **kwargs: SimpleNamespace(text="test")
                     )
                 )
             )
@@ -192,9 +181,7 @@ class GeminiAPI:
             self.client = client
             self.model_name = model_name
 
-        def generate_content(
-            self, prompt, generation_config=None, safety_settings=None
-        ):
+        def generate_content(self, prompt, generation_config=None, safety_settings=None):
             config = {}
             if generation_config:
                 if isinstance(generation_config, dict):
@@ -237,9 +224,7 @@ class GeminiAPI:
                     # Return just the key, model preference is handled separately now
                     return config.get("gemini_api_key")
         except Exception as e:
-            self._log_message(
-                f"Could not load API key from {API_CONFIG_FILE}: {e}", Colors.RED
-            )
+            self._log_message(f"Could not load API key from {API_CONFIG_FILE}: {e}", Colors.RED)
         return None
 
     def save_api_key_to_file(self, api_key):
@@ -258,9 +243,7 @@ class GeminiAPI:
                 Colors.MAGENTA,
             )
         except Exception as e:
-            self._log_message(
-                f"Could not save API key/model to {API_CONFIG_FILE}: {e}", Colors.RED
-            )
+            self._log_message(f"Could not save API key/model to {API_CONFIG_FILE}: {e}", Colors.RED)
 
     def _rename_invalid_config_file(self, config_file_path, suffix="invalid_key"):
         if os.path.exists(config_file_path):
@@ -272,9 +255,7 @@ class GeminiAPI:
                     Colors.YELLOW,
                 )
             except OSError as ose:
-                self._print_color_func(
-                    f"Could not rename {config_file_path}: {ose}", Colors.YELLOW
-                )
+                self._print_color_func(f"Could not rename {config_file_path}: {ose}", Colors.YELLOW)
 
     def _attempt_api_setup(self, api_key, source, model_to_use):
         if not api_key:
@@ -345,39 +326,34 @@ class GeminiAPI:
                     Colors.GREEN,
                 )
                 self.model = model_instance
-                self.chosen_model_name = (
-                    model_to_use  # Confirm the successfully validated model
-                )
+                self.chosen_model_name = model_to_use  # Confirm the successfully validated model
                 return True
+            feedback_text = "Unknown issue during verification."
+            if (
+                hasattr(test_response, "prompt_feedback")
+                and hasattr(test_response.prompt_feedback, "block_reason")
+                and test_response.prompt_feedback.block_reason
+            ):
+                feedback_text = f"Blocked due to: {test_response.prompt_feedback.block_reason}."
+            elif not hasattr(test_response, "text") or not test_response.text:
+                try:
+                    if test_response.candidates:
+                        finish_reason = test_response.candidates[0].finish_reason
+                        feedback_text = f"API key test call returned an empty or non-text response. Finish reason: {finish_reason}"
+                    else:
+                        feedback_text = "API key test call returned an empty or non-text response and no candidates."
+                except (AttributeError, IndexError):
+                    feedback_text = "API key test call returned an empty or non-text response."
             else:
-                feedback_text = "Unknown issue during verification."
-                if (
-                    hasattr(test_response, "prompt_feedback")
-                    and hasattr(test_response.prompt_feedback, "block_reason")
-                    and test_response.prompt_feedback.block_reason
-                ):
-                    feedback_text = (
-                        f"Blocked due to: {test_response.prompt_feedback.block_reason}."
-                    )
-                elif not hasattr(test_response, "text") or not test_response.text:
-                    try:
-                        if test_response.candidates:
-                            finish_reason = test_response.candidates[0].finish_reason
-                            feedback_text = f"API key test call returned an empty or non-text response. Finish reason: {finish_reason}"
-                        else:
-                            feedback_text = "API key test call returned an empty or non-text response and no candidates."
-                    except (AttributeError, IndexError):
-                        feedback_text = (
-                            "API key test call returned an empty or non-text response."
-                        )
-                else:
-                    feedback_text = f"API key test call returned unexpected text: '{test_response.text[:50]}...'"
-                self._print_color_func(
-                    f"API key verification with model '{model_to_use}' (key from {source}) failed: {feedback_text}",
-                    Colors.RED,
+                feedback_text = (
+                    f"API key test call returned unexpected text: '{test_response.text[:50]}...'"
                 )
-                self.model = None
-                return False
+            self._print_color_func(
+                f"API key verification with model '{model_to_use}' (key from {source}) failed: {feedback_text}",
+                Colors.RED,
+            )
+            self.model = None
+            return False
         except Exception as e_test:
             self._print_color_func(
                 f"Error during API key verification call (from {source}, model '{model_to_use}'): {e_test}",
@@ -414,9 +390,7 @@ class GeminiAPI:
     def _ask_for_model_selection(self):
         # DEFAULT_GEMINI_MODEL_NAME is defined at file level
 
-        self._print_color_func(
-            "\nPlease select which Gemini model to use:", Colors.CYAN
-        )
+        self._print_color_func("\nPlease select which Gemini model to use:", Colors.CYAN)
         models_map = {
             "1": {"name": "Gemini 3 Pro Preview", "id": "gemini-3-pro-preview"},
             "2": {"name": "Gemini 3 Flash Preview", "id": "gemini-3-flash-preview"},
@@ -431,9 +405,7 @@ class GeminiAPI:
             display_name_iter = model_info_iter["name"]
             if is_default:
                 # Remove existing "(Default)" then add it back to ensure only one is marked
-                display_name_iter = (
-                    display_name_iter.replace(" (Default)", "") + " (Default)"
-                )
+                display_name_iter = display_name_iter.replace(" (Default)", "") + " (Default)"
                 default_model_display_name = display_name_iter
             display_map_for_prompt[key] = {
                 "name": display_name_iter,
@@ -457,19 +429,16 @@ class GeminiAPI:
                     f"Using default model: {default_model_display_name}", Colors.YELLOW
                 )
                 return DEFAULT_GEMINI_MODEL_NAME
-            if (
-                choice in display_map_for_prompt
-            ):  # Check against keys of display_map_for_prompt
+            if choice in display_map_for_prompt:  # Check against keys of display_map_for_prompt
                 self._print_color_func(
                     f"You selected: {display_map_for_prompt[choice]['name']}",
                     Colors.GREEN,
                 )
                 return display_map_for_prompt[choice]["id"]
-            else:
-                self._print_color_func(
-                    f"Invalid choice. Please enter a number from the list (1-{len(display_map_for_prompt)}).",
-                    Colors.RED,
-                )
+            self._print_color_func(
+                f"Invalid choice. Please enter a number from the list (1-{len(display_map_for_prompt)}).",
+                Colors.RED,
+            )
 
     def _prompt_for_low_ai_mode(self):
         low_ai_choice_prompt = (
@@ -478,17 +447,13 @@ class GeminiAPI:
             "Recommended if you have limited API quota or prefer less AI processing.)\n"
             "Enter 'y' for yes, or 'n' for no (default is 'n'): "
         )
-        low_ai_input = (
-            self._input_color_func(low_ai_choice_prompt, Colors.YELLOW).strip().lower()
-        )
+        low_ai_input = self._input_color_func(low_ai_choice_prompt, Colors.YELLOW).strip().lower()
         low_ai_preference = low_ai_input == "y"
 
         if low_ai_preference:
             self._print_color_func("Low AI Data Mode will be ENABLED.", Colors.GREEN)
         else:
-            self._print_color_func(
-                "Low AI Data Mode will be DISABLED (default).", Colors.GREEN
-            )
+            self._print_color_func("Low AI Data Mode will be DISABLED (default).", Colors.GREEN)
         return low_ai_preference
 
     def _handle_env_key(self):
@@ -509,13 +474,12 @@ class GeminiAPI:
             ):
                 self._log_message("Non-interactive setup successful.", Colors.GREEN)
                 return {"api_configured": True, "low_ai_preference": False}
-            else:
-                self._log_message(
-                    "Non-interactive setup with environment variable failed. The game will run with placeholder responses.",
-                    Colors.RED,
-                )
-                self.model = None
-                return {"api_configured": False, "low_ai_preference": False}
+            self._log_message(
+                "Non-interactive setup with environment variable failed. The game will run with placeholder responses.",
+                Colors.RED,
+            )
+            self.model = None
+            return {"api_configured": False, "low_ai_preference": False}
         return None
 
     def _handle_config_file_key(self):
@@ -543,30 +507,25 @@ class GeminiAPI:
                 if not self._load_genai():
                     return {"api_configured": False, "low_ai_preference": False}
 
-                if self._attempt_api_setup(
-                    key_to_try, key_source, preferred_model_from_config
-                ):
+                if self._attempt_api_setup(key_to_try, key_source, preferred_model_from_config):
                     low_ai_pref = self._prompt_for_low_ai_mode()
                     if self.chosen_model_name != preferred_model_from_config:
                         self.save_api_key_to_file(key_to_try)
                     return {"api_configured": True, "low_ai_preference": low_ai_pref}
-                else:
-                    self._rename_invalid_config_file(
-                        API_CONFIG_FILE,
-                        f"failed_setup_with_{preferred_model_from_config.replace('/','_')}",
-                    )
-                    self._print_color_func(
-                        f"API key from {key_source} (with model '{preferred_model_from_config}') failed validation or setup.",
-                        Colors.YELLOW,
-                    )
+                self._rename_invalid_config_file(
+                    API_CONFIG_FILE,
+                    f"failed_setup_with_{preferred_model_from_config.replace('/','_')}",
+                )
+                self._print_color_func(
+                    f"API key from {key_source} (with model '{preferred_model_from_config}') failed validation or setup.",
+                    Colors.YELLOW,
+                )
             except Exception as e:
                 self._log_message(
                     f"Error processing config file {API_CONFIG_FILE}: {e}",
                     Colors.YELLOW,
                 )
-                self._rename_invalid_config_file(
-                    API_CONFIG_FILE, "initial_config_error"
-                )
+                self._rename_invalid_config_file(API_CONFIG_FILE, "initial_config_error")
         else:
             self._log_message(f"Config file '{API_CONFIG_FILE}' not found.", Colors.DIM)
         return None
@@ -624,16 +583,12 @@ class GeminiAPI:
                 Colors.RED,
             )
             retry_choice = (
-                self._input_color_func(
-                    "Try entering a different API key? (y/n): ", Colors.YELLOW
-                )
+                self._input_color_func("Try entering a different API key? (y/n): ", Colors.YELLOW)
                 .strip()
                 .lower()
             )
             if retry_choice != "y":
-                self._print_color_func(
-                    "\nProceeding with placeholder responses.", Colors.RED
-                )
+                self._print_color_func("\nProceeding with placeholder responses.", Colors.RED)
                 self.model = None
                 return {"api_configured": False, "low_ai_preference": False}
 
@@ -655,9 +610,7 @@ class GeminiAPI:
 
         return self._handle_manual_key_input()
 
-    def _generate_content_with_fallback(
-        self, prompt, error_message_context="generating content"
-    ):
+    def _generate_content_with_fallback(self, prompt, error_message_context="generating content"):
         if not self.model:
             return f"(OOC: Gemini API not configured or key invalid. Cannot fulfill request for {error_message_context}.)"
         spinner_stop = threading.Event()
@@ -686,9 +639,7 @@ class GeminiAPI:
                     "threshold": "BLOCK_MEDIUM_AND_ABOVE",
                 },
             ]
-            response = self.model.generate_content(
-                prompt, safety_settings=safety_settings
-            )
+            response = self.model.generate_content(prompt, safety_settings=safety_settings)
 
             if not hasattr(response, "text") or not response.text:
                 block_reason_str = ""
@@ -698,9 +649,7 @@ class GeminiAPI:
                     and hasattr(response.prompt_feedback, "block_reason")
                     and response.prompt_feedback.block_reason
                 ):
-                    block_reason_str = (
-                        f" (Reason: {response.prompt_feedback.block_reason})"
-                    )
+                    block_reason_str = f" (Reason: {response.prompt_feedback.block_reason})"
                 # Check for finish reason in candidates if text is empty
                 elif (
                     hasattr(response, "candidates")
@@ -722,9 +671,7 @@ class GeminiAPI:
                 if (
                     hasattr(response, "text")
                     and response.text
-                    and any(
-                        phrase in response.text.lower() for phrase in refusal_phrases
-                    )
+                    and any(phrase in response.text.lower() for phrase in refusal_phrases)
                 ):
                     self._log_message(
                         f"Warning: Gemini returned a refusal-like response for {error_message_context}.{block_reason_str} Prompt: {prompt[:200]}...",
@@ -754,12 +701,8 @@ class GeminiAPI:
                 return f"(OOC: My response was blocked: {block_reason})"
 
             if getattr(e, "grpc_status_code", None) == 7:
-                return (
-                    "(OOC: API key error - Permission Denied. My thoughts are muddled.)"
-                )
-            return (
-                f"(OOC: My thoughts are... muddled due to an error: {str(e)[:100]}...)"
-            )
+                return "(OOC: API key error - Permission Denied. My thoughts are muddled.)"
+            return f"(OOC: My thoughts are... muddled due to an error: {str(e)[:100]}...)"
         finally:
             spinner_stop.set()
             spinner_thread.join()
@@ -839,9 +782,7 @@ class GeminiAPI:
         else:
             allowed_stats = {"suspicion", "fear", "respect"}
             stat_changes = {
-                key: value
-                for key, value in stat_changes.items()
-                if key in allowed_stats
+                key: value for key, value in stat_changes.items() if key in allowed_stats
             }
 
         return {"response_text": response_text.strip(), "stat_changes": stat_changes}
@@ -866,9 +807,7 @@ class GeminiAPI:
         npc_objectives_summary="No specific objectives.",
         player_objectives_summary="No specific objectives.",
     ):
-        conversation_context = npc_character.get_formatted_history(
-            player_character.name
-        )
+        conversation_context = npc_character.get_formatted_history(player_character.name)
         situation_summary = (
             f"You, {npc_character.name} (current internal state/mood: '{npc_character.apparent_state}', pursuing: {npc_objectives_summary}), "
             f"are in {current_location_name} during the {current_time_period}. "
@@ -921,18 +860,12 @@ class GeminiAPI:
         response_payload = self.generate_npc_response(
             npc_profile, player_dialogue, npc_character.psychology
         )
-        ai_text = response_payload.get(
-            "response_text", "The character stares at you silently."
-        )
+        ai_text = response_payload.get("response_text", "The character stares at you silently.")
         npc_character.apply_psychology_changes(response_payload.get("stat_changes", {}))
 
         # Always add player's dialogue to history
-        npc_character.add_to_history(
-            player_character.name, player_character.name, player_dialogue
-        )
-        player_character.add_to_history(
-            npc_character.name, player_character.name, player_dialogue
-        )
+        npc_character.add_to_history(player_character.name, player_character.name, player_dialogue)
+        player_character.add_to_history(npc_character.name, player_character.name, player_dialogue)
 
         processed_ai_text = ai_text.replace('\\"', '"')
 
@@ -948,12 +881,8 @@ class GeminiAPI:
         if final_ai_text.startswith("(OOC:"):
             return final_ai_text
 
-        npc_character.add_to_history(
-            player_character.name, npc_character.name, final_ai_text
-        )
-        player_character.add_to_history(
-            npc_character.name, npc_character.name, final_ai_text
-        )
+        npc_character.add_to_history(player_character.name, npc_character.name, final_ai_text)
+        player_character.add_to_history(npc_character.name, npc_character.name, final_ai_text)
         return final_ai_text
 
     def get_player_reflection(
@@ -998,9 +927,7 @@ class GeminiAPI:
         if recent_event_summary:
             context += f"Recently, {recent_event_summary}. "
 
-        brevity_instruction = (
-            "Describe subtle, psychologically resonant detail (1-2 sentences)."
-        )
+        brevity_instruction = "Describe subtle, psychologically resonant detail (1-2 sentences)."
         if recently_visited:
             brevity_instruction = "Keep it extremely brief (1 short sentence), as the character was just here. Focus on a single fleeting detail."
 
@@ -1102,9 +1029,7 @@ class GeminiAPI:
         **Guidelines:** In-character, Dostoevskian, varied content, subtle re:notoriety, plausible, concise, output only rumor.
         Generate rumor from {npc_obj.name} now:
         """
-        return self._generate_content_with_fallback(
-            prompt, f"rumor from {npc_obj.name}"
-        )
+        return self._generate_content_with_fallback(prompt, f"rumor from {npc_obj.name}")
 
     def get_newspaper_article_snippet(
         self,
@@ -1157,9 +1082,7 @@ class GeminiAPI:
         **Guidelines:** Authentic voice, Dostoevskian flavor, convey info subtly, output only document text.
         Generate text for '{document_type}' now:
         """
-        return self._generate_content_with_fallback(
-            prompt, f"generated text for {document_type}"
-        )
+        return self._generate_content_with_fallback(prompt, f"generated text for {document_type}")
 
     def get_npc_dialogue_persuasion_attempt(
         self,
@@ -1177,9 +1100,7 @@ class GeminiAPI:
         player_objectives_summary,
         persuasion_skill_check_result_text,
     ):
-        conversation_context = npc_character.get_formatted_history(
-            player_character.name
-        )
+        conversation_context = npc_character.get_formatted_history(player_character.name)
         situation_summary = (
             f"You, {npc_character.name} (current internal state/mood: '{npc_character.apparent_state}', pursuing: {npc_objectives_summary}), "
             f"are in {current_location_name} during the {current_time_period}. "
@@ -1246,17 +1167,13 @@ class GeminiAPI:
                 player_character.name,
                 f"(Attempting to persuade) {player_persuasive_statement}",
             )
-            npc_character.add_to_history(
-                player_character.name, npc_character.name, ai_text
-            )
+            npc_character.add_to_history(player_character.name, npc_character.name, ai_text)
             player_character.add_to_history(
                 npc_character.name,
                 player_character.name,
                 f"(My persuasive attempt) {player_persuasive_statement}",
             )
-            player_character.add_to_history(
-                npc_character.name, npc_character.name, ai_text
-            )
+            player_character.add_to_history(npc_character.name, npc_character.name, ai_text)
         return ai_text
 
     def get_enhanced_observation(
@@ -1313,6 +1230,4 @@ class GeminiAPI:
         - Output only the 1-2 sentence description of the event.
         Generate the street life event description now:
         """
-        return self._generate_content_with_fallback(
-            prompt, f"street life event in {location_name}"
-        )
+        return self._generate_content_with_fallback(prompt, f"street life event in {location_name}")

@@ -1,3 +1,4 @@
+# pylint: disable=no-member
 import random
 from typing import Any
 from .game_config import (
@@ -25,6 +26,8 @@ class ItemInteractionHandler:
     command_handler: Any = None
     npcs_in_current_location: list[Any] = []
     game_time: int = 0
+    last_significant_event_summary: str | None = None
+    player_notoriety_level: float = 0.0
 
     def _inspect_item(
         self,
@@ -35,9 +38,7 @@ class ItemInteractionHandler:
         allow_npc_memory,
     ):
         if not self.player_character:
-            self._print_color(
-                "Cannot inspect item: Player character not available.", Colors.RED
-            )
+            self._print_color("Cannot inspect item: Player character not available.", Colors.RED)
             return
         player_character = self.player_character
         current_location_name = self.current_location_name or "Unknown Location"
@@ -52,7 +53,7 @@ class ItemInteractionHandler:
                 item_default,
                 action_context,
                 current_location_name,
-                self.get_current_time_period(),
+                self.world_manager.get_current_time_period(),
             )
 
         if (
@@ -70,9 +71,7 @@ class ItemInteractionHandler:
                 or gen_desc is None
                 or (isinstance(gen_desc, str) and gen_desc.startswith("(OOC:"))
             ):
-                gen_desc = generate_static_item_interaction_description(
-                    item_name, "examine"
-                )
+                gen_desc = generate_static_item_interaction_description(item_name, "examine")
                 self._print_color(f'"{self._apply_verbosity(gen_desc)}"', Colors.CYAN)
             else:
                 self._print_color(f"({base_desc_for_skill_check})", Colors.DIM)
@@ -142,9 +141,7 @@ class ItemInteractionHandler:
             )
             return True
         player_character = self.player_character
-        item_info, ambiguous = self.command_handler._get_matching_location_item(
-            target_to_look_at
-        )
+        item_info, ambiguous = self.command_handler._get_matching_location_item(target_to_look_at)
         if ambiguous:
             return True
         if item_info:
@@ -167,8 +164,8 @@ class ItemInteractionHandler:
 
     def _handle_look_at_inventory_item(self, target_to_look_at):
         if self.player_character:
-            inv_item_info, ambiguous = (
-                self.command_handler._get_matching_inventory_item(target_to_look_at)
+            inv_item_info, ambiguous = self.command_handler._get_matching_inventory_item(
+                target_to_look_at
             )
             if ambiguous:
                 return True
@@ -192,9 +189,7 @@ class ItemInteractionHandler:
 
     def _handle_look_at_npc(self, target_to_look_at):
         if not self.player_character:
-            self._print_color(
-                "Cannot inspect people: Player character not available.", Colors.RED
-            )
+            self._print_color("Cannot inspect people: Player character not available.", Colors.RED)
             return True
         player_character = self.player_character
         current_location_name = self.current_location_name or "Unknown Location"
@@ -216,7 +211,7 @@ class ItemInteractionHandler:
                 observation = self.gemini_api.get_player_reflection(
                     player_character,
                     current_location_name,
-                    self.get_current_time_period(),
+                    self.world_manager.get_current_time_period(),
                     observation_prompt,
                     player_character.get_inventory_description(),
                     self._get_objectives_summary(player_character),
@@ -224,9 +219,7 @@ class ItemInteractionHandler:
 
             if (
                 observation is not None
-                and not (
-                    isinstance(observation, str) and observation.startswith("(OOC:")
-                )
+                and not (isinstance(observation, str) and observation.startswith("(OOC:"))
                 and not self.low_ai_data_mode
             ):
                 final_observation = self._apply_verbosity(observation)
@@ -237,17 +230,17 @@ class ItemInteractionHandler:
                 if (
                     self.low_ai_data_mode
                     or observation is None
-                    or (
-                        isinstance(observation, str) and observation.startswith("(OOC:")
-                    )
+                    or (isinstance(observation, str) and observation.startswith("(OOC:"))
                 ):
                     if STATIC_PLAYER_REFLECTIONS:
-                        observation = f"{npc.name} is here. {random.choice(STATIC_PLAYER_REFLECTIONS)}"
+                        observation = (
+                            f"{npc.name} is here. {random.choice(STATIC_PLAYER_REFLECTIONS)}"
+                        )
                     else:
-                        observation = f"You observe {npc.name}. They seem to be going about their business."
-                    self._print_color(
-                        f'"{self._apply_verbosity(observation)}"', Colors.CYAN
-                    )
+                        observation = (
+                            f"You observe {npc.name}. They seem to be going about their business."
+                        )
+                    self._print_color(f'"{self._apply_verbosity(observation)}"', Colors.CYAN)
                 else:
                     self._print_color(f"({base_desc_for_skill_check})", Colors.DIM)
 
@@ -281,11 +274,11 @@ class ItemInteractionHandler:
                     or self.low_ai_data_mode
                 ):
                     if STATIC_ENHANCED_OBSERVATIONS:
-                        detailed_observation = random.choice(
-                            STATIC_ENHANCED_OBSERVATIONS
-                        )
+                        detailed_observation = random.choice(STATIC_ENHANCED_OBSERVATIONS)
                     else:
-                        detailed_observation = "You notice some subtle cues, but their full meaning eludes you."
+                        detailed_observation = (
+                            "You notice some subtle cues, but their full meaning eludes you."
+                        )
                     if detailed_observation:
                         self._print_color(
                             f'Insight: "{self._apply_verbosity(detailed_observation)}"',
@@ -300,9 +293,7 @@ class ItemInteractionHandler:
 
     def _handle_look_at_scenery(self, target_to_look_at):
         if not self.player_character:
-            self._print_color(
-                "Cannot inspect scenery: Player character not available.", Colors.RED
-            )
+            self._print_color("Cannot inspect scenery: Player character not available.", Colors.RED)
             return True
         player_character = self.player_character
         current_location_name = self.current_location_name or "Unknown Location"
@@ -322,15 +313,13 @@ class ItemInteractionHandler:
                     player_character,
                     target_to_look_at,
                     current_location_name,
-                    self.get_current_time_period(),
+                    self.world_manager.get_current_time_period(),
                     self._get_objectives_summary(player_character),
                 )
 
             if (
                 observation is not None
-                and not (
-                    isinstance(observation, str) and observation.startswith("(OOC:")
-                )
+                and not (isinstance(observation, str) and observation.startswith("(OOC:"))
                 and not self.low_ai_data_mode
             ):
                 # AI success
@@ -343,9 +332,7 @@ class ItemInteractionHandler:
                 if (
                     self.low_ai_data_mode
                     or observation is None
-                    or (
-                        isinstance(observation, str) and observation.startswith("(OOC:")
-                    )
+                    or (isinstance(observation, str) and observation.startswith("(OOC:"))
                 ):
                     observation = generate_static_scenery_observation(target_to_look_at)
                     # base_desc_for_skill_check remains the initial general one
@@ -353,14 +340,10 @@ class ItemInteractionHandler:
                         f'"{self._apply_verbosity(observation)}"', Colors.DIM
                     )  # Static in DIM
                 else:  # Should not be reached
-                    self._print_color(
-                        f"The {target_to_look_at} is just as it seems.", Colors.DIM
-                    )
+                    self._print_color(f"The {target_to_look_at} is just as it seems.", Colors.DIM)
 
             if player_character.check_skill("Observation", 0):
-                self._print_color(
-                    "(You scan the area more intently...)", Colors.CYAN + Colors.DIM
-                )
+                self._print_color("(You scan the area more intently...)", Colors.CYAN + Colors.DIM)
                 observation_context = f"Player ({player_character.name}) passed an Observation check while looking at '{target_to_look_at}' in {current_location_name}. What specific, easily missed detail about '{target_to_look_at}' or its immediate surroundings catches their eye, perhaps hinting at a past event, a hidden element, or the general atmosphere in a more profound way?"
                 detailed_observation = None
                 if not self.low_ai_data_mode and self.gemini_api.model:
@@ -381,11 +364,11 @@ class ItemInteractionHandler:
                     or self.low_ai_data_mode
                 ):
                     if STATIC_ENHANCED_OBSERVATIONS:
-                        detailed_observation = random.choice(
-                            STATIC_ENHANCED_OBSERVATIONS
-                        )
+                        detailed_observation = random.choice(STATIC_ENHANCED_OBSERVATIONS)
                     else:
-                        detailed_observation = "The scene offers no further secrets to your gaze."  # Ultimate fallback
+                        detailed_observation = (
+                            "The scene offers no further secrets to your gaze."  # Ultimate fallback
+                        )
                     if detailed_observation:  # Check if not None
                         self._print_color(
                             f'You also notice: "{self._apply_verbosity(detailed_observation)}"',
@@ -393,9 +376,7 @@ class ItemInteractionHandler:
                         )  # Static in Cyan
                 elif detailed_observation:  # AI success
                     final_detail = self._apply_verbosity(detailed_observation)
-                    self._print_color(
-                        f'You also notice: "{final_detail}"', Colors.GREEN
-                    )
+                    self._print_color(f'You also notice: "{final_detail}"', Colors.GREEN)
                     self._remember_ai_output(final_detail, "look_scenery_detail")
                 # If still None, nothing printed.
             return True
@@ -406,9 +387,7 @@ class ItemInteractionHandler:
         action_number = 1
         current_location_data = LOCATIONS_DATA.get(self.current_location_name)
         is_general_look = argument is None or argument.lower() in ["around", ""]
-        self.world_manager.update_current_location_details(
-            from_explicit_look_cmd=is_general_look
-        )
+        self.world_manager.update_current_location_details(from_explicit_look_cmd=is_general_look)
 
         if argument and not is_general_look:
             target_to_look_at = argument.lower()
@@ -457,17 +436,13 @@ class ItemInteractionHandler:
                             "display": talk_to_npc_display,
                         }
                     )
-                    self._print_color(
-                        f"{action_number}. {talk_to_npc_display}", Colors.YELLOW
-                    )
+                    self._print_color(f"{action_number}. {talk_to_npc_display}", Colors.YELLOW)
                     action_number += 1
             else:
                 self._print_color("You see no one else of note here.", Colors.DIM)
             self._print_color("", Colors.RESET)
             self._print_color("--- Items Here ---", Colors.YELLOW + Colors.BOLD)
-            current_loc_items = self.dynamic_location_items.get(
-                self.current_location_name, []
-            )
+            current_loc_items = self.dynamic_location_items.get(self.current_location_name, [])
             items_present_for_hint = False
             if current_loc_items:
                 for item_info in current_loc_items:
@@ -475,9 +450,7 @@ class ItemInteractionHandler:
                     item_qty = item_info.get("quantity", 1)
                     item_default_info = DEFAULT_ITEMS.get(item_name, {})
 
-                    full_description = item_default_info.get(
-                        "description", "An undescribed item."
-                    )
+                    full_description = item_default_info.get("description", "An undescribed item.")
 
                     qty_str = ""
                     if (
@@ -487,9 +460,7 @@ class ItemInteractionHandler:
                         qty_str = f" (x{item_qty})"
 
                     item_display_line = f"{item_name}{qty_str} - {full_description}"
-                    self._print_color(
-                        f"{action_number}. {item_display_line}", Colors.GREEN
-                    )
+                    self._print_color(f"{action_number}. {item_display_line}", Colors.GREEN)
 
                     self.numbered_actions_context.append(
                         {
@@ -506,9 +477,7 @@ class ItemInteractionHandler:
             self._print_color("--- Exits ---", Colors.BLUE + Colors.BOLD)
             has_accessible_exits = False
             if current_location_data and current_location_data.get("exits"):
-                for exit_target_loc, exit_desc in current_location_data[
-                    "exits"
-                ].items():
+                for exit_target_loc, exit_desc in current_location_data["exits"].items():
                     display_text = f"{exit_desc} (to {exit_target_loc})"
                     self.numbered_actions_context.append(
                         {
@@ -540,9 +509,7 @@ class ItemInteractionHandler:
             self._print_color("What do you want to take?", Colors.RED)
             return False, False
         if not self.player_character:
-            self._print_color(
-                "Cannot take items: Player character not available.", Colors.RED
-            )
+            self._print_color("Cannot take items: Player character not available.", Colors.RED)
             return False, False
         item_to_take_name = argument.lower()
         location_items = self.dynamic_location_items.get(self.current_location_name, [])
@@ -588,9 +555,7 @@ class ItemInteractionHandler:
                         + ".",
                         Colors.GREEN,
                     )
-                    self.last_significant_event_summary = (
-                        f"took the {item_found_in_loc['name']}."
-                    )
+                    self.last_significant_event_summary = f"took the {item_found_in_loc['name']}."
                     if item_default_props.get("is_notable"):
                         self.player_character.apparent_state = random.choice(
                             ["thoughtful", "burdened"]
@@ -630,63 +595,53 @@ class ItemInteractionHandler:
                             f"(Hint: You can now 'read {taken_item_name}'.)", Colors.DIM
                         )
                     elif (
-                        taken_item_props.get("use_effect_player")
-                        and taken_item_name != "worn coin"
+                        taken_item_props.get("use_effect_player") and taken_item_name != "worn coin"
                     ):
                         self._print_color(
                             f"(Hint: You can try to 'use {taken_item_name}'.)",
                             Colors.DIM,
                         )
                     return True, False
-                else:
-                    # Check if the failure was due to trying to take a non-stackable item already possessed
-                    item_name_failed_to_add = item_found_in_loc["name"]
-                    item_props_failed = DEFAULT_ITEMS.get(item_name_failed_to_add, {})
-                    is_non_stackable_unique = (
-                        not item_props_failed.get("stackable", False)
-                        and item_props_failed.get("value") is None
-                    )
-
-                    if is_non_stackable_unique and self.player_character.has_item(
-                        item_name_failed_to_add
-                    ):
-                        self._print_color(
-                            f"You cannot carry another '{item_name_failed_to_add}'.",
-                            Colors.YELLOW,
-                        )
-                    else:
-                        # Generic failure message if not the specific non-stackable case
-                        self._print_color(
-                            f"Failed to add {item_name_failed_to_add} to inventory.",
-                            Colors.RED,
-                        )
-                    return (
-                        False,
-                        False,
-                    )  # Action was attempted (hence True for show_atmospherics) but failed
-            else:
-                self._print_color(
-                    f"You can't take the {item_found_in_loc['name']}.", Colors.YELLOW
+                # Check if the failure was due to trying to take a non-stackable item already possessed
+                item_name_failed_to_add = item_found_in_loc["name"]
+                item_props_failed = DEFAULT_ITEMS.get(item_name_failed_to_add, {})
+                is_non_stackable_unique = (
+                    not item_props_failed.get("stackable", False)
+                    and item_props_failed.get("value") is None
                 )
-                return False, False
-        else:
-            self._print_color(
-                f"You don't see any '{item_to_take_name}' here to take.", Colors.RED
-            )
+
+                if is_non_stackable_unique and self.player_character.has_item(
+                    item_name_failed_to_add
+                ):
+                    self._print_color(
+                        f"You cannot carry another '{item_name_failed_to_add}'.",
+                        Colors.YELLOW,
+                    )
+                else:
+                    # Generic failure message if not the specific non-stackable case
+                    self._print_color(
+                        f"Failed to add {item_name_failed_to_add} to inventory.",
+                        Colors.RED,
+                    )
+                return (
+                    False,
+                    False,
+                )  # Action was attempted (hence True for show_atmospherics) but failed
+            self._print_color(f"You can't take the {item_found_in_loc['name']}.", Colors.YELLOW)
             return False, False
+        self._print_color(f"You don't see any '{item_to_take_name}' here to take.", Colors.RED)
+        return False, False
 
     def _handle_drop_command(self, argument):
         if not argument:
             self._print_color("What do you want to drop?", Colors.RED)
             return False, False
         if not self.player_character:
-            self._print_color(
-                "Cannot drop items: Player character not available.", Colors.RED
-            )
+            self._print_color("Cannot drop items: Player character not available.", Colors.RED)
             return False, False
         item_to_drop_name_input = argument.lower()
-        item_in_inventory_obj, ambiguous = (
-            self.command_handler._get_matching_inventory_item(item_to_drop_name_input)
+        item_in_inventory_obj, ambiguous = self.command_handler._get_matching_inventory_item(
+            item_to_drop_name_input
         )
         if ambiguous:
             return False, False
@@ -694,9 +649,7 @@ class ItemInteractionHandler:
             item_name_to_drop = item_in_inventory_obj["name"]
             item_default_props = DEFAULT_ITEMS.get(item_name_to_drop, {})
             drop_quantity = 1
-            if self.player_character.remove_from_inventory(
-                item_name_to_drop, drop_quantity
-            ):
+            if self.player_character.remove_from_inventory(item_name_to_drop, drop_quantity):
                 location_items = self.dynamic_location_items.setdefault(
                     self.current_location_name, []
                 )
@@ -713,13 +666,9 @@ class ItemInteractionHandler:
                         existing_loc_item.get("quantity", 0) + drop_quantity
                     )
                 else:
-                    location_items.append(
-                        {"name": item_name_to_drop, "quantity": drop_quantity}
-                    )
+                    location_items.append({"name": item_name_to_drop, "quantity": drop_quantity})
                 self._print_color(f"You drop the {item_name_to_drop}.", Colors.GREEN)
-                self.last_significant_event_summary = (
-                    f"dropped the {item_name_to_drop}."
-                )
+                self.last_significant_event_summary = f"dropped the {item_name_to_drop}."
                 for npc in self.npcs_in_current_location:
                     if npc.name != self.player_character.name:
                         npc.add_player_memory(
@@ -734,40 +683,29 @@ class ItemInteractionHandler:
                             sentiment_impact=0,
                         )
                 return True, False
-            else:
-                self._print_color(
-                    f"You try to drop {item_name_to_drop}, but something is wrong.",
-                    Colors.RED,
-                )
-                return False, False
-        else:
             self._print_color(
-                f"You don't have '{item_to_drop_name_input}' to drop.", Colors.RED
+                f"You try to drop {item_name_to_drop}, but something is wrong.",
+                Colors.RED,
             )
             return False, False
+        self._print_color(f"You don't have '{item_to_drop_name_input}' to drop.", Colors.RED)
+        return False, False
 
     def _handle_use_command(self, argument):
         if not self.player_character:
-            self._print_color(
-                "Cannot use items: Player character not available.", Colors.RED
-            )
+            self._print_color("Cannot use items: Player character not available.", Colors.RED)
             return False
         if isinstance(argument, tuple):
             item_name_input, target_name_input, interaction_mode = argument
-            return self.handle_use_item(
-                item_name_input, target_name_input, interaction_mode
-            )
-        elif argument:
+            return self.handle_use_item(item_name_input, target_name_input, interaction_mode)
+        if argument:
             return self.handle_use_item(argument, None, "use_self_implicit")
-        else:
-            self._print_color("What do you want to use or read?", Colors.RED)
-            return False
+        self._print_color("What do you want to use or read?", Colors.RED)
+        return False
 
     def _handle_read_item(self, item_to_use_name, item_props, item_obj_in_inventory):
         if not self.player_character:
-            self._print_color(
-                "Cannot read items: Player character not available.", Colors.RED
-            )
+            self._print_color("Cannot read items: Player character not available.", Colors.RED)
             return False
         player_character = self.player_character
         current_location_name = self.current_location_name or "Unknown Location"
@@ -791,16 +729,15 @@ class ItemInteractionHandler:
 
             if (
                 article_snippet is None
-                or (
-                    isinstance(article_snippet, str)
-                    and article_snippet.startswith("(OOC:")
-                )
+                or (isinstance(article_snippet, str) and article_snippet.startswith("(OOC:"))
                 or self.low_ai_data_mode
             ):
                 if STATIC_NEWSPAPER_SNIPPETS:
                     article_snippet = random.choice(STATIC_NEWSPAPER_SNIPPETS)
                 else:
-                    article_snippet = "The newsprint is smudged and uninteresting."  # Ultimate fallback
+                    article_snippet = (
+                        "The newsprint is smudged and uninteresting."  # Ultimate fallback
+                    )
 
                 if article_snippet:  # Make sure we have something to print/log
                     article_snippet = self._apply_verbosity(article_snippet)
@@ -842,19 +779,15 @@ class ItemInteractionHandler:
                         player_character.add_player_memory(
                             memory_type="read_news_crime",
                             turn=self.game_time,
-                            content={
-                                "summary": "Read unsettling news about the recent crime."
-                            },
+                            content={"summary": "Read unsettling news about the recent crime."},
                             sentiment_impact=0,
                         )
-                        self.player_notoriety_level = min(
-                            self.player_notoriety_level + 0.1, 3
-                        )
+                        self.player_notoriety_level = min(self.player_notoriety_level + 0.1, 3)
                 self.last_significant_event_summary = f"read an {item_to_use_name}."
                 if ai_generated:
                     self._remember_ai_output(article_snippet, "news_article")
             return True
-        elif item_to_use_name == "mother's letter":
+        if item_to_use_name == "mother's letter":
             self._print_color(
                 "You re-read your mother's letter. Her words of love and anxiety, Dunya's predicament... it all weighs heavily on you.",
                 Colors.YELLOW,
@@ -886,9 +819,7 @@ class ItemInteractionHandler:
                 self._print_color(f'"{reflection}"', Colors.CYAN)
                 self._remember_ai_output(reflection, "read_letter")
 
-            player_character.apparent_state = random.choice(
-                ["burdened", "agitated", "resolved"]
-            )
+            player_character.apparent_state = random.choice(["burdened", "agitated", "resolved"])
             if player_character.name == "Rodion Raskolnikov":
                 player_character.add_player_memory(
                     memory_type="reread_mother_letter",
@@ -900,18 +831,20 @@ class ItemInteractionHandler:
                 )
             self.last_significant_event_summary = f"re-read the {item_to_use_name}."
             return True
-        elif item_to_use_name == "sonya's new testament":
+        if item_to_use_name == "sonya's new testament":
             self._print_color(
                 f"You open {item_to_use_name}. The familiar words of the Gospels seem to both accuse and offer a sliver of hope.",
                 Colors.GREEN,
             )
             reflection = None
-            prompt_context = f"reading from {item_to_use_name}, pondering Lazarus, guilt, and salvation"
+            prompt_context = (
+                f"reading from {item_to_use_name}, pondering Lazarus, guilt, and salvation"
+            )
             if not self.low_ai_data_mode and self.gemini_api.model:
                 reflection = self.gemini_api.get_player_reflection(
                     player_character,
                     current_location_name,
-                    self.get_current_time_period(),
+                    self.world_manager.get_current_time_period(),
                     prompt_context,
                 )
 
@@ -923,7 +856,9 @@ class ItemInteractionHandler:
                 if STATIC_PLAYER_REFLECTIONS:
                     reflection = random.choice(STATIC_PLAYER_REFLECTIONS)
                 else:
-                    reflection = "The words offer a strange mix of judgment and hope."  # Ultimate fallback
+                    reflection = (
+                        "The words offer a strange mix of judgment and hope."  # Ultimate fallback
+                    )
                 self._print_color(
                     f'"{self._apply_verbosity(reflection)}"', Colors.DIM
                 )  # Static reflection in DIM
@@ -946,12 +881,10 @@ class ItemInteractionHandler:
                 )
             self.last_significant_event_summary = f"read from {item_to_use_name}."
             return True
-        elif item_to_use_name == "anonymous note":
+        if item_to_use_name == "anonymous note":
             if item_obj_in_inventory and "generated_content" in item_obj_in_inventory:
                 self._print_color(f"You read the {item_to_use_name}:", Colors.WHITE)
-                self._print_color(
-                    f"\"{item_obj_in_inventory['generated_content']}\"", Colors.CYAN
-                )
+                self._print_color(f"\"{item_obj_in_inventory['generated_content']}\"", Colors.CYAN)
                 player_character.add_journal_entry(
                     "Note",
                     item_obj_in_inventory["generated_content"],
@@ -964,13 +897,12 @@ class ItemInteractionHandler:
                 ):
                     player_character.apparent_state = "paranoid"
                 return True
-            else:
-                self._print_color(
-                    f"The {item_to_use_name} seems to be blank or unreadable.",
-                    Colors.RED,
-                )
-                return False
-        elif item_to_use_name == "IOU Slip":
+            self._print_color(
+                f"The {item_to_use_name} seems to be blank or unreadable.",
+                Colors.RED,
+            )
+            return False
+        if item_to_use_name == "IOU Slip":
             if item_obj_in_inventory and item_obj_in_inventory.get("content"):
                 self._print_color(
                     f"You examine the {item_to_use_name}: \"{item_obj_in_inventory['content']}\"",
@@ -983,7 +915,7 @@ class ItemInteractionHandler:
                 )
             self.last_significant_event_summary = f"read an {item_to_use_name}."
             return True
-        elif item_to_use_name == "Student's Dog-eared Book":
+        if item_to_use_name == "Student's Dog-eared Book":
             book_reflection = None
             if not self.low_ai_data_mode and self.gemini_api.model:
                 book_reflection = self.gemini_api.get_item_interaction_description(
@@ -992,15 +924,12 @@ class ItemInteractionHandler:
                     item_props,
                     "read",
                     current_location_name,
-                    self.get_current_time_period(),
+                    self.world_manager.get_current_time_period(),
                 )
 
             if (
                 book_reflection is None
-                or (
-                    isinstance(book_reflection, str)
-                    and book_reflection.startswith("(OOC:")
-                )
+                or (isinstance(book_reflection, str) and book_reflection.startswith("(OOC:"))
                 or self.low_ai_data_mode
             ):
                 book_reflection = generate_static_item_interaction_description(
@@ -1025,43 +954,32 @@ class ItemInteractionHandler:
                 item_props,
                 "read",
                 current_location_name,
-                self.get_current_time_period(),
+                self.world_manager.get_current_time_period(),
             )
 
         if (
             read_reflection is None
-            or (
-                isinstance(read_reflection, str) and read_reflection.startswith("(OOC:")
-            )
+            or (isinstance(read_reflection, str) and read_reflection.startswith("(OOC:"))
             or self.low_ai_data_mode
         ):
-            read_reflection = generate_static_item_interaction_description(
-                item_to_use_name, "read"
-            )
+            read_reflection = generate_static_item_interaction_description(item_to_use_name, "read")
             self._print_color(
                 f"You read the {item_to_use_name}. {read_reflection}", Colors.CYAN
             )  # Static in Cyan
         else:  # AI success
-            self._print_color(
-                f"You read the {item_to_use_name}. {read_reflection}", Colors.YELLOW
-            )
+            self._print_color(f"You read the {item_to_use_name}. {read_reflection}", Colors.YELLOW)
 
         self.last_significant_event_summary = f"read the {item_to_use_name}."
         return True
 
     def _handle_self_use_item(self, item_to_use_name, item_props, effect_key):
         if not self.player_character:
-            self._print_color(
-                "Cannot use items: Player character not available.", Colors.RED
-            )
+            self._print_color("Cannot use items: Player character not available.", Colors.RED)
             return False
         player_character = self.player_character
         current_location_name = self.current_location_name or "Unknown Location"
         used_successfully = False
-        if (
-            effect_key == "comfort_self_if_ill"
-            and item_to_use_name == "tattered handkerchief"
-        ):
+        if effect_key == "comfort_self_if_ill" and item_to_use_name == "tattered handkerchief":
             if player_character.apparent_state in [
                 "feverish",
                 "coughing",
@@ -1072,10 +990,7 @@ class ItemInteractionHandler:
                     f"You press the {item_to_use_name} to your brow. It offers little physical comfort, but it's something to cling to.",
                     Colors.YELLOW,
                 )
-                if (
-                    player_character.apparent_state == "feverish"
-                    and random.random() < 0.2
-                ):
+                if player_character.apparent_state == "feverish" and random.random() < 0.2:
                     player_character.apparent_state = "less feverish"
                     self._print_color(
                         "The coolness, imagined or real, seems to lessen the fever's grip for a moment.",
@@ -1090,10 +1005,7 @@ class ItemInteractionHandler:
                     f"You look at the {item_to_use_name}. It seems rather pointless to use it now.",
                     Colors.YELLOW,
                 )
-        elif (
-            effect_key == "examine_bottle_for_residue"
-            and item_to_use_name == "dusty bottle"
-        ):
+        elif effect_key == "examine_bottle_for_residue" and item_to_use_name == "dusty bottle":
             self._print_color(
                 f"You peer into the {item_to_use_name}. A faint, stale smell of cheap spirits lingers. It's long empty.",
                 Colors.YELLOW,
@@ -1112,9 +1024,7 @@ class ItemInteractionHandler:
                 player_character.apparent_state = random.choice(
                     ["dangerously agitated", "remorseful", "paranoid"]
                 )
-                self.last_significant_event_summary = (
-                    "held the axe, tormented by memories."
-                )
+                self.last_significant_event_summary = "held the axe, tormented by memories."
                 used_successfully = True
             else:
                 self._print_color(
@@ -1142,7 +1052,7 @@ class ItemInteractionHandler:
                     reflection = self.gemini_api.get_player_reflection(
                         player_character,
                         current_location_name,
-                        self.get_current_time_period(),
+                        self.world_manager.get_current_time_period(),
                         "Holding Sonya's cross, new thoughts about suffering and sacrifice surface.",
                     )
                 if (
@@ -1153,9 +1063,7 @@ class ItemInteractionHandler:
                     if STATIC_PLAYER_REFLECTIONS:
                         reflection = random.choice(STATIC_PLAYER_REFLECTIONS)
                     else:
-                        reflection = (
-                            "The cross feels warm in your hand, a quiet comfort."
-                        )
+                        reflection = "The cross feels warm in your hand, a quiet comfort."
                     self._print_color(f'"{reflection}"', Colors.CYAN)
                     used_successfully = True
             else:
@@ -1183,14 +1091,9 @@ class ItemInteractionHandler:
                     sentiment_impact=-1,
                 )
                 self.player_notoriety_level = min(self.player_notoriety_level + 0.5, 3)
-            self.last_significant_event_summary = (
-                f"was deeply disturbed by a {item_to_use_name}."
-            )
+            self.last_significant_event_summary = f"was deeply disturbed by a {item_to_use_name}."
             used_successfully = True
-        elif (
-            effect_key == "drink_vodka_for_oblivion"
-            and item_to_use_name == "cheap vodka"
-        ):
+        elif effect_key == "drink_vodka_for_oblivion" and item_to_use_name == "cheap vodka":
             original_state_feverish = player_character.apparent_state == "feverish"
             self._print_color(
                 "You take a long swig of the harsh vodka. It burns on the way down, offering a brief, false warmth and a dulling of the senses.",
@@ -1207,9 +1110,7 @@ class ItemInteractionHandler:
                     "Odd, the bottle seems to have vanished before you could drink it all.",
                     Colors.DIM,
                 )
-            self.last_significant_event_summary = (
-                "drank some cheap vodka to numb the thoughts."
-            )
+            self.last_significant_event_summary = "drank some cheap vodka to numb the thoughts."
 
             # Override if originally feverish
             if original_state_feverish:
@@ -1241,10 +1142,7 @@ class ItemInteractionHandler:
                 "examined lizaveta's bundle, increasing the weight of guilt."
             )
             used_successfully = True
-        elif (
-            effect_key == "eat_bread_for_sustenance"
-            and item_to_use_name == "Loaf of Black Bread"
-        ):
+        elif effect_key == "eat_bread_for_sustenance" and item_to_use_name == "Loaf of Black Bread":
             self._print_color(
                 f"You tear off a piece of the dense {item_to_use_name}. It's coarse, but fills your stomach somewhat.",
                 Colors.YELLOW,
@@ -1255,15 +1153,10 @@ class ItemInteractionHandler:
                 "despondent",
             ]:
                 player_character.apparent_state = "normal"
-                self._print_color(
-                    "The bread provides a moment of simple relief.", Colors.CYAN
-                )
+                self._print_color("The bread provides a moment of simple relief.", Colors.CYAN)
             self.last_significant_event_summary = f"ate some {item_to_use_name}."
             used_successfully = True
-        elif (
-            effect_key == "contemplate_icon"
-            and item_to_use_name == "Small, Tarnished Icon"
-        ):
+        elif effect_key == "contemplate_icon" and item_to_use_name == "Small, Tarnished Icon":
             icon_reflection = None
             if not self.low_ai_data_mode and self.gemini_api.model:
                 icon_reflection = self.gemini_api.get_item_interaction_description(
@@ -1272,15 +1165,12 @@ class ItemInteractionHandler:
                     item_props,
                     "contemplate",
                     current_location_name,
-                    self.get_current_time_period(),
+                    self.world_manager.get_current_time_period(),
                 )
 
             if (
                 icon_reflection is None
-                or (
-                    isinstance(icon_reflection, str)
-                    and icon_reflection.startswith("(OOC:")
-                )
+                or (isinstance(icon_reflection, str) and icon_reflection.startswith("(OOC:"))
                 or self.low_ai_data_mode
             ):
                 icon_reflection = generate_static_item_interaction_description(
@@ -1307,9 +1197,7 @@ class ItemInteractionHandler:
 
     def _handle_give_item(self, item_to_use_name, item_props, target_name_input):
         if not self.player_character:
-            self._print_color(
-                "Cannot give items: Player character not available.", Colors.RED
-            )
+            self._print_color("Cannot give items: Player character not available.", Colors.RED)
             return False
         player_character = self.player_character
         current_location_name = self.current_location_name or "Unknown Location"
@@ -1338,18 +1226,14 @@ class ItemInteractionHandler:
         # Attempt to remove the item from player's inventory
         if player_character.remove_from_inventory(item_to_use_name, 1):
             # Add item to NPC's inventory
-            target_npc.add_to_inventory(
-                item_to_use_name, 1
-            )  # Assuming quantity 1 for now
+            target_npc.add_to_inventory(item_to_use_name, 1)  # Assuming quantity 1 for now
 
             self._print_color(
                 f"You give the {item_to_use_name} to {target_npc.name}.", Colors.WHITE
             )
 
             # Generate NPC reaction using Gemini API
-            relationship_text = self.get_relationship_text(
-                target_npc.relationship_with_player
-            )
+            relationship_text = self.get_relationship_text(target_npc.relationship_with_player)
             dialogue_prompt = (
                 f"(Player gives {item_to_use_name} to NPC. Player expects a reaction.)"
             )
@@ -1361,7 +1245,7 @@ class ItemInteractionHandler:
                     player_character,
                     dialogue_prompt,
                     current_location_name,
-                    self.get_current_time_period(),
+                    self.world_manager.get_current_time_period(),
                     relationship_text,
                     target_npc.get_player_memory_summary(self.game_time),
                     player_character.apparent_state,
@@ -1392,9 +1276,7 @@ class ItemInteractionHandler:
                 self._print_color(f'{target_npc.name}: "{reaction}"', Colors.YELLOW)
 
             # Update NPC's relationship with the player (e.g., a slight increase)
-            target_npc.relationship_with_player += (
-                1  # Simple increment, can be more nuanced
-            )
+            target_npc.relationship_with_player += 1  # Simple increment, can be more nuanced
 
             # Add a memory to the NPC about receiving the item
             target_npc.add_player_memory(
@@ -1409,17 +1291,14 @@ class ItemInteractionHandler:
                 sentiment_impact=1,  # Generally positive for receiving an item
             )
 
-            self.last_significant_event_summary = (
-                f"gave {item_to_use_name} to {target_npc.name}."
-            )
+            self.last_significant_event_summary = f"gave {item_to_use_name} to {target_npc.name}."
             return True
-        else:
-            # This case should ideally be caught by has_item, but as a fallback
-            self._print_color(
-                f"You find you don't actually have {item_to_use_name} to give after all.",
-                Colors.RED,
-            )
-            return False
+        # This case should ideally be caught by has_item, but as a fallback
+        self._print_color(
+            f"You find you don't actually have {item_to_use_name} to give after all.",
+            Colors.RED,
+        )
+        return False
 
     def handle_use_item(
         self,
@@ -1435,11 +1314,7 @@ class ItemInteractionHandler:
         item_obj_in_inventory = None
         if item_name_input:
             for inv_item_obj_loop in self.player_character.inventory:
-                if (
-                    inv_item_obj_loop["name"]
-                    .lower()
-                    .startswith(item_name_input.lower())
-                ):
+                if inv_item_obj_loop["name"].lower().startswith(item_name_input.lower()):
                     item_to_use_name = inv_item_obj_loop["name"]
                     item_obj_in_inventory = inv_item_obj_loop
                     break

@@ -20,9 +20,7 @@ def load_characters_data(data_path=None):
         logging.error(f"Error: The characters data file was not found at {data_path}")
         return {}
     except json.JSONDecodeError:
-        logging.error(
-            f"Error: The characters data file at {data_path} is not a valid JSON."
-        )
+        logging.error(f"Error: The characters data file at {data_path} is not a valid JSON.")
         return {}
 
 
@@ -51,9 +49,7 @@ class Character:
         self.default_location = default_location
         self.current_location = default_location
         self.accessible_locations = (
-            accessible_locations
-            if accessible_locations is not None
-            else [default_location]
+            accessible_locations if accessible_locations is not None else [default_location]
         )
         self.is_player = is_player
         self.conversation_histories = {}
@@ -110,9 +106,7 @@ class Character:
             [copy.deepcopy(item) for item in inventory_items] if inventory_items else []
         )
         self.schedule = schedule if schedule else {}
-        self.apparent_state = CHARACTERS_DATA.get(name, {}).get(
-            "apparent_state", "normal"
-        )
+        self.apparent_state = CHARACTERS_DATA.get(name, {}).get("apparent_state", "normal")
 
     def add_journal_entry(self, entry_type, text_content, game_day_time_period_str):
         MAX_JOURNAL_ENTRIES = 20
@@ -154,9 +148,7 @@ class Character:
             name=data["name"],
             persona=static_char_data_safe.get("persona", "A mysterious figure."),
             greeting=static_char_data_safe.get("greeting", "Hello."),
-            default_location=static_char_data_safe.get(
-                "default_location", "Unknown Location"
-            ),
+            default_location=static_char_data_safe.get("default_location", "Unknown Location"),
             accessible_locations=static_char_data_safe.get("accessible_locations", []),
             objectives=[],
             inventory_items=data.get("inventory", []),
@@ -220,9 +212,9 @@ class Character:
                 if "stages" in final_obj and final_obj["stages"]:
                     current_stage_id_found_in_stages = False
                     for stage_in_final_obj in final_obj["stages"]:
-                        is_current = stage_in_final_obj.get(
-                            "stage_id"
-                        ) == final_obj.get("current_stage_id")
+                        is_current = stage_in_final_obj.get("stage_id") == final_obj.get(
+                            "current_stage_id"
+                        )
                         stage_in_final_obj["is_current_stage"] = is_current
                         if is_current:
                             current_stage_id_found_in_stages = True
@@ -235,9 +227,7 @@ class Character:
                             f"Warning: Saved objective stage ID '{saved_stage_id}' for objective '{objective_id}' "
                             f"not found in current game data. Defaulting to first stage."
                         )
-                        final_obj["current_stage_id"] = final_obj["stages"][0].get(
-                            "stage_id"
-                        )
+                        final_obj["current_stage_id"] = final_obj["stages"][0].get("stage_id")
                         final_obj["stages"][0]["is_current_stage"] = True
                 elif "stages" not in final_obj or not final_obj.get("stages"):
                     final_obj["stages"] = [
@@ -263,17 +253,13 @@ class Character:
                         }
                     ],
                 )
-                if "current_stage_id" not in loaded_obj_val and loaded_obj_val.get(
-                    "stages"
-                ):
-                    loaded_obj_val["current_stage_id"] = loaded_obj_val["stages"][
-                        0
-                    ].get("stage_id")
+                if "current_stage_id" not in loaded_obj_val and loaded_obj_val.get("stages"):
+                    loaded_obj_val["current_stage_id"] = loaded_obj_val["stages"][0].get("stage_id")
                 if loaded_obj_val.get("stages"):
                     for stage in loaded_obj_val["stages"]:
-                        stage["is_current_stage"] = stage.get(
-                            "stage_id"
-                        ) == loaded_obj_val.get("current_stage_id")
+                        stage["is_current_stage"] = stage.get("stage_id") == loaded_obj_val.get(
+                            "current_stage_id"
+                        )
                 loaded_obj_val["active"] = loaded_obj_val.get("active", True)
                 loaded_obj_val["completed"] = loaded_obj_val.get("completed", False)
                 final_objectives_list.append(loaded_obj_val)
@@ -306,17 +292,14 @@ class Character:
             return False
 
         item_props = DEFAULT_ITEMS[item_name]
-        is_stackable = (
-            item_props.get("stackable", False) or item_props.get("value") is not None
-        )
+        is_stackable = item_props.get("stackable", False) or item_props.get("value") is not None
 
         for item in self.inventory:
             if item["name"] == item_name:
                 if is_stackable:
                     item["quantity"] = item.get("quantity", 1) + quantity
                     return True
-                else:
-                    return False
+                return False
 
         new_item_entry = {"name": item_name}
         if is_stackable:
@@ -331,9 +314,7 @@ class Character:
         from .game_config import DEFAULT_ITEMS
 
         item_props = DEFAULT_ITEMS.get(item_name, {})
-        is_stackable = (
-            item_props.get("stackable", False) or item_props.get("value") is not None
-        )
+        is_stackable = item_props.get("stackable", False) or item_props.get("value") is not None
 
         for i, item in enumerate(self.inventory):
             if item["name"] == item_name:
@@ -342,33 +323,27 @@ class Character:
                     if current_quantity > quantity:
                         item["quantity"] -= quantity
                         return True
-                    elif current_quantity == quantity:
+                    if current_quantity == quantity:
                         self.inventory.pop(i)
                         return True
-                    else:
-                        return False
-                else:
-                    if quantity == 1:
-                        self.inventory.pop(i)
-                        return True
-                    else:
-                        return False
+                    return False
+                if quantity == 1:
+                    self.inventory.pop(i)
+                    return True
+                return False
         return False
 
     def has_item(self, item_name, quantity=1):
         from .game_config import DEFAULT_ITEMS
 
         item_props = DEFAULT_ITEMS.get(item_name, {})
-        is_stackable = (
-            item_props.get("stackable", False) or item_props.get("value") is not None
-        )
+        is_stackable = item_props.get("stackable", False) or item_props.get("value") is not None
 
         for item in self.inventory:
             if item["name"] == item_name:
                 if is_stackable:
                     return item.get("quantity", 1) >= quantity
-                else:
-                    return quantity == 1
+                return quantity == 1
         return False
 
     def get_notable_carried_items_summary(self):
@@ -388,23 +363,18 @@ class Character:
 
             if item_props.get("is_notable", False):
                 item_str = item_name
-                if (
-                    item_props.get("stackable") or item_props.get("value") is not None
-                ) and qty > 1:
+                if (item_props.get("stackable") or item_props.get("value") is not None) and qty > 1:
                     item_str += f" (x{qty})"
                 notable_items_list.append(item_str)
-            elif item_name == "worn coin" and qty >= item_props.get(
-                "notable_threshold", 20
-            ):
+            elif item_name == "worn coin" and qty >= item_props.get("notable_threshold", 20):
                 notable_items_list.append(f"a sum of money ({qty} coins)")
         if not notable_items_list:
             return "is not carrying anything of note."  # Made consistent
         if len(notable_items_list) == 1:
             return f"is carrying {notable_items_list[0]}."
-        elif len(notable_items_list) == 2:
+        if len(notable_items_list) == 2:
             return f"is carrying {notable_items_list[0]} and {notable_items_list[1]}."
-        else:
-            return f"is carrying {', '.join(notable_items_list[:-1])}, and {notable_items_list[-1]}."
+        return f"is carrying {', '.join(notable_items_list[:-1])}, and {notable_items_list[-1]}."
 
     def get_inventory_description(self):
         if not self.inventory:
@@ -425,10 +395,7 @@ class Character:
                     clean_item_name = potential_clean_name
 
             item_props = DEFAULT_ITEMS.get(clean_item_name, {})
-            is_stackable = (
-                item_props.get("stackable", False)
-                or item_props.get("value") is not None
-            )
+            is_stackable = item_props.get("stackable", False) or item_props.get("value") is not None
 
             quantity = 1
             if is_stackable:
@@ -518,15 +485,11 @@ class Character:
             if mem_type == "received_item":
                 item_name = content.get("item_name", "an item")
                 qty = content.get("quantity", 1)
-                content_str = (
-                    f"player gave me {item_name}{f' (x{qty})' if qty > 1 else ''}"
-                )
+                content_str = f"player gave me {item_name}{f' (x{qty})' if qty > 1 else ''}"
             elif mem_type == "gave_item_to_player":
                 item_name = content.get("item_name", "an item")
                 qty = content.get("quantity", 1)
-                content_str = (
-                    f"I gave {item_name}{f' (x{qty})' if qty > 1 else ''} to the player"
-                )
+                content_str = f"I gave {item_name}{f' (x{qty})' if qty > 1 else ''} to the player"
             elif mem_type == "dialogue_exchange":
                 player_stmt = content.get("player_statement", "something")
                 topic = content.get("topic_hint", "")
@@ -554,9 +517,7 @@ class Character:
                 else:
                     content_str = action_desc
             elif mem_type == "relationship_change":  # For direct relationship updates
-                direction = (
-                    "positively" if content.get("change", 0) > 0 else "negatively"
-                )
+                direction = "positively" if content.get("change", 0) > 0 else "negatively"
                 reason = content.get("reason", "something they did or said")
                 content_str = f"my view of them changed {direction} because of {reason}"
             else:  # Fallback for old string memories or unknown types
@@ -572,9 +533,7 @@ class Character:
             summary_parts.append(recency_prefix + content_str)
 
         if not summary_parts:
-            return (
-                "You have some fleeting recollections, but nothing stands out clearly."
-            )
+            return "You have some fleeting recollections, but nothing stands out clearly."
 
         return "Key things you recall about them: " + "; ".join(summary_parts) + "."
 
@@ -596,9 +555,7 @@ class Character:
 
         if change != 0:
             self.relationship_with_player += change
-            self.relationship_with_player = max(
-                -10, min(10, self.relationship_with_player)
-            )
+            self.relationship_with_player = max(-10, min(10, self.relationship_with_player))
             self.add_player_memory(
                 memory_type="relationship_change",
                 turn=game_turn,
@@ -640,17 +597,13 @@ class Character:
                 return False
 
             for stage_in_obj in obj["stages"]:
-                stage_in_obj["is_current_stage"] = (
-                    stage_in_obj.get("stage_id") == next_stage_id
-                )
+                stage_in_obj["is_current_stage"] = stage_in_obj.get("stage_id") == next_stage_id
                 if stage_in_obj["is_current_stage"]:
                     current_stage_found_in_obj = True
 
             if current_stage_found_in_obj:
                 obj["current_stage_id"] = next_stage_id
-                new_stage_desc = next_stage_obj_from_template.get(
-                    "description", "unnamed stage"
-                )
+                new_stage_desc = next_stage_obj_from_template.get("description", "unnamed stage")
 
                 if self.is_player:
                     self.add_player_memory(
@@ -674,9 +627,7 @@ class Character:
             obj["active"] = False
             obj_desc = obj.get("description", "Unnamed Objective")
             if self.is_player:
-                current_stage_for_memory = self.get_current_stage_for_objective(
-                    objective_id
-                )
+                current_stage_for_memory = self.get_current_stage_for_objective(objective_id)
                 stage_desc_for_memory = (
                     current_stage_for_memory.get("description", "final stage")
                     if current_stage_for_memory
@@ -727,9 +678,9 @@ class Character:
                         target_obj_desc = target_objective.get(
                             "description", "Unnamed Linked Objective"
                         )
-                        if not target_objective.get(
-                            "active", False
-                        ) and not target_objective.get("completed", False):
+                        if not target_objective.get("active", False) and not target_objective.get(
+                            "completed", False
+                        ):
                             if DEBUG_LOGS:
                                 print(
                                     f"[DEBUG] Linking: Activating objective '{target_obj_desc}' due to completion of '{obj_desc}'."
@@ -757,9 +708,9 @@ class Character:
                                     sentiment_impact=0,
                                 )
 
-                        elif target_objective.get(
-                            "active", False
-                        ) and not target_objective.get("completed", False):
+                        elif target_objective.get("active", False) and not target_objective.get(
+                            "completed", False
+                        ):
                             if specific_next_stage_id:
                                 if DEBUG_LOGS:
                                     print(
@@ -782,24 +733,13 @@ class Character:
                                         f"[DEBUG] Linking: Failed to advance '{target_obj_desc}' to stage '{specific_next_stage_id}'."
                                     )
                             else:
-                                current_target_stage = (
-                                    self.get_current_stage_for_objective(
-                                        target_objective_id
-                                    )
+                                current_target_stage = self.get_current_stage_for_objective(
+                                    target_objective_id
                                 )
-                                if current_target_stage and current_target_stage.get(
-                                    "next_stages"
-                                ):
-                                    potential_next_ids = current_target_stage[
-                                        "next_stages"
-                                    ]
-                                    if (
-                                        isinstance(potential_next_ids, dict)
-                                        and potential_next_ids
-                                    ):
-                                        auto_next_stage_id = next(
-                                            iter(potential_next_ids.values())
-                                        )
+                                if current_target_stage and current_target_stage.get("next_stages"):
+                                    potential_next_ids = current_target_stage["next_stages"]
+                                    if isinstance(potential_next_ids, dict) and potential_next_ids:
+                                        auto_next_stage_id = next(iter(potential_next_ids.values()))
                                         if DEBUG_LOGS:
                                             print(
                                                 f"[DEBUG] Linking: Attempting generic advance for active objective '{target_obj_desc}' to its next stage '{auto_next_stage_id}' due to '{obj_desc}'."
@@ -817,8 +757,7 @@ class Character:
                                                     sentiment_impact=0,
                                                 )
                                     elif (
-                                        isinstance(potential_next_ids, list)
-                                        and potential_next_ids
+                                        isinstance(potential_next_ids, list) and potential_next_ids
                                     ):
                                         auto_next_stage_id = potential_next_ids[0]
                                         if DEBUG_LOGS:
@@ -858,9 +797,7 @@ class Character:
 
             initial_stage_id_to_set = None
             if set_stage_id:
-                if any(
-                    s.get("stage_id") == set_stage_id for s in obj.get("stages", [])
-                ):
+                if any(s.get("stage_id") == set_stage_id for s in obj.get("stages", [])):
                     initial_stage_id_to_set = set_stage_id
                 else:
                     if DEBUG_LOGS:
@@ -883,9 +820,7 @@ class Character:
 
             obj["current_stage_id"] = initial_stage_id_to_set
             for stage in obj.get("stages", []):
-                stage["is_current_stage"] = (
-                    stage.get("stage_id") == initial_stage_id_to_set
-                )
+                stage["is_current_stage"] = stage.get("stage_id") == initial_stage_id_to_set
 
             current_stage_desc = self.get_current_stage_for_objective(objective_id).get(
                 "description", "initial stage"

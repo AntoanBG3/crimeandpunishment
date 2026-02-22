@@ -16,9 +16,7 @@ def load_locations_data(data_path=None):
         logging.error(f"Error: The locations data file was not found at {data_path}")
         return {}
     except json.JSONDecodeError:
-        logging.error(
-            f"Error: The locations data file at {data_path} is not a valid JSON."
-        )
+        logging.error(f"Error: The locations data file at {data_path} is not a valid JSON.")
         return {}
 
 

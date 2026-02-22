@@ -120,23 +120,17 @@ class EventManager:
             self.game.player_character.add_player_memory(
                 memory_type="event_marmeladov_encounter",
                 turn=self.game.game_time,
-                content={
-                    "summary": "Listened to Marmeladov's tragic story in the tavern."
-                },
+                content={"summary": "Listened to Marmeladov's tragic story in the tavern."},
                 sentiment_impact=1,
             )
             if self.game.player_character.get_objective_by_id("understand_theory"):
                 self.game.player_character.add_player_memory(
                     memory_type="reflection_marmeladov_suffering",
                     turn=self.game.game_time,
-                    content={
-                        "summary": "Marmeladov's suffering gives pause to your theories."
-                    },
+                    content={"summary": "Marmeladov's suffering gives pause to your theories."},
                     sentiment_impact=1,
                 )
-        self.game.last_significant_event_summary = (
-            "encountered Marmeladov in the tavern."
-        )
+        self.game.last_significant_event_summary = "encountered Marmeladov in the tavern."
         self.game.key_events_occurred.append("Encountered Marmeladov.")
         # This encounter might add to "known_facts_about_crime" if Marmeladov mentions Sonya's situation vaguely.
         if "Sonya" not in " ".join(self.game.known_facts_about_crime):
@@ -162,19 +156,13 @@ class EventManager:
                 },
                 sentiment_impact=-1,
             )  # "Troubling" suggests negative sentiment
-            obj_help_family = self.game.player_character.get_objective_by_id(
-                "help_family"
-            )
+            obj_help_family = self.game.player_character.get_objective_by_id("help_family")
             if obj_help_family and not obj_help_family.get("active", True):
                 self.game.player_character.activate_objective("help_family")
             if not self.game.player_character.has_item("mother's letter"):
                 self.game.player_character.add_to_inventory("mother's letter")
-                self.game._print_color(
-                    "The letter is now in your possession.", Colors.GREEN
-                )
-            self.game._print_color(
-                "This news weighs heavily on your mind.", Colors.YELLOW
-            )
+                self.game._print_color("The letter is now in your possession.", Colors.GREEN)
+            self.game._print_color("This news weighs heavily on your mind.", Colors.YELLOW)
 
             # --- Enhanced emotional impact ---
             self.game.player_character.apparent_state = random.choice(
@@ -194,9 +182,7 @@ class EventManager:
             )
 
             # Assuming get_objectives_summary is available and suitable for Gemini context
-            objectives_summary = self.game._get_objectives_summary(
-                self.game.player_character
-            )
+            objectives_summary = self.game._get_objectives_summary(self.game.player_character)
             reflection_text = None
 
             if not self.game.low_ai_data_mode and self.game.gemini_api.model:
@@ -210,10 +196,7 @@ class EventManager:
 
             if (
                 reflection_text is None
-                or (
-                    isinstance(reflection_text, str)
-                    and reflection_text.startswith("(OOC:")
-                )
+                or (isinstance(reflection_text, str) and reflection_text.startswith("(OOC:"))
                 or self.game.low_ai_data_mode
             ):
                 if STATIC_PLAYER_REFLECTIONS:
@@ -224,14 +207,10 @@ class EventManager:
                     f'Your thoughts race: "{reflection_text}"', Colors.DIM
                 )  # Static in DIM
             else:  # AI success
-                self.game._print_color(
-                    f'Your thoughts race: "{reflection_text}"', Colors.CYAN
-                )
+                self.game._print_color(f'Your thoughts race: "{reflection_text}"', Colors.CYAN)
             # --- End enhanced emotional impact ---
 
-        self.game.last_significant_event_summary = (
-            "received a letter from his mother about Dunya."
-        )
+        self.game.last_significant_event_summary = "received a letter from his mother about Dunya."
         self.game.key_events_occurred.append(
             "Received letter from mother regarding Dunya's situation."
         )
@@ -255,9 +234,7 @@ class EventManager:
                 },
                 sentiment_impact=-1,
             )  # "Distressing" suggests negative sentiment
-        self.game.last_significant_event_summary = (
-            "witnessed Katerina Ivanovna's public outburst."
-        )
+        self.game.last_significant_event_summary = "witnessed Katerina Ivanovna's public outburst."
         self.game.key_events_occurred.append("Katerina Ivanovna caused a public scene.")
         self.triggered_events.add("katerina_ivanovna_public_lament_recent")
 
@@ -286,9 +263,7 @@ class EventManager:
             note_text = STATIC_ANONYMOUS_NOTE_CONTENT  # Direct use of the static string
             # Optionally, add a log or slightly different handling for static note if needed
 
-        if (
-            note_text
-        ):  # Check if note_text is not None or empty after potential fallback
+        if note_text:  # Check if note_text is not None or empty after potential fallback
             event_desc = "Tucked into your doorframe (or perhaps slipped under your door), you find a hastily folded piece of paper. It's an anonymous note."
             self._print_event(event_desc)
 
@@ -327,9 +302,7 @@ class EventManager:
                     sentiment_impact=-1,
                 )  # "Ominous" suggests negative sentiment
                 self.game.player_character.apparent_state = "paranoid"
-            self.game.last_significant_event_summary = (
-                "found an anonymous warning note."
-            )
+            self.game.last_significant_event_summary = "found an anonymous warning note."
             self.game.key_events_occurred.append("Found an anonymous warning note.")
             self.game.player_notoriety_level = min(
                 self.game.player_notoriety_level + 0.5, 3
@@ -394,9 +367,7 @@ class EventManager:
                 print(
                     f"[DEBUG] EventManager: Checking event cooldowns at game time {self.game.game_time}"
                 )
-            events_to_remove = {
-                ev for ev in self.triggered_events if ev.endswith("_recent")
-            }
+            events_to_remove = {ev for ev in self.triggered_events if ev.endswith("_recent")}
             for ev_rem in events_to_remove:
                 self.triggered_events.remove(ev_rem)
 
@@ -459,10 +430,7 @@ class EventManager:
 
             if (
                 interaction_text is None
-                or (
-                    isinstance(interaction_text, str)
-                    and interaction_text.startswith("(OOC:")
-                )
+                or (isinstance(interaction_text, str) and interaction_text.startswith("(OOC:"))
                 or self.game.low_ai_data_mode
             ):
                 if STATIC_NPC_NPC_INTERACTIONS:
@@ -478,14 +446,10 @@ class EventManager:
                 for line in lines:
                     if ":" in line:
                         speaker, dialogue = line.split(":", 1)
-                        self.game._print_color(
-                            f"{speaker.strip()}:", Colors.YELLOW, end=""
-                        )
+                        self.game._print_color(f"{speaker.strip()}:", Colors.YELLOW, end="")
                         print(f' "{dialogue.strip()}"')
                     else:
-                        self.game._print_color(
-                            f"{Colors.DIM}{line}{Colors.RESET}", Colors.DIM
-                        )
+                        self.game._print_color(f"{Colors.DIM}{line}{Colors.RESET}", Colors.DIM)
 
                 # Now, try to identify and process rumors
                 rumor_keywords = [
@@ -503,13 +467,9 @@ class EventManager:
                     for keyword in rumor_keywords:
                         if keyword in line.lower():
                             try:
-                                rumor_part_index = line.lower().find(keyword) + len(
-                                    keyword
-                                )
+                                rumor_part_index = line.lower().find(keyword) + len(keyword)
                                 rumor_candidate = (
-                                    line[rumor_part_index:]
-                                    .strip(" .,;:!?-")
-                                    .capitalize()
+                                    line[rumor_part_index:].strip(" .,;:!?-").capitalize()
                                 )
                                 if len(rumor_candidate) > 15:
                                     extracted_rumor_core = rumor_candidate
@@ -544,8 +504,7 @@ class EventManager:
                         )
 
                 return True  # Interaction happened (and was printed)
-            else:
-                # self.game._print_color(f"{Colors.MAGENTA}...but it trails off into indistinct murmurs.{Colors.RESET}", Colors.MAGENTA)
-                pass
-                return False
+            # self.game._print_color(f"{Colors.MAGENTA}...but it trails off into indistinct murmurs.{Colors.RESET}", Colors.MAGENTA)
+            pass
+            return False
         return False

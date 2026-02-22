@@ -59,9 +59,7 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler, EventMan
         self.visited_locations: Set[str] = set()
 
         self.player_notoriety_level = 0
-        self.known_facts_about_crime = [
-            "An old pawnbroker and her sister were murdered recently."
-        ]
+        self.known_facts_about_crime = ["An old pawnbroker and her sister were murdered recently."]
         self.key_events_occurred = ["Game started."]
         self.numbered_actions_context: List[Any] = []
         self.current_conversation_log = []
@@ -95,13 +93,9 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler, EventMan
                 current_stage = character.get_current_stage_for_objective(obj.get("id"))
                 if isinstance(current_stage, dict):
                     stage_desc = current_stage.get("description", "unspecified stage")
-                    active_objective_details.append(
-                        f"{obj_desc} (Currently: {stage_desc})"
-                    )
+                    active_objective_details.append(f"{obj_desc} (Currently: {stage_desc})")
                 else:
-                    active_objective_details.append(
-                        f"{obj_desc} (Currently: unspecified stage)"
-                    )
+                    active_objective_details.append(f"{obj_desc} (Currently: unspecified stage)")
 
         if not active_objective_details:
             return "Currently pursuing no specific objectives."
@@ -149,9 +143,7 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler, EventMan
             return None
         return f"savegame_{sanitized}.json"
 
-    def save_game(
-        self, slot_name: Optional[str] = None, is_autosave: bool = False
-    ) -> None:
+    def save_game(self, slot_name: Optional[str] = None, is_autosave: bool = False) -> None:
         if not self.player_character:
             self._print_color("Cannot save: Game not fully initialized.", Colors.RED)
             return
@@ -168,8 +160,7 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler, EventMan
             "game_time": self.game_time,
             "current_day": self.current_day,
             "all_character_objects_state": {
-                name: char.to_dict()
-                for name, char in self.all_character_objects.items()
+                name: char.to_dict() for name, char in self.all_character_objects.items()
             },
             "dynamic_location_items": self.dynamic_location_items,
             "triggered_events": list(self.event_manager.triggered_events),
@@ -214,25 +205,17 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler, EventMan
             self.game_time = game_state_data.get("game_time", 0)
             self.current_day = game_state_data.get("current_day", 1)
             self.current_location_name = game_state_data.get("current_location_name")
-            self.dynamic_location_items = game_state_data.get(
-                "dynamic_location_items", {}
-            )
-            self.event_manager.triggered_events = set(
-                game_state_data.get("triggered_events", [])
-            )
+            self.dynamic_location_items = game_state_data.get("dynamic_location_items", {})
+            self.event_manager.triggered_events = set(game_state_data.get("triggered_events", []))
             self.last_significant_event_summary = game_state_data.get(
                 "last_significant_event_summary"
             )
-            self.player_notoriety_level = game_state_data.get(
-                "player_notoriety_level", 0
-            )
+            self.player_notoriety_level = game_state_data.get("player_notoriety_level", 0)
             self.known_facts_about_crime = game_state_data.get(
                 "known_facts_about_crime",
                 ["An old pawnbroker and her sister were murdered recently."],
             )
-            self.key_events_occurred = game_state_data.get(
-                "key_events_occurred", ["Game loaded."]
-            )
+            self.key_events_occurred = game_state_data.get("key_events_occurred", ["Game loaded."])
             self.visited_locations = set(game_state_data.get("visited_locations", []))
             self.current_location_description_shown_this_visit = game_state_data.get(
                 "current_location_description_shown_this_visit", False
@@ -245,14 +228,10 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler, EventMan
                 apply_color_theme(DEFAULT_COLOR_THEME)
                 applied_theme = DEFAULT_COLOR_THEME
             self.color_theme = applied_theme
-            self.verbosity_level = game_state_data.get(
-                "verbosity_level", DEFAULT_VERBOSITY_LEVEL
-            )
+            self.verbosity_level = game_state_data.get("verbosity_level", DEFAULT_VERBOSITY_LEVEL)
             if self.verbosity_level not in VERBOSITY_LEVELS:
                 self.verbosity_level = DEFAULT_VERBOSITY_LEVEL
-            self.turn_headers_enabled = game_state_data.get(
-                "turn_headers_enabled", True
-            )
+            self.turn_headers_enabled = game_state_data.get("turn_headers_enabled", True)
             loaded_history = game_state_data.get("command_history", [])
             self.command_history = (
                 loaded_history[-self.max_command_history :]
@@ -262,9 +241,7 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler, EventMan
             saved_model_name = game_state_data.get("chosen_gemini_model")
             if saved_model_name:
                 self.gemini_api.chosen_model_name = saved_model_name
-                self._print_color(
-                    f"Loaded preferred Gemini model: {saved_model_name}", Colors.DIM
-                )
+                self._print_color(f"Loaded preferred Gemini model: {saved_model_name}", Colors.DIM)
             self.all_character_objects = {}
             saved_char_states = game_state_data.get("all_character_objects_state", {})
             for char_name, char_state_data in saved_char_states.items():
@@ -297,9 +274,7 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler, EventMan
             self.world_manager.update_npcs_in_current_location()
             self._print_color("Game loaded successfully.", Colors.GREEN)
             self._display_load_recap()
-            self.world_manager.update_current_location_details(
-                from_explicit_look_cmd=False
-            )
+            self.world_manager.update_current_location_details(from_explicit_look_cmd=False)
             return True
         except Exception as e:
             self._print_color(f"Error loading game: {e}", Colors.RED)
@@ -337,9 +312,7 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler, EventMan
                 Colors.MAGENTA,
             )
             initial_action = (
-                self._input_color(f"{self._prompt_arrow()}", Colors.WHITE)
-                .strip()
-                .lower()
+                self._input_color(f"{self._prompt_arrow()}", Colors.WHITE).strip().lower()
             )
             if initial_action == "load":
                 if self.load_game():
@@ -360,14 +333,10 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler, EventMan
                     )
                     return False
         if not self.player_character or not self.current_location_name:
-            self._print_color(
-                "Game initialization failed critically. Exiting.", Colors.RED
-            )
+            self._print_color("Game initialization failed critically. Exiting.", Colors.RED)
             return False
         if not game_loaded_successfully:
-            self.world_manager.update_current_location_details(
-                from_explicit_look_cmd=False
-            )
+            self.world_manager.update_current_location_details(from_explicit_look_cmd=False)
             self.display_atmospheric_details()
         self._print_color("\n--- Game Start ---", Colors.CYAN + Colors.BOLD)
         if not game_loaded_successfully:
@@ -400,9 +369,7 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler, EventMan
             if special_flag:
                 self.last_turn_result_icon = "QUIT"
                 break
-            self.world_manager._update_world_state_after_action(
-                command, action_taken, time_units
-            )
+            self.world_manager._update_world_state_after_action(command, action_taken, time_units)
             self._display_turn_feedback(show_atmospherics, command)
             if action_taken:
                 self.last_turn_result_icon = "OK"
@@ -427,9 +394,7 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler, EventMan
 
     def _handle_think_command(self) -> None:
         if not self.player_character:
-            self._print_color(
-                "Cannot think: Player character not available.", Colors.RED
-            )
+            self._print_color("Cannot think: Player character not available.", Colors.RED)
             return
         self._print_color("You pause to reflect...", Colors.MAGENTA)
         full_reflection_context = (
@@ -439,14 +404,10 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler, EventMan
             + f"\nRecent notable events: {self._get_recent_events_summary()}"
         )
         if self.player_character.name == "Rodion Raskolnikov":
-            theory_objective = self.player_character.get_objective_by_id(
-                "understand_theory"
-            )
+            theory_objective = self.player_character.get_objective_by_id("understand_theory")
             if theory_objective and theory_objective.get("active"):
-                current_stage_obj = (
-                    self.player_character.get_current_stage_for_objective(
-                        "understand_theory"
-                    )
+                current_stage_obj = self.player_character.get_current_stage_for_objective(
+                    "understand_theory"
                 )
                 current_stage_desc = (
                     current_stage_obj.get("description", "an unknown stage")

@@ -24,9 +24,7 @@ class TestGeminiInteractions(unittest.TestCase):
         )
 
     def test_get_atmospheric_details(self):
-        self.api.model.generate_content.return_value.text = (
-            "The air is thick with mystery."
-        )
+        self.api.model.generate_content.return_value.text = "The air is thick with mystery."
         details = self.api.get_atmospheric_details(
             self.player, "a dark room", "night", "a strange noise", "find the key"
         )
@@ -34,9 +32,7 @@ class TestGeminiInteractions(unittest.TestCase):
 
     def test_get_rumor_or_gossip(self):
         npc = Character("Test NPC", "A gossip.", "Psst!", "market", ["market"])
-        self.api.model.generate_content.return_value.text = (
-            "I heard the king is a frog."
-        )
+        self.api.model.generate_content.return_value.text = "I heard the king is a frog."
         rumor = self.api.get_rumor_or_gossip(
             npc,
             "market",
@@ -49,9 +45,7 @@ class TestGeminiInteractions(unittest.TestCase):
         self.assertEqual(rumor, "I heard the king is a frog.")
 
     def test_get_dream_sequence(self):
-        self.api.model.generate_content.return_value.text = (
-            "You dream of electric sheep."
-        )
+        self.api.model.generate_content.return_value.text = "You dream of electric sheep."
         dream = self.api.get_dream_sequence(
             self.player,
             "You saw a unicorn.",
