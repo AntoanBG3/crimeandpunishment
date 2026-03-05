@@ -29,6 +29,7 @@ gemini_config.json
 gemini_config.json.*
 savegame.json
 savegame*.json
+CLAUDE.md
 
 # IDE / Editor specific files
 .vscode/

@@ -4,7 +4,8 @@
 import re
 import random
 
-from .game_config import Colors, DEFAULT_ITEMS, STATIC_ATMOSPHERIC_DETAILS
+from .game_config import Colors, DEFAULT_ITEMS
+from .static_fallbacks import STATIC_ATMOSPHERIC_DETAILS
 
 
 class DisplayMixin:

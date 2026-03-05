@@ -9,8 +9,6 @@ from .game_config import (
     NPC_MOVE_CHANCE,
     DEFAULT_ITEMS,
     AMBIENT_RUMOR_CHANCE_PUBLIC_PLACE,
-    STATIC_DREAM_SEQUENCES,
-    STATIC_RUMORS,
     DREAM_CHANCE_TROUBLED_STATE,
     DREAM_CHANCE_NORMAL_STATE,
     NPC_INTERACTION_CHANCE,
@@ -18,6 +16,7 @@ from .game_config import (
     HIGHLY_NOTABLE_ITEMS_FOR_MEMORY,
     DEBUG_LOGS,
 )
+from .static_fallbacks import STATIC_DREAM_SEQUENCES, STATIC_RUMORS
 from .location_module import LOCATIONS_DATA
 from .character_module import Character, CHARACTERS_DATA
 

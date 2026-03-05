@@ -13,8 +13,8 @@ from .game_config import (
     DEFAULT_COLOR_THEME,
     DEFAULT_VERBOSITY_LEVEL,
     VERBOSITY_LEVELS,
-    STATIC_PLAYER_REFLECTIONS,
-)  # Added
+)
+from .static_fallbacks import STATIC_PLAYER_REFLECTIONS
 from .character_module import Character, CHARACTERS_DATA
 from .location_module import LOCATIONS_DATA
 from .gemini_interactions import GeminiAPI, NaturalLanguageParser
@@ -25,16 +25,8 @@ from .item_interaction_handler import ItemInteractionHandler
 from .npc_interaction_handler import NPCInteractionHandler
 from .world_manager import WorldManager
 
-# Re-exported for test patching compatibility.
-from .game_config import (
-    STATIC_ATMOSPHERIC_DETAILS as STATIC_ATMOSPHERIC_DETAILS,
-)  # noqa: F401
-from .game_config import (
-    STATIC_NEWSPAPER_SNIPPETS as STATIC_NEWSPAPER_SNIPPETS,
-)  # noqa: F401
 
-
-class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler, EventManager):
+class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
     def __init__(self) -> None:
         self.world_manager = WorldManager(self)
         self.command_handler = CommandHandler(self)

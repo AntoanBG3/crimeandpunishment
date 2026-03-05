@@ -17,11 +17,8 @@ from game_engine.gemini_interactions import (  # noqa: E402
 from game_engine.game_state import Game  # noqa: E402
 from game_engine.world_manager import WorldManager  # noqa: E402
 from game_engine.event_manager import EventManager  # noqa: E402
-from game_engine.game_config import (  # noqa: E402
-    Colors,
-    TIME_UNITS_PER_PLAYER_ACTION,
-    STATIC_ANONYMOUS_NOTE_CONTENT,
-)
+from game_engine.game_config import Colors, TIME_UNITS_PER_PLAYER_ACTION  # noqa: E402
+from game_engine.static_fallbacks import STATIC_ANONYMOUS_NOTE_CONTENT  # noqa: E402
 
 # Test data for DEFAULT_ITEMS
 DEFAULT_ITEMS_TEST_DATA = {
@@ -1324,7 +1321,7 @@ class TestLowAIMode(unittest.TestCase):
 
         # Ensure STATIC_ATMOSPHERIC_DETAILS is not empty for random.choice
         with patch(
-            "game_engine.game_state.STATIC_ATMOSPHERIC_DETAILS",
+            "game_engine.display_mixin.STATIC_ATMOSPHERIC_DETAILS",
             [expected_detail, "Another detail"],
         ):
             self.game.display_atmospheric_details()
@@ -1394,7 +1391,7 @@ class TestLowAIMode(unittest.TestCase):
         # Ensure the item exists in player's inventory for _handle_read_item
         # The _handle_read_item is called from handle_use_item
         with patch(
-            "game_engine.game_state.STATIC_NEWSPAPER_SNIPPETS",
+            "game_engine.item_interaction_handler.STATIC_NEWSPAPER_SNIPPETS",
             [expected_snippet, "Other news."],
         ):
             self.game.handle_use_item(

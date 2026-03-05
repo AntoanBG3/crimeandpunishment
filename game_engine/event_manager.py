@@ -1,9 +1,7 @@
 # event_manager.py
 import random
-from .game_config import (
-    Colors,
-    DEFAULT_ITEMS,
-    DEBUG_LOGS,
+from .game_config import Colors, DEFAULT_ITEMS, DEBUG_LOGS
+from .static_fallbacks import (
     STATIC_PLAYER_REFLECTIONS,
     STATIC_ANONYMOUS_NOTE_CONTENT,
     STATIC_STREET_LIFE_EVENTS,

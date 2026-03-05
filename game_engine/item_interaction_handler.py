@@ -1,13 +1,10 @@
 # pylint: disable=no-member
 import random
 from typing import Any
-from .game_config import (
-    Colors,
-    DEFAULT_ITEMS,
-    GENERIC_SCENERY_KEYWORDS,
+from .game_config import Colors, DEFAULT_ITEMS, GENERIC_SCENERY_KEYWORDS, HIGHLY_NOTABLE_ITEMS_FOR_MEMORY
+from .static_fallbacks import (
     STATIC_ENHANCED_OBSERVATIONS,
     STATIC_PLAYER_REFLECTIONS,
-    HIGHLY_NOTABLE_ITEMS_FOR_MEMORY,
     STATIC_NEWSPAPER_SNIPPETS,
     generate_static_item_interaction_description,
     generate_static_scenery_observation,

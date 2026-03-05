@@ -8,11 +8,11 @@ from .game_config import DEBUG_LOGS
 
 
 def load_characters_data(data_path=None):
+    """Loads character data from a JSON file."""
     from .game_config import get_data_path
 
     if data_path is None:
         data_path = get_data_path("data/characters.json")
-    """Loads character data from a JSON file."""
     try:
         with open(data_path, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -24,7 +24,16 @@ def load_characters_data(data_path=None):
         return {}
 
 
-CHARACTERS_DATA = load_characters_data()
+_CHARACTERS_DATA = None
+
+
+def __getattr__(name):
+    global _CHARACTERS_DATA
+    if name == "CHARACTERS_DATA":
+        if _CHARACTERS_DATA is None:
+            _CHARACTERS_DATA = load_characters_data()
+        return _CHARACTERS_DATA
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 class Character:
@@ -106,7 +115,7 @@ class Character:
             [copy.deepcopy(item) for item in inventory_items] if inventory_items else []
         )
         self.schedule = schedule if schedule else {}
-        self.apparent_state = CHARACTERS_DATA.get(name, {}).get("apparent_state", "normal")
+        self.apparent_state = __getattr__("CHARACTERS_DATA").get(name, {}).get("apparent_state", "normal")
 
     def add_journal_entry(self, entry_type, text_content, game_day_time_period_str):
         MAX_JOURNAL_ENTRIES = 20

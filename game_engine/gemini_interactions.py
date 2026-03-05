@@ -1,7 +1,5 @@
 # gemini_interactions.py
 import os
-
-os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
 import json
 import importlib
 import importlib.util
