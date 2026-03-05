@@ -563,7 +563,7 @@ class WorldManager:
             )
             return False, False
         location_exits = current_location_data.get("exits", {})
-        potential_target_loc_name, ambiguous = self.game_state._get_matching_exit(
+        potential_target_loc_name, ambiguous = self.game_state.command_handler._get_matching_exit(
             target_exit_input, location_exits
         )
         if ambiguous:
