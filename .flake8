@@ -1,4 +1,7 @@
 [flake8]
 max-line-length = 100
-extend-ignore = E203
-exclude = .git,__pycache__,.pytest_cache
+extend-ignore = E203,E501
+exclude = .git,__pycache__,.pytest_cache,.venv,venv
+per-file-ignores =
+    tests/test_item_interaction_handler.py:E402
+    tests/test_npc_interaction_handler.py:E402

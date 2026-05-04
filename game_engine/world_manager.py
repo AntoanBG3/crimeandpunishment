@@ -269,7 +269,7 @@ class WorldManager:
         if current_time_period == "Unknown":
             return
         moved_npcs_info = []
-        for npc_name, npc_obj in self.game_state.all_character_objects.items():
+        for npc_obj in self.game_state.all_character_objects.values():
             if npc_obj.is_player or not npc_obj.schedule:
                 continue
             scheduled_location = npc_obj.schedule.get(current_time_period)
@@ -356,7 +356,7 @@ class WorldManager:
         self.game_state.npcs_in_current_location = []
         if not self.game_state.current_location_name:
             return
-        for char_name, char_obj in self.game_state.all_character_objects.items():
+        for char_obj in self.game_state.all_character_objects.values():
             if (
                 not char_obj.is_player
                 and char_obj.current_location == self.game_state.current_location_name
@@ -545,6 +545,39 @@ class WorldManager:
                     return True
         return False
 
+    def _resolve_location_exit(self, target_exit_input, location_exits):
+        command_handler = getattr(self.game_state, "command_handler", None)
+        if command_handler and hasattr(command_handler, "_get_matching_exit"):
+            return command_handler._get_matching_exit(target_exit_input, location_exits)
+
+        state_matcher = getattr(self.game_state, "_get_matching_exit", None)
+        if callable(state_matcher):
+            return state_matcher(target_exit_input, location_exits)
+
+        matches = []
+        for target_loc_key, desc_text in location_exits.items():
+            target_name = target_loc_key.lower()
+            exit_description = str(desc_text).lower()
+            if (
+                target_name == target_exit_input
+                or exit_description.startswith(target_exit_input)
+                or target_exit_input in exit_description
+            ):
+                matches.append(target_loc_key)
+
+        if not matches:
+            return None, False
+        if len(matches) > 1:
+            descriptions = []
+            for match in matches[:5]:
+                desc = location_exits.get(match, "")
+                descriptions.append(f"{match} ({desc})" if desc else match)
+            self.game_state._print_color(
+                f"Which exit did you mean? {'; '.join(descriptions)}", Colors.YELLOW
+            )
+            return None, True
+        return matches[0], False
+
     def _handle_move_to_command(self, argument):
         if not argument:
             self.game_state._print_color("Where do you want to move to?", Colors.RED)
@@ -553,7 +586,6 @@ class WorldManager:
             self.game_state._print_color("Cannot move: Player character not available.", Colors.RED)
             return False, False
         target_exit_input = argument.lower()
-        potential_target_loc_name = None
         current_location_data = LOCATIONS_DATA.get(self.game_state.current_location_name)
         if not current_location_data:
             self.game_state._print_color(
@@ -562,7 +594,7 @@ class WorldManager:
             )
             return False, False
         location_exits = current_location_data.get("exits", {})
-        potential_target_loc_name, ambiguous = self.game_state.command_handler._get_matching_exit(
+        potential_target_loc_name, ambiguous = self._resolve_location_exit(
             target_exit_input, location_exits
         )
         if ambiguous:

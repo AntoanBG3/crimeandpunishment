@@ -627,7 +627,7 @@ class Character:
                         memory_type="objective_progress",
                         turn=0,
                         content={
-                            "summary": f"Made progress on '{obj.get('description','Unnamed Objective')}': now at '{new_stage_desc}'."
+                            "summary": f"Made progress on '{obj.get('description', 'Unnamed Objective')}': now at '{new_stage_desc}'."
                         },
                         sentiment_impact=0,
                     )

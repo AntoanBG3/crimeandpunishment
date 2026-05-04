@@ -503,6 +503,5 @@ class EventManager:
 
                 return True  # Interaction happened (and was printed)
             # self.game._print_color(f"{Colors.MAGENTA}...but it trails off into indistinct murmurs.{Colors.RESET}", Colors.MAGENTA)
-            pass
             return False
         return False

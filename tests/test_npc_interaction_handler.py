@@ -11,6 +11,7 @@ from game_engine.game_state import Game
 from game_engine.character_module import Character
 from game_engine.game_config import Colors
 
+
 class TestNPCInteractionHandler(unittest.TestCase):
     def setUp(self):
         self.game = Game()
@@ -26,7 +27,7 @@ class TestNPCInteractionHandler(unittest.TestCase):
         self.game.player_character.get_notable_carried_items_summary = MagicMock(return_value="nothing")
         self.game.player_character.get_objectives_summary = MagicMock(return_value="none")
         self.game.player_notoriety_level = 0.0
-        
+
         self.npc = Character(
             name="Porfiry Petrovich",
             persona="Detective",
@@ -40,7 +41,7 @@ class TestNPCInteractionHandler(unittest.TestCase):
         self.npc.get_objective_by_id = self.npcmock_get_objective
         self.npcmock_get_stage = MagicMock()
         self.npc.get_current_stage_for_objective = self.npcmock_get_stage
-        
+
         self.game.npcs_in_current_location = [self.npc]
         self.game.all_character_objects = {"Porfiry Petrovich": self.npc}
         self.game.current_location_name = "Room"
@@ -88,11 +89,11 @@ class TestNPCInteractionHandler(unittest.TestCase):
     def test_talk_to_porfiry_special_state(self):
         self.npcmock_get_objective.return_value = {"active": True}
         self.npcmock_get_stage.return_value = {"stage_id": "encourage_confession"}
-        self.mock_input_color.side_effect = ["Farewell"] # Exit immediately
-        
+        self.mock_input_color.side_effect = ["Farewell"]  # Exit immediately
+
         self.game._handle_talk_to_command("Porfiry")
         self.assertEqual(self.npc.apparent_state, "intensely persuasive")
-        
+
     def test_talk_to_history_command(self):
         self.mock_input_color.side_effect = ["history", "Farewell"]
         self.game._handle_talk_to_command("Porfiry")
@@ -165,6 +166,7 @@ class TestNPCInteractionHandler(unittest.TestCase):
         self.mock_print_color.assert_any_call(f"Your words don't seem to convince {self.npc.name}.", Colors.RED)
         self.mock_print_color.assert_any_call(f"{Colors.DIM}(Using placeholder dialogue for persuasion){Colors.RESET}", Colors.DIM)
         self.npc.add_player_memory.assert_called()
+
 
 if __name__ == "__main__":
     unittest.main()

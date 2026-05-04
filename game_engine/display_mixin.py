@@ -113,7 +113,7 @@ class DisplayMixin:
         ):
             context = self.command_handler._build_intent_context()
         else:
-            context = "none"
+            context = {"npcs": [], "exits": []}
         talk_target = context["npcs"][0] if context.get("npcs") else "someone nearby"
         move_target = context["exits"][0]["name"] if context.get("exits") else "an available exit"
         tutorial_lines = {

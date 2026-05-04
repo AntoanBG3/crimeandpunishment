@@ -168,7 +168,6 @@ class NPCInteractionHandler:
                     break
                 if not player_dialogue:
                     self._print_color("You remain silent for a moment.", Colors.DIM)
-                    pass
                 used_ai_dialogue = False
                 if self.gemini_api.model:
                     ai_response = self.gemini_api.get_npc_dialogue(

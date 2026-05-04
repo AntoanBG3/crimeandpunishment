@@ -512,7 +512,7 @@ class GeminiAPI:
                     return {"api_configured": True, "low_ai_preference": low_ai_pref}
                 self._rename_invalid_config_file(
                     API_CONFIG_FILE,
-                    f"failed_setup_with_{preferred_model_from_config.replace('/','_')}",
+                    f"failed_setup_with_{preferred_model_from_config.replace('/', '_')}",
                 )
                 self._print_color_func(
                     f"API key from {key_source} (with model '{preferred_model_from_config}') failed validation or setup.",

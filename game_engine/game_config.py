@@ -3,7 +3,6 @@ import json
 import logging
 import sys
 import os
-import random
 
 
 def get_base_path():
@@ -168,9 +167,9 @@ MAX_TIME_UNITS_PER_DAY = 240
 
 # --- Default Item Definitions ---
 def load_default_items(data_path=None):
+    """Loads default item data from a JSON file."""
     if data_path is None:
         data_path = get_data_path("data/items.json")
-    """Loads default item data from a JSON file."""
     try:
         with open(data_path, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -293,4 +292,3 @@ GENERIC_SCENERY_KEYWORDS = [
     "building",
     "crowd",
 ]
-

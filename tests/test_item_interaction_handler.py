@@ -11,6 +11,7 @@ from game_engine.game_state import Game
 from game_engine.character_module import Character
 from game_engine.game_config import Colors
 
+
 class TestItemInteractionHandler(unittest.TestCase):
     def setUp(self):
         self.game = Game()
@@ -36,7 +37,7 @@ class TestItemInteractionHandler(unittest.TestCase):
         self.game.npcs_in_current_location = [self.npc]
         self.game.all_character_objects = {"Porfiry Petrovich": self.npc}
         self.game.current_location_name = "Room"
-        
+
         self.game.dynamic_location_items = {
             "Room": [{"name": "bloodied rag", "quantity": 1}, {"name": "apple", "quantity": 2}]
         }
@@ -48,7 +49,7 @@ class TestItemInteractionHandler(unittest.TestCase):
         self.game.world_manager.get_current_time_period = MagicMock(return_value="Day")
         self.game.event_manager.check_and_trigger_events = MagicMock(return_value=False)
         self.game._get_recent_events_summary = MagicMock(return_value="nothing")
-        
+
         self.mock_print_color = patch.object(self.game, "_print_color").start()
         self.mock_input_color = patch.object(self.game, "_input_color").start()
         self.mock_print = patch("builtins.print").start()
@@ -135,12 +136,13 @@ class TestItemInteractionHandler(unittest.TestCase):
     def test_handle_give_item_missing_target(self):
         # We handle give item which fails when there's no such target, printing specific error.
         success = self.game._handle_give_item("axe", {}, "")
-        # Actually it printed: "You don't see anyone named '' here." and returns False. Or True? Wait, previously returned True. I'll just check success.
+        self.assertTrue(success)
 
     def test_handle_use_item_invalid_type(self):
         success = self.game.handle_use_item("axe", None, "eat")
         self.assertFalse(success)
         self.mock_print_color.assert_any_call("You contemplate the axe, but don't find a specific use for it right now.", Colors.YELLOW)
+
 
 if __name__ == "__main__":
     unittest.main()

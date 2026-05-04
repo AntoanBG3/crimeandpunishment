@@ -6,6 +6,7 @@ from game_engine.gemini_interactions import GeminiAPI
 from game_engine.world_manager import WorldManager
 from game_engine.command_handler import CommandHandler
 from tests.test_coverage_core_modules import _make_state
+from tests.unittest_function_loader import load_pytest_style_functions
 
 
 @patch.dict(
@@ -257,3 +258,7 @@ def test_world_manager_advance_time_new_day_with_dream_static():
         wm.advance_time(10)
     assert state.current_day == 2
     assert player.add_journal_entry.called
+
+
+def load_tests(_loader, _tests, _pattern):
+    return load_pytest_style_functions(globals())

@@ -1,12 +1,11 @@
-import json
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from game_engine.command_handler import CommandHandler
+from game_engine.game_config import Colors
 from game_engine.gemini_interactions import GeminiAPI, NaturalLanguageParser
 from game_engine.world_manager import WorldManager
+from tests.unittest_function_loader import load_pytest_style_functions
 
 
 class DummyNPC:
@@ -76,9 +75,18 @@ def test_parse_action_patterns_and_synonyms():
 def test_record_command_history_and_canonical_formats():
     state = _make_state()
     handler = CommandHandler(state)
+    assert handler._canonical_command_text(None, None) == ""
+    assert handler._canonical_command_text("use", ("rope", None, "other")) == "use rope"
+    assert handler._canonical_command_text("persuade", ("Sonia", "listen")) == (
+        "persuade Sonia that listen"
+    )
+    assert handler._canonical_command_text("bad", ("x",)) == "bad"
+    assert handler._canonical_command_text("move to", "street") == "move to street"
     handler._record_command_history("use", ("book", "Sonia", "give"))
     handler._record_command_history("use", ("letter", None, "read"))
     handler._record_command_history("use", ("key", "door", "use_on"))
+    handler._record_command_history("history", None)
+    handler._record_command_history(None, None)
     handler._record_command_history("look", None)
     assert state.command_history == [
         "read letter",
@@ -98,6 +106,16 @@ def test_prefix_resolution_and_matching_helpers():
     assert npc.name == "Sonia" and not ambiguous
     inv, ambiguous = handler._get_matching_inventory_item("cl")
     assert inv["name"] == "cloak" and not ambiguous
+    state.player_character = None
+    assert handler._get_matching_inventory_item("cl") == (None, False)
+
+    assert handler._get_matching_exit("north", {"Street": "north"}) == ("Street", False)
+    assert handler._get_matching_exit("x", {"Street": "north"}) == (None, False)
+    assert handler._get_matching_exit("n", {"Street": "north", "Bridge": "near bridge"}) == (
+        None,
+        True,
+    )
+    assert handler._is_known_command(None) is False
 
 
 def test_get_player_input_fast_map_and_nlp_fallback():
@@ -122,6 +140,18 @@ def test_intent_handling_and_examples():
     }
     assert handler._interpret_with_nlp("go") == ("move to", "Street")
 
+    for intent, expected in [
+        ("take", ("take", "apple")),
+        ("examine", ("look", "book")),
+        ("talk", ("talk to", "Sonia")),
+    ]:
+        state.nl_parser.parse_player_intent.return_value = {
+            "intent": intent,
+            "target": expected[1],
+            "confidence": 0.8,
+        }
+        assert handler._interpret_with_nlp("do it") == expected
+
     state.nl_parser.parse_player_intent.return_value = {
         "intent": "unknown",
         "target": "",
@@ -141,6 +171,11 @@ def test_process_command_for_control_and_ui_commands():
     assert handler._process_command("move to", "street")[0] is True
     assert handler._process_command("take", "apple")[0] is True
 
+    state._input_color.return_value = "give"
+    assert handler._process_command("select_item", "book") == (False, False, 0, False)
+    state._input_color.return_value = "use on"
+    assert handler._process_command("select_item", "book") == (False, False, 0, False)
+
 
 def test_theme_verbosity_turnheaders_and_retry_paths():
     state = _make_state()
@@ -156,6 +191,29 @@ def test_theme_verbosity_turnheaders_and_retry_paths():
     state.last_ai_generated_text = "Original text"
     state.gemini_api = SimpleNamespace(model=object(), _generate_content_with_fallback=MagicMock(return_value="New text"))
     assert handler._handle_retry_or_rephrase("retry") is True
+
+    state.last_ai_generated_text = None
+    assert handler._handle_retry_or_rephrase("retry") is False
+    state.last_ai_generated_text = "Original"
+    state.gemini_api = SimpleNamespace(model=None)
+    assert handler._handle_retry_or_rephrase("retry") is False
+    state.gemini_api = SimpleNamespace(
+        model=object(), _generate_content_with_fallback=MagicMock(return_value="(OOC: blocked)")
+    )
+    assert handler._handle_retry_or_rephrase("retry") is False
+
+
+def test_get_player_input_hint_branches_and_parse_empty():
+    state = _make_state()
+    state.numbered_actions_context = [
+        {"type": "look_at_item", "target": "book"},
+        {"type": "move", "target": "Street"},
+    ]
+    state._input_color.return_value = "totally unknown"
+    handler = CommandHandler(state)
+    assert handler.parse_action("") == (None, None)
+    assert handler.parse_action("move to bridge") == ("move to", "bridge")
+    assert handler._get_player_input() == (None, None)
 
 
 class _Model:
@@ -330,3 +388,85 @@ def test_world_manager_update_npc_schedule_and_move_failures():
     with patch("game_engine.world_manager.LOCATIONS_DATA", {"A": {"exits": {}}}):
         moved, shown = wm._handle_move_to_command("north")
         assert moved is shown is False
+
+
+def test_world_manager_exit_fallbacks_and_location_update_paths():
+    state = SimpleNamespace(
+        current_location_name=None,
+        player_character=SimpleNamespace(current_location="A"),
+        _print_color=MagicMock(),
+        _get_current_game_time_period_str=lambda: "Day 1, Morning",
+        current_location_description_shown_this_visit=False,
+        visited_locations=set(),
+        all_character_objects={},
+        npcs_in_current_location=[],
+        game_time=0,
+    )
+    wm = WorldManager(state)
+
+    assert wm._resolve_location_exit("north", {"A": "north"}) == ("A", False)
+    assert wm._resolve_location_exit("missing", {"A": "north"}) == (None, False)
+    assert wm._resolve_location_exit("n", {"A": "north", "B": "northeast"}) == (None, True)
+    state._print_color.assert_any_call("Which exit did you mean? A (north); B (northeast)", Colors.YELLOW)
+
+    with patch(
+        "game_engine.world_manager.LOCATIONS_DATA",
+        {"A": {"description": "First sentence. Second sentence.", "time_effects": {"Morning": "Bright."}}},
+    ), patch("builtins.print"):
+        wm.update_current_location_details(from_explicit_look_cmd=False)
+    assert state.current_location_name == "A"
+    assert "A" in state.visited_locations
+
+    state.current_location_description_shown_this_visit = False
+    wm.last_visited_location = "A"
+    with patch(
+        "game_engine.world_manager.LOCATIONS_DATA",
+        {"A": {"description": "First sentence. Second sentence.", "time_effects": {"Morning": "Bright."}}},
+    ), patch("builtins.print"):
+        wm.update_current_location_details(from_explicit_look_cmd=False)
+    state._print_color.assert_any_call("(You have returned here.)", Colors.DIM)
+
+
+def test_world_manager_ambient_rumor_ai_path():
+    player = SimpleNamespace(
+        name="Rodion Raskolnikov",
+        apparent_state="normal",
+        add_journal_entry=MagicMock(),
+    )
+    source_npc = SimpleNamespace(name="Gossip", relationship_with_player=2)
+    state = SimpleNamespace(
+        current_location_name="Tavern",
+        npcs_in_current_location=[source_npc],
+        low_ai_data_mode=False,
+        gemini_api=SimpleNamespace(
+            model=object(),
+            get_rumor_or_gossip=MagicMock(
+                return_value="The police asked about a student with an axe."
+            ),
+        ),
+        player_character=player,
+        _print_color=MagicMock(),
+        _apply_verbosity=lambda text: text,
+        _get_known_facts_summary=lambda: "facts",
+        player_notoriety_level=0,
+        get_relationship_text=lambda score: "positive",
+        _get_objectives_summary=lambda character: "objectives",
+        _get_current_game_time_period_str=lambda: "Day 1, Morning",
+        _remember_ai_output=MagicMock(),
+        game_time=0,
+    )
+    wm = WorldManager(state)
+
+    with patch("game_engine.world_manager.random.random", return_value=0.0), patch(
+        "game_engine.world_manager.random.choice", return_value=source_npc
+    ):
+        wm._handle_ambient_rumors()
+
+    assert player.apparent_state == "paranoid"
+    assert state.player_notoriety_level > 0
+    assert player.add_journal_entry.called
+    state._remember_ai_output.assert_called_once()
+
+
+def load_tests(_loader, _tests, _pattern):
+    return load_pytest_style_functions(globals())

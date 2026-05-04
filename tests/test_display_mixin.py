@@ -1,9 +1,10 @@
 import unittest
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 from game_engine.game_state import Game
 from game_engine.game_config import Colors
 from game_engine.display_mixin import DisplayMixin
+
 
 class TestDisplayMixin(unittest.TestCase):
     def setUp(self):
@@ -51,17 +52,17 @@ class TestDisplayMixin(unittest.TestCase):
     def test_apply_verbosity(self):
         self.assertIsNone(self.game._apply_verbosity(None))
         self.assertEqual(self.game._apply_verbosity(""), "")
-        
+
         long_text = "A. " * 300
-        
+
         self.game.verbosity_level = "brief"
         res = self.game._apply_verbosity("First sentence. Second sentence.")
         self.assertEqual(res, "First sentence.")
-        
+
         # Test brief truncation
         res_long = self.game._apply_verbosity("A" * 200 + ". Second.")
         self.assertTrue(res_long.endswith("..."))
-        
+
         self.game.verbosity_level = "standard"
         res_standard_long = self.game._apply_verbosity(long_text)
         self.assertTrue(res_standard_long.endswith("..."))
@@ -70,7 +71,7 @@ class TestDisplayMixin(unittest.TestCase):
         self.game.turn_headers_enabled = False
         self.game._print_turn_header()
         self.mock_print_color.assert_not_called()
-        
+
         self.game.turn_headers_enabled = True
         self.game._get_current_game_time_period_str = MagicMock(return_value="Morning")
         self.game.last_turn_result_icon = "*"
@@ -94,7 +95,7 @@ class TestDisplayMixin(unittest.TestCase):
         npc.name = "Porfiry"
         npc.apparent_state = "thoughtful"
         self.game.npcs_in_current_location = [npc]
-        
+
         self.assertEqual(self.game._describe_npc_brief("Porfiry"), "appears thoughtful")
         self.assertEqual(self.game._describe_npc_brief("Unknown"), "person here")
 
@@ -108,7 +109,7 @@ class TestDisplayMixin(unittest.TestCase):
         self.game.command_history = []
         self.game._display_command_history()
         self.mock_print_color.assert_any_call("No commands recorded yet.", Colors.DIM)
-        
+
         self.game.command_history = ["look"]
         self.game._display_command_history()
         self.mock_print_color.assert_any_call("1. look", Colors.WHITE)
@@ -117,11 +118,11 @@ class TestDisplayMixin(unittest.TestCase):
         self.game.player_action_count = 0
         self.game.command_handler = MagicMock()
         self.game.command_handler._build_intent_context = MagicMock(return_value={"npcs": ["Porfiry"], "exits": [{"name": "door"}]})
-        
+
         self.game._display_tutorial_hint()
         self.mock_print_color.assert_called()
-        
-        self.game.player_action_count = 10 # Over limit
+
+        self.game.player_action_count = 10  # Over limit
         self.mock_print_color.reset_mock()
         self.game._display_tutorial_hint()
         self.mock_print_color.assert_not_called()
@@ -131,7 +132,7 @@ class TestDisplayMixin(unittest.TestCase):
         self.game.world_manager = MagicMock()
         self.game.display_atmospheric_details()
         self.mock_print_color.assert_any_call("\nSpooky atmosphere.", Colors.CYAN)
-        
+
         # Test fallback
         self.game.gemini_api.model = None
         with patch("game_engine.display_mixin.STATIC_ATMOSPHERIC_DETAILS", ["Static spooky."]):
@@ -142,10 +143,10 @@ class TestDisplayMixin(unittest.TestCase):
         self.game.player_character.objectives = []
         self.game.display_objectives()
         self.mock_print_color.assert_any_call("You have no specific objectives at the moment.", Colors.DIM)
-        
+
         self.game.player_character.objectives = [{"id": "obj1", "active": True, "completed": False, "description": "Do this"}]
         self.game.player_character.get_current_stage_for_objective = MagicMock(return_value={"description": "stage 1"})
-        
+
         self.game.display_objectives()
         self.mock_print_color.assert_any_call("\nOngoing:", Colors.YELLOW + Colors.BOLD)
         self.mock_print_color.assert_any_call("- Do this", Colors.WHITE)
@@ -154,10 +155,10 @@ class TestDisplayMixin(unittest.TestCase):
     def test_display_help(self):
         self.game.color_theme = "default"
         self.game.verbosity_level = "standard"
-        
+
         self.game.display_help("all")
         self.mock_print_color.assert_any_call("\n--- Available Actions ---", Colors.CYAN + Colors.BOLD)
-        
+
         self.game.display_help("movement")
         self.mock_print_color.assert_any_call("Category: movement", Colors.DIM)
 
@@ -168,7 +169,7 @@ class TestDisplayMixin(unittest.TestCase):
         self.game.key_events_occurred = ["Took the axe"]
         self.game.all_character_objects = {"Porfiry": MagicMock(is_player=False, relationship_with_player=10)}
         self.game.get_relationship_text = MagicMock(return_value="Friendly")
-        
+
         self.game._display_load_recap()
         self.mock_print_color.assert_any_call("Objective: Do this (stage 1)", Colors.WHITE)
         self.mock_print_color.assert_any_call("- Took the axe", Colors.DIM)
@@ -178,7 +179,7 @@ class TestDisplayMixin(unittest.TestCase):
         self.game.display_atmospheric_details = MagicMock()
         self.game._display_turn_feedback(True, "look")
         self.game.display_atmospheric_details.assert_called_once()
-        
+
         self.game.last_significant_event_summary = "something"
         self.game._display_turn_feedback(False, "load")
         self.assertIsNone(self.game.last_significant_event_summary)
@@ -190,7 +191,7 @@ class TestDisplayMixin(unittest.TestCase):
         self.game.player_character.skills = {"observation": 2}
         self.game.player_notoriety_level = 1.0
         self.game.color_theme = "default"
-        
+
         self.game._handle_status_command()
         self.mock_print_color.assert_any_call("\n--- Your Status ---", Colors.CYAN + Colors.BOLD)
         self.mock_print_color.assert_any_call("- Observation: 2", Colors.WHITE)
@@ -206,6 +207,7 @@ class TestDisplayMixin(unittest.TestCase):
         self.game.player_character.get_inventory_description = MagicMock(return_value="You are carrying nothing.")
         self.game._handle_inventory_command()
         self.mock_print_color.assert_any_call("- Nothing", Colors.DIM)
+
 
 if __name__ == "__main__":
     unittest.main()
