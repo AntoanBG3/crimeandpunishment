@@ -13,7 +13,7 @@ from game_engine.static_fallbacks import (
     generate_static_scenery_observation,
 )
 from game_engine.world_manager import WorldManager
-from tests.test_coverage_core_modules import _make_state
+from tests.test_command_handler import _make_state
 from tests.unittest_function_loader import load_pytest_style_functions
 
 

@@ -5,7 +5,7 @@ from game_engine.character_module import Character
 from game_engine.gemini_interactions import GeminiAPI
 from game_engine.world_manager import WorldManager
 from game_engine.command_handler import CommandHandler
-from tests.test_coverage_core_modules import _make_state
+from tests.test_command_handler import _make_state
 from tests.unittest_function_loader import load_pytest_style_functions
 
 
