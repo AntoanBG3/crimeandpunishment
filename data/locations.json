@@ -88,7 +88,10 @@
             "Pulcheria's Lodgings": "Find the quieter side street leading to the modest rooms where Raskolnikov's mother and sister are staying.",
             "Pawnbroker's Apartment Building": "Turn down a familiar, grim street towards the building where Alyona Ivanovna, the old pawnbroker, met her end.",
             "Katerina Ivanovna's Apartment": "Follow a narrow, squalid alley towards the Marmeladovs' chaotic dwelling.",
-            "Quiet Courtyard": "Slip through a narrow archway into a surprisingly quiet courtyard."
+            "Quiet Courtyard": "Slip through a narrow archway into a surprisingly quiet courtyard.",
+            "Crystal Palace Tavern": "Push towards the Crystal Palace, the larger tavern where idlers and gossips gather over tea and talk.",
+            "Svidrigaïlov's Lodging": "Take the road towards the lodging house where Arkady Svidrigailov keeps his rooms.",
+            "Deserted Courtyard": "Slip down a forgotten passage into a bleak, deserted courtyard, away from the crowd's eyes."
         },
         "items_present": [
             {

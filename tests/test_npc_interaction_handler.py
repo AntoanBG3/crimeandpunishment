@@ -167,6 +167,40 @@ class TestNPCInteractionHandler(unittest.TestCase):
         self.mock_print_color.assert_any_call(f"{Colors.DIM}(Using placeholder dialogue for persuasion){Colors.RESET}", Colors.DIM)
         self.npc.add_player_memory.assert_called()
 
+    def _printed_strings(self):
+        printed = []
+        for call in self.mock_print.call_args_list:
+            args, _ = call
+            printed.extend(str(a) for a in args)
+        return printed
+
+    def test_talk_ooc_response_not_spoken(self):
+        # A blocked/errored API returns an "(OOC:" string; the NPC must not speak it.
+        self.game.gemini_api.get_npc_dialogue = MagicMock(
+            return_value="(OOC: My thoughts are restricted at the moment.)"
+        )
+        self.mock_input_color.side_effect = ["Hello", "Farewell"]
+        self.game._handle_talk_to_command("Porfiry")
+        self.assertFalse(any("(OOC:" in s for s in self._printed_strings()))
+
+    def test_persuade_ooc_response_not_spoken(self):
+        self.game.gemini_api.get_npc_dialogue_persuasion_attempt = MagicMock(
+            return_value="(OOC: blocked)"
+        )
+        self.game.player_character.check_skill = MagicMock(return_value=True)
+        self.npc.add_player_memory = MagicMock()
+        self.game._handle_persuade_command(("Porfiry", "I am innocent"))
+        self.assertFalse(any("(OOC:" in s for s in self._printed_strings()))
+
+    def test_conversation_conclusion_matching(self):
+        # Clear terminal phrases conclude; short common phrases only when standalone.
+        self.assertTrue(self.game.check_conversation_conclusion("Goodbye, Porfiry."))
+        self.assertTrue(self.game.check_conversation_conclusion("I see."))
+        self.assertFalse(self.game.check_conversation_conclusion("I see what you mean now."))
+        self.assertFalse(
+            self.game.check_conversation_conclusion("Indeed, the weather is fine today.")
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

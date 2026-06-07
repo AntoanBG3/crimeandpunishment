@@ -10,6 +10,12 @@ from .game_config import (
     TIME_UNITS_PER_PLAYER_ACTION,
     HIGHLY_NOTABLE_ITEMS_FOR_MEMORY,
 )
+from .gemini_interactions import is_usable_ai_text
+from .objective_progression import evaluate_player_progression
+
+# Neutral filler lines used when the AI is unavailable or returns an unusable
+# (empty / OOC) response, so an NPC never "speaks" an out-of-character marker.
+_NPC_FALLBACK_LINES = ["Yes?", "Hmm.", "What is it?", "I am busy.", "..."]
 
 
 class NPCInteractionHandler:
@@ -155,6 +161,10 @@ class NPCInteractionHandler:
                                 self._print_color(line, Colors.DIM)
                     self._print_color("--- End of History ---", Colors.CYAN + Colors.BOLD)
                     continue
+                if not player_dialogue:
+                    # Empty input costs no turn and produces no NPC reply; re-prompt.
+                    self._print_color("You remain silent for a moment.", Colors.DIM)
+                    continue
                 logged_player_dialogue = f"You: {player_dialogue}"
                 self.current_conversation_log.append(logged_player_dialogue)
                 if len(self.current_conversation_log) > MAX_CONVERSATION_LOG_LINES:
@@ -166,8 +176,6 @@ class NPCInteractionHandler:
                     )
                     conversation_active = False
                     break
-                if not player_dialogue:
-                    self._print_color("You remain silent for a moment.", Colors.DIM)
                 used_ai_dialogue = False
                 if self.gemini_api.model:
                     ai_response = self.gemini_api.get_npc_dialogue(
@@ -199,6 +207,11 @@ class NPCInteractionHandler:
                         f"{Colors.DIM}(Using placeholder dialogue){Colors.RESET}",
                         Colors.DIM,
                     )
+                if used_ai_dialogue and not is_usable_ai_text(ai_response):
+                    # AI returned nothing usable or an OOC marker; substitute a neutral
+                    # static line so the NPC never speaks OOC text verbatim.
+                    ai_response = random.choice(_NPC_FALLBACK_LINES)
+                    used_ai_dialogue = False
                 ai_response = self._apply_verbosity(ai_response)
                 target_npc.update_relationship(
                     player_dialogue,
@@ -210,9 +223,7 @@ class NPCInteractionHandler:
                 print(f'"{ai_response}"')
                 logged_ai_response = f'{target_npc.name}: "{ai_response}"'
                 self.current_conversation_log.append(logged_ai_response)
-                if used_ai_dialogue and not (
-                    isinstance(ai_response, str) and ai_response.startswith("(OOC:")
-                ):
+                if used_ai_dialogue:
                     self._remember_ai_output(ai_response, "npc_dialogue")
                 if len(self.current_conversation_log) > MAX_CONVERSATION_LOG_LINES:
                     self.current_conversation_log.pop(0)
@@ -239,6 +250,7 @@ class NPCInteractionHandler:
                     "(Your conversation with Porfiry seems to have drawn some attention...)",
                     Colors.YELLOW + Colors.DIM,
                 )
+            evaluate_player_progression(self, "talk_to", target_npc.name)
             return True, True
         self._print_color(f"You don't see anyone named '{target_name_input}' here.", Colors.RED)
         return False, False
@@ -303,12 +315,18 @@ class NPCInteractionHandler:
                 f"{Colors.DIM}(Using placeholder dialogue for persuasion){Colors.RESET}",
                 Colors.DIM,
             )
+        if used_ai_dialogue and not is_usable_ai_text(ai_response):
+            # AI returned nothing usable or an OOC marker; fall back to the same
+            # static line the no-model path uses rather than speaking OOC text.
+            ai_response = (
+                f"Hmm, '{statement_text}', you say? That's... something to consider. "
+                f"(Skill: {persuasion_skill_check_result_text})"
+            )
+            used_ai_dialogue = False
         ai_response = self._apply_verbosity(ai_response)
         self._print_color(f"{target_npc.name}: ", Colors.YELLOW, end="")
         print(f'"{ai_response}"')
-        if used_ai_dialogue and not (
-            isinstance(ai_response, str) and ai_response.startswith("(OOC:")
-        ):
+        if used_ai_dialogue:
             self._remember_ai_output(ai_response, "persuasion_dialogue")
         sentiment_impact_base = 0
         if success:
@@ -333,5 +351,24 @@ class NPCInteractionHandler:
             f"attempted to persuade {target_npc.name} regarding '{statement_text[:30]}...'."
         )
         self._record_npc_post_interaction_memories(target_npc, "during persuasion attempt")
+        evaluate_player_progression(self, "persuade", target_npc.name)
         self.world_manager.advance_time(TIME_UNITS_PER_PLAYER_ACTION)
         return True, True
+
+    def _handle_confess_command(self, argument=None):
+        """The deliberate capstone act that drives a protagonist's story to its ending.
+
+        Context-sensitive: for Raskolnikov it is a confession, for Sonya the resolve
+        to follow him, for Porfiry the moment he secures the confession. The specific
+        narration and which ending is reached are decided by the progression rules.
+        """
+        if not self.player_character:
+            self._print_color("Cannot do that: no character.", Colors.RED)
+            return False, False
+        if evaluate_player_progression(self, "confess"):
+            return True, True
+        self._print_color(
+            "You steel yourself, but this is not the moment, nor the place, for it.",
+            Colors.YELLOW,
+        )
+        return False, False

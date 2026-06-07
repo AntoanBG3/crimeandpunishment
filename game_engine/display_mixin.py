@@ -226,6 +226,10 @@ class DisplayMixin:
                     "give [item name] to [target name]",
                     "Offer an item to another character.",
                 ),
+                (
+                    "confess",
+                    "When the time and place are right, take your story's decisive turn.",
+                ),
                 ("think / reflect", "Access your character's inner thoughts."),
             ],
             "items": [

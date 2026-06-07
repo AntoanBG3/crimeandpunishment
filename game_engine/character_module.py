@@ -186,11 +186,13 @@ class Character:
 
         saved_npc_relationships = data.get("npc_relationships")
         if saved_npc_relationships is not None:
-            char.npc_relationships = saved_npc_relationships
+            # Deepcopy for consistency with every other restored field; avoids the
+            # reconstructed character aliasing the parsed save dict.
+            char.npc_relationships = copy.deepcopy(saved_npc_relationships)
 
         saved_skills = data.get("skills")
         if saved_skills is not None:
-            char.skills = saved_skills
+            char.skills = copy.deepcopy(saved_skills)
 
         loaded_objectives_map = {
             obj["id"]: obj for obj in data.get("objectives", []) if "id" in obj

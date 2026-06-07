@@ -3,7 +3,7 @@ import json
 import os
 import re
 import random
-from typing import Set, Optional, List, Dict, Any, Tuple
+from typing import Set, Optional, List, Dict, Any
 
 from .game_config import (
     Colors,
@@ -61,7 +61,7 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
         self.actions_since_last_autosave = 0
         self.player_action_count = 0
         self.tutorial_turn_limit = 5
-        self.command_history: List[Tuple[str, str]] = []
+        self.command_history: List[str] = []
         self.max_command_history = 25
         self.turn_headers_enabled = True
         self.last_turn_result_icon = "..."
@@ -188,6 +188,16 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
                 Colors.RED,
             )
             return False
+        if not slot_name and not os.path.exists(save_file):
+            # Bare `load` defaults to the manual save; if that's absent but an autosave
+            # exists, recover from the autosave rather than reporting nothing found.
+            autosave_file = self._get_save_file_path("autosave")
+            if autosave_file and os.path.exists(autosave_file):
+                save_file = autosave_file
+                self._print_color(
+                    "No manual save found; loading the most recent autosave instead.",
+                    Colors.DIM,
+                )
         if not os.path.exists(save_file):
             self._print_color(f"No save file found at {save_file}.", Colors.YELLOW)
             return False

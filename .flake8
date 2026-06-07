@@ -5,3 +5,4 @@ exclude = .git,__pycache__,.pytest_cache,.venv,venv
 per-file-ignores =
     tests/test_item_interaction_handler.py:E402
     tests/test_npc_interaction_handler.py:E402
+    tests/test_objective_progression.py:E402

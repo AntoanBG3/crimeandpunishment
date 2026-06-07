@@ -950,12 +950,7 @@
                 ]
             }
         ],
-        "inventory_items": [
-            {
-                "name": "stolen leather purse",
-                "quantity": 1
-            }
-        ],
+        "inventory_items": [],
         "skills": {
             "Observation": 3,
             "Persuasion": 1,

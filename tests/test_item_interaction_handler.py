@@ -133,15 +133,59 @@ class TestItemInteractionHandler(unittest.TestCase):
             self.assertFalse(success)
             self.mock_print_color.assert_any_call("You contemplate the axe, but don't find a specific use for it right now.", Colors.YELLOW)
 
-    def test_handle_give_item_missing_target(self):
-        # We handle give item which fails when there's no such target, printing specific error.
+    def test_handle_give_item_unacceptable_restores_item(self):
+        # "axe" is not a real item key (the real one is "raskolnikov's axe"), so the
+        # NPC's add_to_inventory fails. The give must fail and the item must be
+        # restored to the player rather than destroyed.
         success = self.game._handle_give_item("axe", {}, "")
-        self.assertTrue(success)
+        self.assertFalse(success)
+        self.assertTrue(self.game.player_character.has_item("axe"))
 
     def test_handle_use_item_invalid_type(self):
         success = self.game.handle_use_item("axe", None, "eat")
         self.assertFalse(success)
         self.mock_print_color.assert_any_call("You contemplate the axe, but don't find a specific use for it right now.", Colors.YELLOW)
+
+    def test_reflective_use_effects_are_implemented(self):
+        # The six previously-unimplemented use_effect_player values now produce a
+        # reflection and count as a successful use (no "no specific use" fallthrough).
+        effects = [
+            "reflect_on_family_expectations",
+            "feel_guilt_for_dunya",
+            "trigger_paranoia_and_refuse_to_open",
+            "contemplate_lizavetas_innocence",
+            "recognize_manipulation",
+            "mourn_the_fallen",
+        ]
+        for effect in effects:
+            success = self.game._handle_self_use_item("an item", {}, effect)
+            self.assertTrue(success, f"{effect} should be handled")
+
+    def test_load_falls_back_to_autosave(self):
+        # Bare `load` with no manual save but an autosave present uses the autosave.
+        with patch("game_engine.game_state.os.path.exists",
+                   side_effect=lambda p: p == "savegame_autosave.json"), \
+                patch("builtins.open", side_effect=IOError("stop after path selection")):
+            self.game.load_game(None)
+        self.mock_print_color.assert_any_call(
+            "No manual save found; loading the most recent autosave instead.", Colors.DIM
+        )
+
+    def test_take_failure_does_not_destroy_item(self):
+        # Taking a non-stackable item the player already holds must fail without
+        # removing the item from the world.
+        with patch.dict(
+            "game_engine.item_interaction_handler.DEFAULT_ITEMS",
+            {"relic": {"takeable": True}},
+            clear=True,
+        ):
+            self.game.player_character.inventory = [{"name": "relic"}]
+            self.game.dynamic_location_items = {"Room": [{"name": "relic", "quantity": 1}]}
+            action, _ = self.game._handle_take_command("relic")
+            self.assertFalse(action)
+            self.assertTrue(
+                any(i["name"] == "relic" for i in self.game.dynamic_location_items["Room"])
+            )
 
 
 if __name__ == "__main__":

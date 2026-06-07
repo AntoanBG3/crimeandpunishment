@@ -333,7 +333,6 @@ class TestGameStateCommands(unittest.TestCase):
         self.game.all_character_objects = {}
         self.game.npcs_in_current_location = []
         self.game.numbered_actions_context = []
-        self.game.TIME_UNITS_PER_PLAYER_ACTION = TIME_UNITS_PER_PLAYER_ACTION
 
         self.mock_locations_data_patch = patch(
             "game_engine.game_state.LOCATIONS_DATA",
@@ -395,7 +394,7 @@ class TestGameStateCommands(unittest.TestCase):
         mock_specific_look.assert_called_once_with(item_name, False)
         self.assertTrue(action_taken)
         self.assertTrue(show_atmospherics)
-        self.assertEqual(time_units, self.game.TIME_UNITS_PER_PLAYER_ACTION)
+        self.assertEqual(time_units, TIME_UNITS_PER_PLAYER_ACTION)
 
     @patch.object(Game, "_handle_take_command")
     def test_process_command_select_item_then_take(self, mock_handle_take):
@@ -408,7 +407,7 @@ class TestGameStateCommands(unittest.TestCase):
         mock_handle_take.assert_called_once_with(item_name)
         self.assertTrue(action_taken)
         self.assertTrue(show_atmospherics)
-        self.assertEqual(time_units, self.game.TIME_UNITS_PER_PLAYER_ACTION)
+        self.assertEqual(time_units, TIME_UNITS_PER_PLAYER_ACTION)
 
     @patch.object(Game, "handle_use_item")
     def test_process_command_select_item_then_read(self, mock_handle_use_item):
@@ -422,7 +421,7 @@ class TestGameStateCommands(unittest.TestCase):
         mock_handle_use_item.assert_called_once_with(item_name, None, "read")
         self.assertTrue(action_taken)
         self.assertFalse(show_atmospherics)
-        self.assertEqual(time_units, self.game.TIME_UNITS_PER_PLAYER_ACTION)
+        self.assertEqual(time_units, TIME_UNITS_PER_PLAYER_ACTION)
 
     @patch.object(Game, "handle_use_item")
     def test_process_command_select_item_then_use_self(self, mock_handle_use_item):
@@ -436,7 +435,7 @@ class TestGameStateCommands(unittest.TestCase):
         mock_handle_use_item.assert_called_once_with(item_name, None, "use_self_implicit")
         self.assertTrue(action_taken)
         self.assertFalse(show_atmospherics)
-        self.assertEqual(time_units, self.game.TIME_UNITS_PER_PLAYER_ACTION)
+        self.assertEqual(time_units, TIME_UNITS_PER_PLAYER_ACTION)
 
     @patch.object(Game, "handle_use_item")
     def test_process_command_select_item_then_give_to(self, mock_handle_use_item):
@@ -453,7 +452,7 @@ class TestGameStateCommands(unittest.TestCase):
         mock_handle_use_item.assert_called_once_with(item_name, "testnpc", "give")
         self.assertTrue(action_taken)
         self.assertFalse(show_atmospherics)
-        self.assertEqual(time_units, self.game.TIME_UNITS_PER_PLAYER_ACTION)
+        self.assertEqual(time_units, TIME_UNITS_PER_PLAYER_ACTION)
 
     def test_process_command_select_item_invalid_secondary_action(self):
         item_name = "test_apple"
@@ -640,7 +639,7 @@ class TestGameStateCommands(unittest.TestCase):
             return_value="The usual St. Petersburg gloom."
         )
         self.game._get_objectives_summary = MagicMock(return_value="Survive.")  # For player
-        self.game.get_current_time_period = MagicMock(return_value="Evening")
+
         self.game.player_character.current_location = (
             self.game.current_location_name
         )  # Ensure player has a location
@@ -725,7 +724,7 @@ class TestGameStateCommands(unittest.TestCase):
         )
         self.game.gemini_api.model = MagicMock()  # Ensure model is truthy
         self.game.low_ai_data_mode = False
-        self.game.get_current_time_period = MagicMock(return_value="Afternoon")
+
         self.game._get_recent_events_summary = MagicMock(return_value="Nothing much.")
         # Mock _get_objectives_summary on game instance for the player if not using player.get_objectives_summary directly
         # For this test, player_character.get_objectives_summary is mocked above.
@@ -878,7 +877,7 @@ class TestEventManager(unittest.TestCase):
         self.mock_game.player_character.add_to_inventory = MagicMock()
         self.mock_game.low_ai_data_mode = False  # Add the attribute
         self.mock_game.current_location_name = "Raskolnikov's Garret"
-        self.mock_game.get_current_time_period = MagicMock(return_value="Morning")
+        self.mock_game.world_manager.get_current_time_period.return_value = "Morning"
         self.mock_game._get_objectives_summary = MagicMock(return_value="Some objectives.")
         self.mock_game._print_color = MagicMock()
         self.mock_game.last_significant_event_summary = ""
@@ -894,7 +893,7 @@ class TestEventManager(unittest.TestCase):
         self.assertEqual(kwargs.get("current_location_name"), self.mock_game.current_location_name)
         self.assertEqual(
             kwargs.get("current_time_period"),
-            self.mock_game.get_current_time_period.return_value,
+            self.mock_game.world_manager.get_current_time_period.return_value,
         )
         self.assertIn("context_text", kwargs)
         self.assertEqual(
@@ -1692,29 +1691,35 @@ class TestGeminiAPIConfiguration(unittest.TestCase):
 
         self.assertTrue(
             any(
-                "Gemini 3 Pro Preview (ID: gemini-3-pro-preview)" in call
+                "Gemini 3.1 Pro Preview (ID: gemini-3.1-pro-preview)" in call
                 for call in model_prompt_calls
             )
         )
         self.assertTrue(
             any(
-                "Gemini 3 Flash Preview (Default) (ID: gemini-3-flash-preview)" in call
+                "Gemini 3.5 Flash (Default) (ID: gemini-3.5-flash)" in call
+                for call in model_prompt_calls
+            )
+        )
+        self.assertTrue(
+            any(
+                "Gemini 3.1 Flash Lite (ID: gemini-3.1-flash-lite)" in call
                 for call in model_prompt_calls
             )
         )
 
-        # Check that the input prompt was for choices 1-2
+        # Check that the input prompt was for choices 1-3
         input_prompt_found = False
         for call_args in self.mock_input_func.call_args_list:
             args, _ = call_args
             if (
                 args
                 and isinstance(args[0], str)
-                and "(1-2), or press Enter for default): " in args[0]
+                and "(1-3), or press Enter for default): " in args[0]
             ):
                 input_prompt_found = True
                 break
-        self.assertTrue(input_prompt_found, "Input prompt for 1-2 choices not found.")
+        self.assertTrue(input_prompt_found, "Input prompt for 1-3 choices not found.")
 
         self.assertEqual(self.api.chosen_model_name, DEFAULT_GEMINI_MODEL_NAME)
 
@@ -1725,9 +1730,9 @@ class TestGeminiAPIConfiguration(unittest.TestCase):
         self.mock_input_func.side_effect = ["dummy_manual_key", "1", "n", "n"]
 
         self.api.configure(self.mock_print_func, self.mock_input_func)
-        self.assertEqual(self.api.chosen_model_name, "gemini-3-pro-preview")
+        self.assertEqual(self.api.chosen_model_name, "gemini-3.1-pro-preview")
         self.mock_attempt_api_setup.assert_called_with(
-            "dummy_manual_key", "user input", "gemini-3-pro-preview"
+            "dummy_manual_key", "user input", "gemini-3.1-pro-preview"
         )
 
     def test_configure_successful_api_setup_prompts_low_ai_mode_yes(self):

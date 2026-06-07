@@ -64,6 +64,7 @@
         "description": "A rag stained with dark, dried blood. A chilling piece of evidence that screams of violence. Examining it too closely might trigger intense paranoia or flashbacks.",
         "takeable": true,
         "is_notable": true,
+        "hidden_in_location": "Pawnbroker's Apartment",
         "use_effect_player": "examine_rag_and_spiral_into_paranoia"
     },
     "mother's letter": {
@@ -85,7 +86,6 @@
         "description": "A small, poorly wrapped bundle tied with string, containing a few meager possessions. It was dropped by Lizaveta. Examining its contents \u2013 perhaps a worn shawl, a child's toy, a copper coin \u2013 serves as a brutal reminder of the innocent life taken, deepening the sense of guilt.",
         "takeable": true,
         "is_notable": true,
-        "hidden_in_location": "Pawnbroker's Apartment",
         "use_effect_player": "examine_bundle_and_face_guilt_for_Lizaveta"
     },
     "father's silver watch": {
@@ -93,6 +93,7 @@
         "takeable": true,
         "value": 15,
         "is_notable": true,
+        "hidden_in_location": "Raskolnikov's Garret",
         "use_effect_player": "reflect_on_family_expectations"
     },
     "gold ring with red stones": {
@@ -100,6 +101,7 @@
         "takeable": true,
         "value": 10,
         "is_notable": true,
+        "hidden_in_location": "Raskolnikov's Garret",
         "use_effect_player": "feel_guilt_for_dunya"
     },
     "stolen leather purse": {
@@ -113,6 +115,7 @@
         "description": "A simple copper cross that originally belonged to Lizaveta, later exchanged with Sonya. It represents the intertwined fates of the victims and the innocent.",
         "takeable": true,
         "is_notable": true,
+        "hidden_in_location": "Sonya's Room",
         "use_effect_player": "contemplate_lizavetas_innocence"
     },
     "luzhin's 100-rouble note": {
@@ -127,6 +130,7 @@
         "description": "A ruined, mud-stained hat belonging to the late Marmeladov. It smells faintly of hay and stale alcohol, a tragic summary of a ruined life.",
         "takeable": true,
         "owner": "Katerina Ivanovna Marmeladova",
+        "hidden_in_location": "Katerina Ivanovna's Apartment",
         "use_effect_player": "mourn_the_fallen"
     }
 }
