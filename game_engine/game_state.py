@@ -13,17 +13,19 @@ from .game_config import (
     DEFAULT_COLOR_THEME,
     DEFAULT_VERBOSITY_LEVEL,
     VERBOSITY_LEVELS,
+    DEFAULT_ITEMS,
 )
 from .static_fallbacks import STATIC_PLAYER_REFLECTIONS
 from .character_module import Character, CHARACTERS_DATA
 from .location_module import LOCATIONS_DATA
-from .gemini_interactions import GeminiAPI, NaturalLanguageParser
+from .gemini_interactions import GeminiAPI, NaturalLanguageParser, is_usable_ai_text
 from .event_manager import EventManager
 from .display_mixin import DisplayMixin
 from .command_handler import CommandHandler
 from .item_interaction_handler import ItemInteractionHandler
 from .npc_interaction_handler import NPCInteractionHandler
 from .world_manager import WorldManager
+from .objective_progression import validate_rules as _validate_objective_rules
 
 
 class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
@@ -109,9 +111,7 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
         return "Known facts about the crime: " + "; ".join(self.known_facts_about_crime)
 
     def _remember_ai_output(self, text: Optional[str], source_label: str) -> None:
-        if not text or not isinstance(text, str):
-            return
-        if text.startswith("(OOC:"):
+        if not is_usable_ai_text(text):
             return
         self.last_ai_generated_text = text.strip()
         self.last_ai_generation_source = source_label
@@ -156,6 +156,7 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
             },
             "dynamic_location_items": self.dynamic_location_items,
             "triggered_events": list(self.event_manager.triggered_events),
+            "event_manager_cooldown_reset_time": self.event_manager._last_cooldown_reset_time,
             "last_significant_event_summary": self.last_significant_event_summary,
             "player_notoriety_level": self.player_notoriety_level,
             "known_facts_about_crime": self.known_facts_about_crime,
@@ -209,6 +210,9 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
             self.current_location_name = game_state_data.get("current_location_name")
             self.dynamic_location_items = game_state_data.get("dynamic_location_items", {})
             self.event_manager.triggered_events = set(game_state_data.get("triggered_events", []))
+            self.event_manager._last_cooldown_reset_time = game_state_data.get(
+                "event_manager_cooldown_reset_time", self.game_time
+            )
             self.last_significant_event_summary = game_state_data.get(
                 "last_significant_event_summary"
             )
@@ -295,6 +299,7 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
             Colors.CYAN + Colors.BOLD,
         )
         self.world_manager._validate_item_data()
+        _validate_objective_rules(CHARACTERS_DATA, LOCATIONS_DATA, DEFAULT_ITEMS)
 
         game_loaded_successfully = False
         # Non-interactive mode: Automatically start a new game if GEMINI_API_KEY is set
@@ -428,11 +433,7 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
                 full_reflection_context,
             )
 
-        if (
-            reflection is None
-            or (isinstance(reflection, str) and reflection.startswith("(OOC:"))
-            or self.low_ai_data_mode
-        ):
+        if not is_usable_ai_text(reflection) or self.low_ai_data_mode:
             if STATIC_PLAYER_REFLECTIONS:
                 reflection = random.choice(STATIC_PLAYER_REFLECTIONS)
             else:

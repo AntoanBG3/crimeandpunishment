@@ -6,6 +6,7 @@ import random
 
 from .game_config import Colors, DEFAULT_ITEMS
 from .static_fallbacks import STATIC_ATMOSPHERIC_DETAILS
+from .gemini_interactions import is_usable_ai_text
 
 
 class DisplayMixin:
@@ -144,11 +145,7 @@ class DisplayMixin:
                 )
                 self.world_manager.last_visited_location = self.current_location_name
 
-            if (
-                details is None
-                or (isinstance(details, str) and details.startswith("(OOC:"))
-                or self.low_ai_data_mode
-            ):
+            if not is_usable_ai_text(details) or self.low_ai_data_mode:
                 if STATIC_ATMOSPHERIC_DETAILS:
                     details = random.choice(STATIC_ATMOSPHERIC_DETAILS)
                 else:

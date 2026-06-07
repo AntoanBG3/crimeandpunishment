@@ -1451,6 +1451,6 @@ class ItemInteractionHandler:
         ):
             if self.player_character.remove_from_inventory(item_to_use_name, 1):
                 self._print_color(f"The {item_to_use_name} is used up.", Colors.MAGENTA)
-        if used_successfully and item_to_use_name:
+        if used_successfully and item_to_use_name and interaction_type != "give":
             evaluate_player_progression(self, "use_item", item_to_use_name)
         return used_successfully

@@ -195,13 +195,8 @@ class NPCInteractionHandler:
                     used_ai_dialogue = True
                 else:
                     ai_response = random.choice(
-                        [
-                            "Yes?",
-                            "Hmm.",
-                            "What is it?",
-                            "I am busy.",
-                            f"{target_npc.greeting if hasattr(target_npc, 'greeting') else '...'}",
-                        ]
+                        _NPC_FALLBACK_LINES[:-1]
+                        + [getattr(target_npc, "greeting", "...")]
                     )
                     self._print_color(
                         f"{Colors.DIM}(Using placeholder dialogue){Colors.RESET}",
@@ -289,6 +284,10 @@ class NPCInteractionHandler:
         persuasion_skill_check_result_text = (
             "SUCCESS due to their skillful argument" if success else "FAILURE despite their efforts"
         )
+        _persuade_fallback = (
+            f"Hmm, '{statement_text}', you say? That's... something to consider. "
+            f"(Skill: {persuasion_skill_check_result_text})"
+        )
         used_ai_dialogue = False
         if self.gemini_api.model:
             ai_response = self.gemini_api.get_npc_dialogue_persuasion_attempt(
@@ -310,7 +309,7 @@ class NPCInteractionHandler:
             )
             used_ai_dialogue = True
         else:
-            ai_response = f"Hmm, '{statement_text}', you say? That's... something to consider. (Skill: {persuasion_skill_check_result_text})"
+            ai_response = _persuade_fallback
             self._print_color(
                 f"{Colors.DIM}(Using placeholder dialogue for persuasion){Colors.RESET}",
                 Colors.DIM,
@@ -318,10 +317,7 @@ class NPCInteractionHandler:
         if used_ai_dialogue and not is_usable_ai_text(ai_response):
             # AI returned nothing usable or an OOC marker; fall back to the same
             # static line the no-model path uses rather than speaking OOC text.
-            ai_response = (
-                f"Hmm, '{statement_text}', you say? That's... something to consider. "
-                f"(Skill: {persuasion_skill_check_result_text})"
-            )
+            ai_response = _persuade_fallback
             used_ai_dialogue = False
         ai_response = self._apply_verbosity(ai_response)
         self._print_color(f"{target_npc.name}: ", Colors.YELLOW, end="")

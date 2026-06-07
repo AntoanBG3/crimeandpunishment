@@ -20,7 +20,7 @@ Design:
   not break the action that triggered it.
 """
 
-from .game_config import Colors
+from .game_config import Colors, DEBUG_LOGS
 
 # The one ending-bearing objective per playable protagonist.
 MAIN_OBJECTIVE_BY_CHARACTER = {
@@ -54,6 +54,24 @@ def _at_any(locations):
     return lambda game: getattr(game, "current_location_name", None) in locations
 
 
+def _stage_not_at(obj_id, stage_id):
+    """Return a predicate that is True when the given objective is NOT at stage_id.
+
+    Used to prevent a side-quest event from incidentally firing a main-arc rule
+    when the same NPC is involved in both.
+    """
+    def _predicate(game):
+        pc = getattr(game, "player_character", None)
+        if pc is None:
+            return True
+        obj = pc.get_objective_by_id(obj_id)
+        if not obj or not obj.get("active"):
+            return True
+        stage = pc.get_current_stage_for_objective(obj_id)
+        return stage is None or stage.get("stage_id") != stage_id
+    return _predicate
+
+
 # Each rule: objective_id, from-stage, event, optional target / secondary match,
 # optional require(game) predicate, to-stage, optional item to grant, narration.
 _RULES = {
@@ -66,7 +84,12 @@ _RULES = {
          "target": _PORFIRY, "to": "engage_porfiry_intellectually",
          "narrate": "The duel with Porfiry begins; you resolve to match wits and conceal the truth."},
         {"obj": "grapple_with_crime", "from": "initial_turmoil", "event": "talk_to",
-         "target": _SVIDRIGAILOV, "to": "isolate_further",
+         "target": _SVIDRIGAILOV,
+         # Only advance the main arc when the player is not in the middle of the
+         # family side-quest at the "confront Svidrigailov about Dunya" step, so
+         # the help_family arc cannot silently hijack the main moral arc.
+         "require": _stage_not_at("help_family", "confront_luzhin"),
+         "to": "isolate_further",
          "narrate": "Svidrigailov's casual abyss pulls at you; you feel yourself drifting from all human warmth."},
         {"obj": "grapple_with_crime", "from": "initial_turmoil", "event": "use_item",
          "target": "cheap vodka", "to": "isolate_further",
@@ -167,7 +190,6 @@ def evaluate_player_progression(game, event, target=None, secondary=None):
             return False
 
         advanced_objs = set()
-        any_advanced = False
         for rule in rules:
             obj_id = rule["obj"]
             if obj_id in advanced_objs:
@@ -190,15 +212,64 @@ def evaluate_player_progression(game, event, target=None, secondary=None):
 
             if pc.advance_objective_stage(obj_id, rule["to"]):
                 advanced_objs.add(obj_id)
-                any_advanced = True
                 grant = rule.get("grant")
                 if grant and not pc.has_item(grant):
                     pc.add_to_inventory(grant, 1)
                 narrate = rule.get("narrate")
                 if narrate:
                     game._print_color(f"\n{narrate}", Colors.CYAN + Colors.BOLD)
-        return any_advanced
-    except Exception:
+        return bool(advanced_objs)
+    except Exception as exc:
         # Progression is best-effort; an unexpected state must never break the
         # talk/give/persuade/confess action that called us.
+        if DEBUG_LOGS:
+            import traceback
+            print(f"[DEBUG] evaluate_player_progression error (event={event!r}, target={target!r}): {exc}")
+            traceback.print_exc()
         return False
+
+
+def validate_rules(characters_data, locations_data, items_data):
+    """Warn at startup when _RULES reference strings that don't exist in data.
+
+    Called once by world_manager during initialization so content drift is caught
+    early rather than at runtime when a rule silently fails to match.
+    """
+    warnings = []
+    all_location_names = set(locations_data.keys())
+    all_item_names = set(items_data.keys())
+
+    for char_name, rules in _RULES.items():
+        char = characters_data.get(char_name)
+        if char is None:
+            warnings.append(f"  _RULES: unknown character {char_name!r}")
+            continue
+        obj_map = {o["id"]: o for o in char.get("objectives", [])}
+        for i, rule in enumerate(rules):
+            obj_id = rule["obj"]
+            obj = obj_map.get(obj_id)
+            if obj is None:
+                warnings.append(f"  _RULES[{char_name}][{i}]: unknown objective {obj_id!r}")
+                continue
+            stage_ids = {s["stage_id"] for s in obj.get("stages", [])}
+            for key in ("from", "to"):
+                s = rule.get(key)
+                if s and s not in stage_ids:
+                    warnings.append(
+                        f"  _RULES[{char_name}][{i}] obj={obj_id!r}: unknown {key}-stage {s!r}"
+                    )
+            tgt = rule.get("target")
+            if tgt and tgt not in characters_data and tgt not in all_item_names:
+                warnings.append(
+                    f"  _RULES[{char_name}][{i}] obj={obj_id!r}: target {tgt!r} not in characters or items"
+                )
+            grant = rule.get("grant")
+            if grant and grant not in all_item_names:
+                warnings.append(
+                    f"  _RULES[{char_name}][{i}] obj={obj_id!r}: grant item {grant!r} not in items"
+                )
+
+    if warnings:
+        print("[WARNING] objective_progression._RULES has data mismatches:")
+        for w in warnings:
+            print(w)

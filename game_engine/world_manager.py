@@ -17,9 +17,10 @@ from .game_config import (
     DEBUG_LOGS,
 )
 from .static_fallbacks import STATIC_DREAM_SEQUENCES, STATIC_RUMORS
+from .gemini_interactions import is_usable_ai_text
 from .location_module import LOCATIONS_DATA
 from .character_module import Character, CHARACTERS_DATA
-from .objective_progression import MAIN_OBJECTIVE_BY_CHARACTER
+from .objective_progression import MAIN_OBJECTIVE_BY_CHARACTER, validate_rules as _validate_objective_rules
 
 
 class WorldManager:
@@ -90,11 +91,7 @@ class WorldManager:
                             relationships_summary,
                         )
 
-                    if (
-                        dream_text is None
-                        or (isinstance(dream_text, str) and dream_text.startswith("(OOC:"))
-                        or self.game_state.low_ai_data_mode
-                    ):
+                    if not is_usable_ai_text(dream_text) or self.game_state.low_ai_data_mode:
                         if STATIC_DREAM_SEQUENCES:
                             dream_text = random.choice(STATIC_DREAM_SEQUENCES)
                         else:
@@ -435,11 +432,7 @@ class WorldManager:
                     self.game_state._get_objectives_summary(source_npc),
                 )
 
-            if (
-                rumor_text is None
-                or (isinstance(rumor_text, str) and rumor_text.startswith("(OOC:"))
-                or self.game_state.low_ai_data_mode
-            ):
+            if not is_usable_ai_text(rumor_text) or self.game_state.low_ai_data_mode:
                 if STATIC_RUMORS:
                     rumor_text = random.choice(STATIC_RUMORS)
                 else:
