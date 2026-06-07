@@ -213,6 +213,12 @@ class WorldManager:
         else:
             for i, name in enumerate(playable_character_names):
                 print(f"{Colors.MAGENTA}{i + 1}. {Colors.WHITE}{name}{Colors.RESET}")
+                char_data = CHARACTERS_DATA.get(name, {})
+                persona = char_data.get("persona", "")
+                if persona:
+                    sentences = persona.split(". ")
+                    blurb = ". ".join(sentences[:2]) + "."
+                    print(f"   {Colors.DIM}{blurb}{Colors.RESET}")
             while True:
                 try:
                     choice_str = self.game_state._input_color(

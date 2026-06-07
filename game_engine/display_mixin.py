@@ -109,22 +109,31 @@ class DisplayMixin:
         if self.player_action_count >= self.tutorial_turn_limit:
             return
         step = self.player_action_count + 1
+        # Don't repeat the same hint on consecutive non-action turns.
+        if getattr(self, "_tutorial_hint_shown_for_step", 0) >= step:
+            return
         if hasattr(self, "command_handler") and hasattr(
             self.command_handler, "_build_intent_context"
         ):
             context = self.command_handler._build_intent_context()
         else:
             context = {"npcs": [], "exits": []}
-        talk_target = context["npcs"][0] if context.get("npcs") else "someone nearby"
+        talk_target = context["npcs"][0] if context.get("npcs") else None
         move_target = context["exits"][0]["name"] if context.get("exits") else "an available exit"
+        hint_2 = (
+            f"Tutorial 2/5: Try 'talk to {talk_target}' to start a conversation."
+            if talk_target
+            else "Tutorial 2/5: Try 'look at [something]' to examine items, or 'think' to reflect."
+        )
         tutorial_lines = {
-            1: "Tutorial 1/5: Start by using 'look' to survey this location.",
-            2: f"Tutorial 2/5: Try 'talk to {talk_target}' to open a social path.",
-            3: "Tutorial 3/5: Use 'objectives' to check your active direction.",
-            4: f"Tutorial 4/5: Travel with 'move to {move_target}' when you're ready.",
-            5: "Tutorial 5/5: Need focused help? Try 'help movement' or 'help social'.",
+            1: "Tutorial 1/5: Use 'look' to survey your surroundings.",
+            2: hint_2,
+            3: "Tutorial 3/5: Use 'objectives' to see your active goals.",
+            4: f"Tutorial 4/5: Move with 'move to {move_target}'.",
+            5: "Tutorial 5/5: Type 'help' for all commands, or 'help movement' / 'help social'.",
         }
-        self._print_color(tutorial_lines.get(step, ""), Colors.DIM)
+        self._print_color(tutorial_lines.get(step, ""), Colors.YELLOW)
+        self._tutorial_hint_shown_for_step = step
 
     def display_atmospheric_details(self):
         if self.player_character and self.current_location_name:

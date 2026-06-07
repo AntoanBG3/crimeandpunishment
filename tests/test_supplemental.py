@@ -450,7 +450,7 @@ def test_display_guard_and_branch_paths():
     game.command_handler = SimpleNamespace()
     game.player_action_count = 1
     game._display_tutorial_hint()
-    assert any("someone nearby" in call.args[0] for call in game._print_color.call_args_list)
+    assert any("look at" in call.args[0] or "think" in call.args[0] for call in game._print_color.call_args_list)
 
     game.player_character = Character("P", "p", "g", "Room", ["Room"], is_player=True)
     game.current_location_name = "Room"

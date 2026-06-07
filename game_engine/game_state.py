@@ -347,7 +347,12 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
             self.display_atmospheric_details()
         self._print_color("\n--- Game Start ---", Colors.CYAN + Colors.BOLD)
         if not game_loaded_successfully:
-            self.display_help()
+            self._print_color(
+                "Essential commands: 'look' (survey surroundings), "
+                "'move to [place]' (travel), 'talk to [name]' (converse), "
+                "'objectives' (your goals). Type 'help' for the full list.",
+                Colors.YELLOW,
+            )
         return True
 
     def run(self) -> None:
