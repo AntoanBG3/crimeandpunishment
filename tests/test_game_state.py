@@ -52,6 +52,7 @@ class TestGameState(unittest.TestCase):
             "all_character_objects_state": {"Test Player": self.game.player_character.to_dict()},
             "dynamic_location_items": {"start_location": []},
             "triggered_events": ["event1"],
+            "event_manager_cooldown_reset_time": 0,
             "last_significant_event_summary": "Something happened.",
             "player_notoriety_level": 1,
             "known_facts_about_crime": ["A crime was committed."],

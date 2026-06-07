@@ -3,7 +3,7 @@ import json
 import os
 import re
 import random
-from typing import Set, Optional, List, Dict, Any, Tuple
+from typing import Set, Optional, List, Dict, Any
 
 from .game_config import (
     Colors,
@@ -13,17 +13,19 @@ from .game_config import (
     DEFAULT_COLOR_THEME,
     DEFAULT_VERBOSITY_LEVEL,
     VERBOSITY_LEVELS,
+    DEFAULT_ITEMS,
 )
 from .static_fallbacks import STATIC_PLAYER_REFLECTIONS
 from .character_module import Character, CHARACTERS_DATA
 from .location_module import LOCATIONS_DATA
-from .gemini_interactions import GeminiAPI, NaturalLanguageParser
+from .gemini_interactions import GeminiAPI, NaturalLanguageParser, is_usable_ai_text
 from .event_manager import EventManager
 from .display_mixin import DisplayMixin
 from .command_handler import CommandHandler
 from .item_interaction_handler import ItemInteractionHandler
 from .npc_interaction_handler import NPCInteractionHandler
 from .world_manager import WorldManager
+from .objective_progression import validate_rules as _validate_objective_rules
 
 
 class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
@@ -61,7 +63,7 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
         self.actions_since_last_autosave = 0
         self.player_action_count = 0
         self.tutorial_turn_limit = 5
-        self.command_history: List[Tuple[str, str]] = []
+        self.command_history: List[str] = []
         self.max_command_history = 25
         self.turn_headers_enabled = True
         self.last_turn_result_icon = "..."
@@ -109,9 +111,7 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
         return "Known facts about the crime: " + "; ".join(self.known_facts_about_crime)
 
     def _remember_ai_output(self, text: Optional[str], source_label: str) -> None:
-        if not text or not isinstance(text, str):
-            return
-        if text.startswith("(OOC:"):
+        if not is_usable_ai_text(text):
             return
         self.last_ai_generated_text = text.strip()
         self.last_ai_generation_source = source_label
@@ -156,6 +156,7 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
             },
             "dynamic_location_items": self.dynamic_location_items,
             "triggered_events": list(self.event_manager.triggered_events),
+            "event_manager_cooldown_reset_time": self.event_manager._last_cooldown_reset_time,
             "last_significant_event_summary": self.last_significant_event_summary,
             "player_notoriety_level": self.player_notoriety_level,
             "known_facts_about_crime": self.known_facts_about_crime,
@@ -188,6 +189,16 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
                 Colors.RED,
             )
             return False
+        if not slot_name and not os.path.exists(save_file):
+            # Bare `load` defaults to the manual save; if that's absent but an autosave
+            # exists, recover from the autosave rather than reporting nothing found.
+            autosave_file = self._get_save_file_path("autosave")
+            if autosave_file and os.path.exists(autosave_file):
+                save_file = autosave_file
+                self._print_color(
+                    "No manual save found; loading the most recent autosave instead.",
+                    Colors.DIM,
+                )
         if not os.path.exists(save_file):
             self._print_color(f"No save file found at {save_file}.", Colors.YELLOW)
             return False
@@ -199,6 +210,9 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
             self.current_location_name = game_state_data.get("current_location_name")
             self.dynamic_location_items = game_state_data.get("dynamic_location_items", {})
             self.event_manager.triggered_events = set(game_state_data.get("triggered_events", []))
+            self.event_manager._last_cooldown_reset_time = game_state_data.get(
+                "event_manager_cooldown_reset_time", self.game_time
+            )
             self.last_significant_event_summary = game_state_data.get(
                 "last_significant_event_summary"
             )
@@ -285,6 +299,7 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
             Colors.CYAN + Colors.BOLD,
         )
         self.world_manager._validate_item_data()
+        _validate_objective_rules(CHARACTERS_DATA, LOCATIONS_DATA, DEFAULT_ITEMS)
 
         game_loaded_successfully = False
         # Non-interactive mode: Automatically start a new game if GEMINI_API_KEY is set
@@ -418,11 +433,7 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
                 full_reflection_context,
             )
 
-        if (
-            reflection is None
-            or (isinstance(reflection, str) and reflection.startswith("(OOC:"))
-            or self.low_ai_data_mode
-        ):
+        if not is_usable_ai_text(reflection) or self.low_ai_data_mode:
             if STATIC_PLAYER_REFLECTIONS:
                 reflection = random.choice(STATIC_PLAYER_REFLECTIONS)
             else:

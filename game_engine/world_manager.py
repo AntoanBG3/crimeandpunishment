@@ -17,8 +17,10 @@ from .game_config import (
     DEBUG_LOGS,
 )
 from .static_fallbacks import STATIC_DREAM_SEQUENCES, STATIC_RUMORS
+from .gemini_interactions import is_usable_ai_text
 from .location_module import LOCATIONS_DATA
 from .character_module import Character, CHARACTERS_DATA
+from .objective_progression import MAIN_OBJECTIVE_BY_CHARACTER, validate_rules as _validate_objective_rules
 
 
 class WorldManager:
@@ -89,11 +91,7 @@ class WorldManager:
                             relationships_summary,
                         )
 
-                    if (
-                        dream_text is None
-                        or (isinstance(dream_text, str) and dream_text.startswith("(OOC:"))
-                        or self.game_state.low_ai_data_mode
-                    ):
+                    if not is_usable_ai_text(dream_text) or self.game_state.low_ai_data_mode:
                         if STATIC_DREAM_SEQUENCES:
                             dream_text = random.choice(STATIC_DREAM_SEQUENCES)
                         else:
@@ -434,11 +432,7 @@ class WorldManager:
                     self.game_state._get_objectives_summary(source_npc),
                 )
 
-            if (
-                rumor_text is None
-                or (isinstance(rumor_text, str) and rumor_text.startswith("(OOC:"))
-                or self.game_state.low_ai_data_mode
-            ):
+            if not is_usable_ai_text(rumor_text) or self.game_state.low_ai_data_mode:
                 if STATIC_RUMORS:
                     rumor_text = random.choice(STATIC_RUMORS)
                 else:
@@ -528,21 +522,23 @@ class WorldManager:
                 self.game_state.time_since_last_npc_interaction = 0
 
     def _check_game_ending_conditions(self):
-        if (
-            self.game_state.player_character
-            and self.game_state.player_character.name == "Rodion Raskolnikov"
-        ):
-            obj_grapple = self.game_state.player_character.get_objective_by_id("grapple_with_crime")
-            if obj_grapple and obj_grapple.get("completed", False):
-                current_stage = self.game_state.player_character.get_current_stage_for_objective(
-                    "grapple_with_crime"
+        player = self.game_state.player_character
+        if not player:
+            return False
+        # Only the protagonist's single main objective ends the story; a secondary
+        # objective that happens to carry an is_ending_stage must not end it early.
+        main_objective_id = MAIN_OBJECTIVE_BY_CHARACTER.get(player.name)
+        if not main_objective_id:
+            return False
+        main_obj = player.get_objective_by_id(main_objective_id)
+        if main_obj and main_obj.get("completed", False):
+            current_stage = player.get_current_stage_for_objective(main_objective_id)
+            if current_stage and current_stage.get("is_ending_stage"):
+                self.game_state._print_color(
+                    f"\n--- The story of {player.name} has reached a conclusion ({current_stage.get('description', 'an end')}) ---",
+                    Colors.CYAN + Colors.BOLD,
                 )
-                if current_stage and current_stage.get("is_ending_stage"):
-                    self.game_state._print_color(
-                        f"\n--- The story of {self.game_state.player_character.name} has reached a conclusion ({current_stage.get('description', 'an end')}) ---",
-                        Colors.CYAN + Colors.BOLD,
-                    )
-                    return True
+                return True
         return False
 
     def _resolve_location_exit(self, target_exit_input, location_exits):

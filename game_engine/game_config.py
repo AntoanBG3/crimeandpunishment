@@ -7,7 +7,7 @@ import os
 
 def get_base_path():
     try:
-        base_path = sys._MEIPASS
+        base_path = sys._MEIPASS  # type: ignore[attr-defined]
         logging.info(f"Using MEIPASS: {base_path}")
     except AttributeError:
         base_path = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -110,12 +110,15 @@ DREAM_CHANCE_TROUBLED_STATE = 0.35  # Chance if feverish, agitated etc. on new d
 RUMOR_CHANCE_PER_NPC_INTERACTION = 0.15  # Chance an NPC shares a rumor during dialogue
 AMBIENT_RUMOR_CHANCE_PUBLIC_PLACE = 0.05  # Chance to overhear ambient rumor in public
 NPC_SHARE_RUMOR_MIN_RELATIONSHIP = -2  # NPC won't share rumors if relationship is too low
+EVENT_COOLDOWN_RESET_INTERVAL = 50  # Time units between repeatable-event cooldown resets
 DEBUG_LOGS = False
 
 # --- Phrases that might indicate a natural end to a conversation ---
 CONCLUDING_PHRASES = [
-    r"\b(goodbye|farewell|i must be going|i have to go|until next time|that is all|nothing more to say|very well then|i see)\b",
-    r"^(enough|that will be all|we are done here|indeed)\.?$",
+    r"\b(goodbye|farewell|i must be going|i have to go|until next time|that is all|nothing more to say)\b",
+    # Short, common phrases only conclude when they are the whole line, so e.g.
+    # "i see what you mean" does not prematurely end the conversation.
+    r"^(enough|that will be all|we are done here|indeed|i see|very well then)\.?$",
     r"\b(i'm done|nothing else|that's it|exit conversation|end dialogue|stop talking|no more questions)\b",  # Added more ways
 ]
 
@@ -212,6 +215,7 @@ COMMAND_SYNONYMS = {
     "load": ["load game"],
     "quit": ["exit", "q"],
     "persuade": ["convince", "argue with"],  # New command
+    "confess": ["turn myself in", "give myself up", "surrender", "resolve"],
     "status": ["char", "character", "profile", "st"],
     "toggle_lowai": ["toggle lowai", "lowaimode"],
     "history": ["/history", "hist"],

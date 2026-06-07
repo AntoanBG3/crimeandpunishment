@@ -121,8 +121,8 @@ def test_prefix_resolution_and_matching_helpers():
 def test_get_player_input_fast_map_and_nlp_fallback():
     state = _make_state()
     handler = CommandHandler(state)
-    state._input_color.return_value = "n"
-    assert handler._get_player_input() == ("move to", "north")
+    state._input_color.return_value = "l"
+    assert handler._get_player_input() == ("look", None)
 
     state._input_color.return_value = "unknown action"
     state.gemini_api.model = object()

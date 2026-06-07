@@ -10,6 +10,46 @@ from .static_fallbacks import (
     generate_static_scenery_observation,
 )
 from .location_module import LOCATIONS_DATA
+from .objective_progression import evaluate_player_progression
+
+# Static reflective self-use effects: (reflection text, apparent_state for Raskolnikov).
+# Pure-static (no AI call), so they need no separate fallback. Text is faithful to each
+# item's description in data/items.json.
+_REFLECTIVE_USE_EFFECTS = {
+    "reflect_on_family_expectations": (
+        "You turn your father's silver watch over in your hand, the engraved globe worn "
+        "smooth. It is the last respectable thread tying you to your family's hopes — "
+        "hopes you betray with every passing hour.",
+        "burdened",
+    ),
+    "feel_guilt_for_dunya": (
+        "Dunya's little ring, with its three small red stones, bites into your palm. You "
+        "think of everything she would sacrifice for you, and the guilt is sharper than "
+        "any blade.",
+        "remorseful",
+    ),
+    "trigger_paranoia_and_refuse_to_open": (
+        "Your fingers tighten on the purse, but you cannot bring yourself to open it. What "
+        "if someone should see? The notes inside feel like a noose, and you thrust the "
+        "whole thing out of sight.",
+        "paranoid",
+    ),
+    "contemplate_lizavetas_innocence": (
+        "The plain copper cross was Lizaveta's — meek, harmless Lizaveta, who never raised "
+        "a hand against you. Her innocence presses down on you like a stone.",
+        "remorseful",
+    ),
+    "recognize_manipulation": (
+        "You study Luzhin's crisp banknote. It is not charity but a leash — money offered "
+        "by a man certain that everyone has a price. The insult of it turns in your chest.",
+        "agitated",
+    ),
+    "mourn_the_fallen": (
+        "Marmeladov's ruined hat still smells of hay and stale drink — a whole wasted life "
+        "crushed into felt. You mourn him, and the city that grinds such men down.",
+        "burdened",
+    ),
+}
 
 
 class ItemInteractionHandler:
@@ -522,22 +562,26 @@ class ItemInteractionHandler:
             item_default_props = DEFAULT_ITEMS.get(item_found_in_loc["name"], {})
             if item_default_props.get("takeable", False):
                 take_quantity = 1
-                actual_taken_qty = 0
-                if (
+                is_stackable_item = (
                     item_default_props.get("stackable")
                     or item_default_props.get("value") is not None
-                ):
+                )
+                if is_stackable_item:
                     current_qty_in_loc = item_found_in_loc.get("quantity", 1)
                     actual_taken_qty = min(take_quantity, current_qty_in_loc)
-                    item_found_in_loc["quantity"] -= actual_taken_qty
-                    if item_found_in_loc["quantity"] <= 0:
-                        location_items.pop(item_idx_in_loc)
                 else:
                     actual_taken_qty = 1
-                    location_items.pop(item_idx_in_loc)
+                # Add to inventory first; only remove the item from the world if the
+                # add succeeds, otherwise a failed take would destroy the item.
                 if self.player_character.add_to_inventory(
                     item_found_in_loc["name"], actual_taken_qty
                 ):
+                    if is_stackable_item:
+                        item_found_in_loc["quantity"] -= actual_taken_qty
+                        if item_found_in_loc["quantity"] <= 0:
+                            location_items.pop(item_idx_in_loc)
+                    else:
+                        location_items.pop(item_idx_in_loc)
                     self._print_color(
                         f"You take the {item_found_in_loc['name']}"
                         + (
@@ -659,6 +703,9 @@ class ItemInteractionHandler:
                     item_default_props.get("stackable")
                     or item_default_props.get("value") is not None
                 ):
+                    # Only merge stackables. Non-stackables keep a separate entry so the
+                    # non-stackable take path (which pops a whole entry regardless of
+                    # quantity) stays count-preserving rather than losing one.
                     existing_loc_item["quantity"] = (
                         existing_loc_item.get("quantity", 0) + drop_quantity
                     )
@@ -1061,8 +1108,8 @@ class ItemInteractionHandler:
                         reflection = random.choice(STATIC_PLAYER_REFLECTIONS)
                     else:
                         reflection = "The cross feels warm in your hand, a quiet comfort."
-                    self._print_color(f'"{reflection}"', Colors.CYAN)
-                    used_successfully = True
+                self._print_color(f'"{reflection}"', Colors.CYAN)
+                used_successfully = True
             else:
                 self._print_color(
                     f"You examine {item_to_use_name}. It seems to be a simple wooden cross, yet it emanates a certain potent feeling.",
@@ -1184,6 +1231,15 @@ class ItemInteractionHandler:
                 )
             self.last_significant_event_summary = f"contemplated a {item_to_use_name}."
             used_successfully = True
+        elif effect_key in _REFLECTIVE_USE_EFFECTS:
+            reflection_text, new_state = _REFLECTIVE_USE_EFFECTS[effect_key]
+            self._print_color(reflection_text, Colors.CYAN)
+            if new_state and player_character.name == "Rodion Raskolnikov":
+                player_character.apparent_state = new_state
+            self.last_significant_event_summary = (
+                f"dwelt on dark thoughts while handling the {item_to_use_name}."
+            )
+            used_successfully = True
         if not used_successfully:
             self._print_color(
                 f"You contemplate the {item_to_use_name}, but don't find a specific use for it right now.",
@@ -1220,10 +1276,26 @@ class ItemInteractionHandler:
             self._print_color(f"You don't have {item_to_use_name} to give.", Colors.RED)
             return False
 
+        # Capture the player's inventory entry so the item can be restored if the
+        # give fails (otherwise it would be destroyed).
+        giver_entry = next(
+            (dict(it) for it in player_character.inventory if it["name"] == item_to_use_name),
+            None,
+        )
         # Attempt to remove the item from player's inventory
         if player_character.remove_from_inventory(item_to_use_name, 1):
-            # Add item to NPC's inventory
-            target_npc.add_to_inventory(item_to_use_name, 1)  # Assuming quantity 1 for now
+            # Add item to NPC's inventory. If the NPC can't accept it (already holds
+            # this non-stackable item, or it isn't a known item), restore it to the
+            # player rather than destroying it.
+            if not target_npc.add_to_inventory(item_to_use_name, 1):
+                if not player_character.add_to_inventory(item_to_use_name, 1) and giver_entry:
+                    # Unknown item the add guard rejects: restore the original entry.
+                    player_character.inventory.append(giver_entry)
+                self._print_color(
+                    f"{target_npc.name} cannot take the {item_to_use_name}.",
+                    Colors.YELLOW,
+                )
+                return False
 
             self._print_color(
                 f"You give the {item_to_use_name} to {target_npc.name}.", Colors.WHITE
@@ -1289,6 +1361,7 @@ class ItemInteractionHandler:
             )
 
             self.last_significant_event_summary = f"gave {item_to_use_name} to {target_npc.name}."
+            evaluate_player_progression(self, "give_item", item_to_use_name, target_npc.name)
             return True
         # This case should ideally be caught by has_item, but as a fallback
         self._print_color(
@@ -1373,7 +1446,11 @@ class ItemInteractionHandler:
             used_successfully
             and item_props.get("consumable", False)
             and item_to_use_name != "cheap vodka"
+            # "give" already transfers the item out of inventory; don't remove it again.
+            and interaction_type != "give"
         ):
             if self.player_character.remove_from_inventory(item_to_use_name, 1):
                 self._print_color(f"The {item_to_use_name} is used up.", Colors.MAGENTA)
+        if used_successfully and item_to_use_name and interaction_type != "give":
+            evaluate_player_progression(self, "use_item", item_to_use_name)
         return used_successfully

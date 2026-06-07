@@ -490,11 +490,10 @@ class CommandHandler:
             self.game_state._print_color(f"Repeating: {repeated_command}", Colors.DIM)
             raw_action_input = repeated_command
             fast_input = raw_action_input.strip().lower()
+        # Note: cardinal shortcuts (n/s/e/w) were removed — exits are keyed by
+        # destination name, not compass direction, so they never matched and
+        # silently failed.
         fast_map = {
-            "n": ("move to", "north"),
-            "s": ("move to", "south"),
-            "e": ("move to", "east"),
-            "w": ("move to", "west"),
             "look": ("look", None),
             "l": ("look", None),
             "inv": ("inventory", None),
@@ -520,14 +519,19 @@ class CommandHandler:
                     return "look", target
                 if action_info["type"] == "select_item":
                     return ("select_item", action_info["target"])
-            else:
-                parsed_command, parsed_argument = self.parse_action(raw_action_input)
-                if self._is_known_command(parsed_command):
-                    return parsed_command, parsed_argument
-                if self.game_state.gemini_api.model:
-                    return self._interpret_with_nlp(raw_action_input)
-                self._handle_unknown_intent()
+                # In range but an unrecognized action type: surface it rather than
+                # silently doing nothing.
+                self.game_state._print_color(
+                    "That numbered option can't be acted on right now.", Colors.YELLOW
+                )
                 return None, None
+            parsed_command, parsed_argument = self.parse_action(raw_action_input)
+            if self._is_known_command(parsed_command):
+                return parsed_command, parsed_argument
+            if self.game_state.gemini_api.model:
+                return self._interpret_with_nlp(raw_action_input)
+            self._handle_unknown_intent()
+            return None, None
         except ValueError:
             parsed_command, parsed_argument = self.parse_action(raw_action_input)
             if self._is_known_command(parsed_command):
@@ -745,6 +749,22 @@ class CommandHandler:
         elif command == "use":
             action_taken_this_turn = self.game_state._handle_use_command(argument)
             show_atmospherics_this_turn = False
+        elif command == "give":
+            # "give X to Y" is rewritten to a use/give tuple in parse_action; reaching
+            # here means the item and/or target are missing.
+            self.game_state._print_color(
+                "Give what, and to whom? Use: give [item] to [person].",
+                Colors.RED,
+            )
+            return False, False, 0, False
+        elif command == "read":
+            # "read X" is rewritten to a use/read tuple in parse_action; bare "read"
+            # reaches here with no item specified.
+            self.game_state._print_color(
+                "Read what? Use: read [item].",
+                Colors.RED,
+            )
+            return False, False, 0, False
         elif command == "objectives":
             self.game_state.display_objectives()
             action_taken_this_turn = False
@@ -766,6 +786,10 @@ class CommandHandler:
         elif command == "persuade":
             action_taken_this_turn, show_atmospherics_this_turn = (
                 self.game_state._handle_persuade_command(argument)
+            )
+        elif command == "confess":
+            action_taken_this_turn, show_atmospherics_this_turn = (
+                self.game_state._handle_confess_command(argument)
             )
         elif command == "status":
             self.game_state._handle_status_command()

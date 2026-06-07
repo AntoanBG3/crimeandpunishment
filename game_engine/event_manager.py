@@ -1,6 +1,11 @@
 # event_manager.py
 import random
-from .game_config import Colors, DEFAULT_ITEMS, DEBUG_LOGS
+from .game_config import (
+    Colors,
+    DEFAULT_ITEMS,
+    DEBUG_LOGS,
+    EVENT_COOLDOWN_RESET_INTERVAL,
+)
 from .static_fallbacks import (
     STATIC_PLAYER_REFLECTIONS,
     STATIC_ANONYMOUS_NOTE_CONTENT,
@@ -13,6 +18,7 @@ class EventManager:
     def __init__(self, game_ref):
         self.game = game_ref
         self.triggered_events = set()
+        self._last_cooldown_reset_time = 0
         self.story_events = [
             {
                 "id": "marmeladov_tavern_encounter",
@@ -89,7 +95,7 @@ class EventManager:
             katerina
             and katerina.current_location == "Haymarket Square"
             and self.game.current_location_name == "Haymarket Square"
-            and self.game.get_current_time_period() in ["Afternoon", "Evening"]
+            and self.game.world_manager.get_current_time_period() in ["Afternoon", "Evening"]
             and random.random() < 0.10  # Reduced chance
             and "katerina_ivanovna_public_lament_recent" not in self.triggered_events
         )
@@ -187,7 +193,7 @@ class EventManager:
                 reflection_text = self.game.gemini_api.get_player_reflection(
                     player_character=self.game.player_character,
                     current_location_name=self.game.current_location_name,
-                    current_time_period=self.game.get_current_time_period(),
+                    current_time_period=self.game.world_manager.get_current_time_period(),
                     context_text=reflection_context,
                     active_objectives_summary=objectives_summary,
                 )
@@ -326,7 +332,7 @@ class EventManager:
         if not self.game.low_ai_data_mode and self.game.gemini_api.model:
             description = self.game.gemini_api.get_street_life_event_description(
                 self.game.current_location_name,
-                self.game.get_current_time_period(),
+                self.game.world_manager.get_current_time_period(),
                 player_context,
             )
 
@@ -360,7 +366,11 @@ class EventManager:
         self.triggered_events.add("street_life_haymarket_recent")
 
     def check_and_trigger_events(self):
-        if self.game.game_time % 50 == 0:  # Cooldown reset periodically
+        # Elapsed-based reset (not game_time % N) so a turn that advances several time
+        # units at once can't skip past the boundary and leave repeatable events
+        # permanently on cooldown.
+        if self.game.game_time - self._last_cooldown_reset_time >= EVENT_COOLDOWN_RESET_INTERVAL:
+            self._last_cooldown_reset_time = self.game.game_time
             if DEBUG_LOGS:
                 print(
                     f"[DEBUG] EventManager: Checking event cooldowns at game time {self.game.game_time}"
@@ -421,7 +431,7 @@ class EventManager:
                     npc1,
                     npc2,
                     self.game.current_location_name,
-                    self.game.get_current_time_period(),
+                    self.game.world_manager.get_current_time_period(),
                     npc1_objectives_summary=self.game._get_objectives_summary(npc1),
                     npc2_objectives_summary=self.game._get_objectives_summary(npc2),
                 )
