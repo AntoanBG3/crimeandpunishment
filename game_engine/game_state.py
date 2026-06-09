@@ -5,6 +5,8 @@ import re
 import random
 from typing import Set, Optional, List, Dict, Any
 
+from rich.rule import Rule
+
 from .game_config import (
     Colors,
     SAVE_GAME_FILE,  # API_CONFIG_FILE, GEMINI_MODEL_NAME removed
@@ -287,6 +289,44 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
             self.player_character = None
             return False
 
+    def _handle_saves_command(self) -> None:
+        import glob
+        import datetime
+        from rich.table import Table
+
+        save_files = sorted(glob.glob("savegame*.json"))
+        if not save_files:
+            self._print_color("No saved games found.", Colors.YELLOW)
+            return
+        table = Table(title="Saved Games", border_style="cyan", title_style="bold cyan")
+        table.add_column("Slot", style="magenta")
+        table.add_column("Character", style="green")
+        table.add_column("Day", justify="right")
+        table.add_column("Location", style="cyan")
+        table.add_column("Saved", style="dim")
+        for path in save_files:
+            if path == SAVE_GAME_FILE:
+                slot = "(default)"
+            elif path.startswith("savegame_") and path.endswith(".json"):
+                slot = path[len("savegame_"):-len(".json")]
+            else:
+                continue
+            character = day = location = "?"
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                character = data.get("player_character_name", "?")
+                day = str(data.get("current_day", "?"))
+                location = data.get("current_location_name", "?")
+            except Exception:
+                pass
+            saved_at = datetime.datetime.fromtimestamp(os.path.getmtime(path)).strftime(
+                "%Y-%m-%d %H:%M"
+            )
+            table.add_row(slot, character, day, location, saved_at)
+        self._print_renderable(table)
+        self._print_color("Use 'load [slot]' to restore or 'save [slot]' to overwrite.", Colors.DIM)
+
     def _initialize_game(self) -> bool:
         # Call configure and get results
         config_results = self.gemini_api.configure(self._print_color, self._input_color)
@@ -294,10 +334,7 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
         # The GeminiAPI.configure method already prints the Low AI Mode status upon selection.
         # No need for an additional print here unless desired for game-level confirmation.
 
-        self._print_color(
-            "\n--- Crime and Punishment: A Text Adventure ---",
-            Colors.CYAN + Colors.BOLD,
-        )
+        self._print_renderable(Rule("Crime and Punishment: A Text Adventure", style="bold cyan"))
         self.world_manager._validate_item_data()
         _validate_objective_rules(CHARACTERS_DATA, LOCATIONS_DATA, DEFAULT_ITEMS)
 
@@ -345,7 +382,7 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
         if not game_loaded_successfully:
             self.world_manager.update_current_location_details(from_explicit_look_cmd=False)
             self.display_atmospheric_details()
-        self._print_color("\n--- Game Start ---", Colors.CYAN + Colors.BOLD)
+        self._print_renderable(Rule("Game Start", style="cyan"))
         if not game_loaded_successfully:
             self._print_color(
                 "Essential commands: 'look' (survey surroundings), "
@@ -394,6 +431,9 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
                 "turnheaders",
                 "retry",
                 "rephrase",
+                "more",
+                "saves",
+                "pace",
                 "save",
                 "load",
                 "toggle_lowai",

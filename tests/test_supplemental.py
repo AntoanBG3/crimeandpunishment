@@ -517,9 +517,8 @@ def test_display_guard_and_branch_paths():
     game.player_character = SimpleNamespace(
         get_inventory_description=MagicMock(return_value="A strange custom inventory.")
     )
-    with patch("builtins.print") as mock_print:
-        game._handle_inventory_command()
-    mock_print.assert_called_with("A strange custom inventory.")
+    game._handle_inventory_command()
+    game._print_color.assert_any_call("A strange custom inventory.", Colors.RESET)
 
 
 def test_event_manager_error_cooldown_and_gossip_paths():

@@ -221,11 +221,13 @@ class TestGameState(unittest.TestCase):
         self.assertIn("talk to Sonya", examples)
 
     def test_display_help_with_category(self):
-        with patch.object(self.game, "_print_color") as mock_print:
+        from game_engine import terminal
+
+        with patch.object(self.game, "_print_renderable") as mock_renderable:
             self.game.display_help("movement")
-        printed = "\n".join(call.args[0] for call in mock_print.call_args_list if call.args)
-        self.assertIn("Category: movement", printed)
-        self.assertIn("move to", printed)
+        rendered = terminal.renderable_to_text(mock_renderable.call_args[0][0])
+        self.assertIn("Movement", rendered)
+        self.assertIn("move to", rendered)
 
     @patch("os.path.exists", return_value=True)
     @patch("builtins.open", new_callable=mock_open, read_data="{}")
@@ -273,11 +275,13 @@ class TestGameState(unittest.TestCase):
         mock_recap.assert_called_once()
 
     def test_handle_status_command(self):
-        with patch.object(self.game, "_print_color") as mock_print:
+        from game_engine import terminal
+
+        with patch.object(self.game, "_print_renderable") as mock_renderable:
             self.game._handle_status_command()
-            mock_print.assert_any_call(
-                f"Name: {Colors.GREEN}Test Player{Colors.RESET}", Colors.WHITE
-            )
+            rendered = terminal.renderable_to_text(mock_renderable.call_args[0][0])
+            self.assertIn("Your Status", rendered)
+            self.assertIn("Test Player", rendered)
 
     def test_get_player_input_repeat_last_command(self):
         self.game.command_history = ["look"]

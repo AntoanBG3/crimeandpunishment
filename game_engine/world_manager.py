@@ -14,13 +14,14 @@ from .game_config import (
     NPC_INTERACTION_CHANCE,
     TIME_UNITS_FOR_NPC_INTERACTION_CHANCE,
     HIGHLY_NOTABLE_ITEMS_FOR_MEMORY,
+    FULL_DESCRIPTION_COOLDOWN_ACTIONS,
     DEBUG_LOGS,
 )
 from .static_fallbacks import STATIC_DREAM_SEQUENCES, STATIC_RUMORS
 from .gemini_interactions import is_usable_ai_text
 from .location_module import LOCATIONS_DATA
 from .character_module import Character, CHARACTERS_DATA
-from .objective_progression import MAIN_OBJECTIVE_BY_CHARACTER, validate_rules as _validate_objective_rules
+from .objective_progression import MAIN_OBJECTIVE_BY_CHARACTER
 
 
 class WorldManager:
@@ -97,9 +98,7 @@ class WorldManager:
                         else:
                             dream_text = "You had a restless night filled with strange, fleeting images."  # Ultimate fallback
 
-                    self.game_state._print_color(
-                        f'{Colors.CYAN}Dream: "{dream_text}"{Colors.RESET}', Colors.CYAN
-                    )
+                    self.game_state._print_narrative(f'Dream: "{dream_text}"', Colors.CYAN)
                     self.game_state.player_character.add_journal_entry(
                         "Dream",
                         dream_text,
@@ -197,7 +196,9 @@ class WorldManager:
         self.initialize_dynamic_location_items()
 
     def select_player_character(self, non_interactive=False):
-        self.game_state._print_color("\n--- Choose Your Character ---", Colors.CYAN + Colors.BOLD)
+        from rich.rule import Rule
+
+        self.game_state._print_renderable(Rule("Choose Your Character", style="cyan"))
         playable_character_names = [
             name for name, data in CHARACTERS_DATA.items() if not data.get("non_playable", False)
         ]
@@ -212,13 +213,15 @@ class WorldManager:
             )
         else:
             for i, name in enumerate(playable_character_names):
-                print(f"{Colors.MAGENTA}{i + 1}. {Colors.WHITE}{name}{Colors.RESET}")
+                self.game_state._print_color(
+                    f"{Colors.MAGENTA}{i + 1}. {Colors.WHITE}{name}", Colors.RESET
+                )
                 char_data = CHARACTERS_DATA.get(name, {})
                 persona = char_data.get("persona", "")
                 if persona:
                     sentences = persona.split(". ")
                     blurb = ". ".join(sentences[:2]) + "."
-                    print(f"   {Colors.DIM}{blurb}{Colors.RESET}")
+                    self.game_state._print_color(f"   {blurb}", Colors.DIM)
             while True:
                 try:
                     choice_str = self.game_state._input_color(
@@ -324,35 +327,45 @@ class WorldManager:
                 Colors.RED,
             )
             return
-        time_str = f"({self.game_state._get_current_game_time_period_str()})"
-        self.game_state._print_color(
-            f"\n--- {self.game_state.current_location_name} {time_str} ---",
+        location_name = self.game_state.current_location_name
+        time_str = self.game_state._get_current_game_time_period_str()
+        self.game_state._print_block(
+            f"{location_name}  ({time_str})",
             Colors.CYAN + Colors.BOLD,
         )
         if (
             from_explicit_look_cmd
             or not self.game_state.current_location_description_shown_this_visit
         ):
-            is_first_visit = (
-                self.game_state.current_location_name not in self.game_state.visited_locations
-            )
-            recently_visited = (
-                getattr(self, "last_visited_location", None)
-                == self.game_state.current_location_name
-            )
+            is_first_visit = location_name not in self.game_state.visited_locations
+            recently_visited = getattr(self, "last_visited_location", None) == location_name
             base_description = location_data.get("description", "A non-descript place.")
             time_effect_desc = location_data.get("time_effects", {}).get(
                 self.get_current_time_period(), ""
             )
-            if is_first_visit or from_explicit_look_cmd:
-                print(base_description + " " + time_effect_desc)
-                self.game_state.visited_locations.add(self.game_state.current_location_name)
-            elif recently_visited:
+            brief_desc = base_description.split(".")[0] + "."
+            # Avoid re-printing the same full paragraph the player just read
+            # (e.g. game start immediately followed by a 'look').
+            full_desc_shown_at = getattr(self.game_state, "_full_desc_shown_at", {})
+            shown_recently = (
+                full_desc_shown_at.get(location_name) is not None
+                and self.game_state.player_action_count - full_desc_shown_at[location_name]
+                < FULL_DESCRIPTION_COOLDOWN_ACTIONS
+            )
+            if (is_first_visit or from_explicit_look_cmd) and not shown_recently:
+                self.game_state._print_color(
+                    (base_description + " " + time_effect_desc).strip(), Colors.RESET
+                )
+                full_desc_shown_at[location_name] = self.game_state.player_action_count
+                self.game_state._full_desc_shown_at = full_desc_shown_at
+                self.game_state.visited_locations.add(location_name)
+            elif recently_visited and not from_explicit_look_cmd:
                 # Extremely brief, just the location name and time basically
                 self.game_state._print_color("(You have returned here.)", Colors.DIM)
             else:
-                brief_desc = base_description.split(".")[0] + "."
-                print(brief_desc + " " + time_effect_desc)
+                self.game_state._print_color(
+                    (brief_desc + " " + time_effect_desc).strip(), Colors.RESET
+                )
             self.game_state.current_location_description_shown_this_visit = True
         self.update_npcs_in_current_location()
 
@@ -406,6 +419,9 @@ class WorldManager:
             self.game_state._print_color("", Colors.RESET)
 
     def _handle_ambient_rumors(self):
+        # Stay quiet during the tutorial so rumors never pile onto hint turns.
+        if self.game_state.player_action_count < self.game_state.tutorial_turn_limit:
+            return
         if (
             self.game_state.current_location_name
             in ["Haymarket Square", "Tavern", "Squalid St. Petersburg Street"]
@@ -444,12 +460,10 @@ class WorldManager:
                 else:
                     rumor_text = "The air buzzes with indistinct chatter."  # Ultimate fallback
                 rumor_text = self.game_state._apply_verbosity(rumor_text)
-                # Print static rumor with a different color or note if desired
-                self.game_state._print_color(
-                    f'\n{Colors.DIM}(You overhear some chatter nearby: "{rumor_text}"){Colors.RESET}',
+                self.game_state._print_block(
+                    f'(Overheard nearby) "{rumor_text}"',
                     Colors.DIM,
                 )
-                self.game_state._print_color("", Colors.RESET)
                 if self.game_state.player_character and rumor_text:  # Check rumor_text is not None
                     self.game_state.player_character.add_journal_entry(
                         "Overheard Rumor (Static)",
@@ -458,11 +472,10 @@ class WorldManager:
                     )
             elif rumor_text:  # AI success and not OOC
                 rumor_text = self.game_state._apply_verbosity(rumor_text)
-                self.game_state._print_color(
-                    f'\n{Colors.DIM}(You overhear some chatter nearby: "{rumor_text}"){Colors.RESET}',
+                self.game_state._print_block(
+                    f'(Overheard nearby) "{rumor_text}"',
                     Colors.DIM,
                 )
-                self.game_state._print_color("", Colors.RESET)
                 if self.game_state.player_character:
                     self.game_state.player_character.add_journal_entry(
                         "Overheard Rumor (AI)",

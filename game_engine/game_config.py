@@ -111,6 +111,8 @@ RUMOR_CHANCE_PER_NPC_INTERACTION = 0.15  # Chance an NPC shares a rumor during d
 AMBIENT_RUMOR_CHANCE_PUBLIC_PLACE = 0.05  # Chance to overhear ambient rumor in public
 NPC_SHARE_RUMOR_MIN_RELATIONSHIP = -2  # NPC won't share rumors if relationship is too low
 EVENT_COOLDOWN_RESET_INTERVAL = 50  # Time units between repeatable-event cooldown resets
+ATMOSPHERIC_COOLDOWN_ACTIONS = 5  # Min player actions between ambient atmosphere lines per location
+FULL_DESCRIPTION_COOLDOWN_ACTIONS = 5  # Don't repeat a location's full description within this many actions
 DEBUG_LOGS = False
 
 # --- Phrases that might indicate a natural end to a conversation ---
@@ -224,6 +226,9 @@ COMMAND_SYNONYMS = {
     "turnheaders": ["turn headers", "turn header"],
     "retry": [],
     "rephrase": [],
+    "more": ["continue reading", "full text"],
+    "saves": ["list saves", "save slots"],
+    "pace": ["narrative pace"],
 }
 
 # --- Player States (for NPC reactions) ---

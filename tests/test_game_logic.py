@@ -362,9 +362,11 @@ class TestGameStateCommands(unittest.TestCase):
             ]
         )
 
-        self.assertIn("test_apple (x3) — A juicy red apple, looking crisp.", printed_content)
-        self.assertIn("test_sword — A long, sharp sword, gleaming slightly.", printed_content)
-        self.assertIn("test_coin — A single gold coin.", printed_content)
+        self.assertIn("test_apple (x3)", printed_content)
+        self.assertIn("test_sword", printed_content)
+        self.assertIn("test_coin", printed_content)
+        # Full descriptions are reserved for 'look at [item]'.
+        self.assertNotIn("A juicy red apple, looking crisp.", printed_content)
 
         expected_context_actions = [
             {"type": "select_item", "target": "test_apple", "display": "test_apple"},
@@ -655,9 +657,10 @@ class TestGameStateCommands(unittest.TestCase):
 
         # Assertions
         # Check that the NPC's name was printed with _print_color(..., end="")
-        self.mock_print_color.assert_any_call(f"{mock_razumikhin.name}: ", Colors.YELLOW, end="")
-        # Check that the NPC's greeting was printed with print()
-        self.mock_print.assert_any_call(f'"{mock_razumikhin.greeting}"')
+        self.mock_print_color.assert_any_call(
+            f'{Colors.YELLOW}{mock_razumikhin.name}:{Colors.RESET} "{mock_razumikhin.greeting}"',
+            Colors.RESET,
+        )
 
         # Assert that Gemini API was called for the conversation part
         self.game.gemini_api.get_npc_dialogue.assert_called_once()
@@ -1325,7 +1328,7 @@ class TestLowAIMode(unittest.TestCase):
         ):
             self.game.display_atmospheric_details()
 
-        self.mock_print_color.assert_any_call(f"\n{expected_detail}", Colors.CYAN)
+        self.mock_print_color.assert_any_call(expected_detail, Colors.CYAN)
         self.game.gemini_api.get_atmospheric_details.assert_not_called()
 
     def test_handle_think_command_low_ai_mode(self):
@@ -1500,7 +1503,7 @@ class TestLowAIMode(unittest.TestCase):
         self.game.display_atmospheric_details()
 
         self.game.gemini_api.get_atmospheric_details.assert_called_once()
-        self.mock_print_color.assert_any_call(f"\n{ai_generated_detail}", Colors.CYAN)
+        self.mock_print_color.assert_any_call(ai_generated_detail, Colors.CYAN)
 
     # --- Tests for Game._initialize_game() ---
     @patch.object(WorldManager, "load_all_characters")  # Mock to prevent full character setup

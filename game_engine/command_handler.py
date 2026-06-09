@@ -11,10 +11,10 @@ from .game_config import (
     VERBOSITY_LEVELS,
     COLOR_THEME_MAP,
     TIME_UNITS_PER_PLAYER_ACTION,
-    DEFAULT_ITEMS,
     apply_color_theme,
 )
 from .location_module import LOCATIONS_DATA
+from . import terminal
 
 
 class CommandHandler:
@@ -44,7 +44,7 @@ class CommandHandler:
         return f"{command} {argument}".strip()
 
     def _record_command_history(self, command, argument):
-        if not command or command in ["history", "retry", "rephrase", "select_item"]:
+        if not command or command in ["history", "retry", "rephrase", "more", "select_item"]:
             return
         command_text = self._canonical_command_text(command, argument)
         if not command_text:
@@ -289,198 +289,9 @@ class CommandHandler:
         return parts[0], parts[1] if len(parts) > 1 else None
 
     def _get_player_input(self):
-        player_state_info = (
-            f"{self.game_state.player_character.apparent_state}"
-            if self.game_state.player_character
-            else "Unknown state"
+        raw_action_input = self.game_state._input_color(
+            f"\n{self.game_state._prompt_arrow()}", Colors.WHITE
         )
-        prompt_hint_objects = []
-        hint_types_added = set()
-        if (
-            hasattr(self.game_state, "numbered_actions_context")
-            and self.game_state.numbered_actions_context
-        ):
-            if "talk" not in hint_types_added and len(prompt_hint_objects) < 2:
-                for action_info in self.game_state.numbered_actions_context:
-                    if len(prompt_hint_objects) >= 2:
-                        break
-                    if action_info["type"] == "talk":
-                        current_action_type = "talk"
-                        current_target = action_info["target"]
-                        display_string = f"Talk to {current_target}"
-                        is_duplicate = any(
-                            ex_h["action_type"] == current_action_type
-                            and (
-                                ex_h["target"].startswith(current_target)
-                                or current_target.startswith(ex_h["target"])
-                            )
-                            for ex_h in prompt_hint_objects
-                        )
-                        if not is_duplicate:
-                            prompt_hint_objects.append(
-                                {
-                                    "action_type": current_action_type,
-                                    "target": current_target,
-                                    "display_string": display_string,
-                                }
-                            )
-                            hint_types_added.add("talk")
-                            break
-            if len(prompt_hint_objects) < 2 and "item_take" not in hint_types_added:
-                for action_info in self.game_state.numbered_actions_context:
-                    if len(prompt_hint_objects) >= 2:
-                        break
-                    if action_info["type"] == "take" and DEFAULT_ITEMS.get(
-                        action_info["target"], {}
-                    ).get("is_notable", False):
-                        current_action_type = "item_take"
-                        current_target = action_info["target"]
-                        display_string = f"Take {current_target}"
-                        is_duplicate = any(
-                            ex_h["action_type"] == current_action_type
-                            and (
-                                ex_h["target"].startswith(current_target)
-                                or current_target.startswith(ex_h["target"])
-                            )
-                            for ex_h in prompt_hint_objects
-                        )
-                        if not is_duplicate:
-                            prompt_hint_objects.append(
-                                {
-                                    "action_type": current_action_type,
-                                    "target": current_target,
-                                    "display_string": display_string,
-                                }
-                            )
-                            hint_types_added.add("item_take")
-                            break
-            if len(prompt_hint_objects) < 2 and "item_examine" not in hint_types_added:
-                for action_info in self.game_state.numbered_actions_context:
-                    if len(prompt_hint_objects) >= 2:
-                        break
-                    if action_info["type"] == "look_at_item" and DEFAULT_ITEMS.get(
-                        action_info["target"], {}
-                    ).get("is_notable", False):
-                        current_action_type = "item_examine"
-                        current_target = action_info["target"]
-                        display_string = f"Examine {current_target}"
-                        is_duplicate = any(
-                            ex_h["action_type"] == current_action_type
-                            and (
-                                ex_h["target"].startswith(current_target)
-                                or current_target.startswith(ex_h["target"])
-                            )
-                            for ex_h in prompt_hint_objects
-                        )
-                        if not is_duplicate:
-                            prompt_hint_objects.append(
-                                {
-                                    "action_type": current_action_type,
-                                    "target": current_target,
-                                    "display_string": display_string,
-                                }
-                            )
-                            hint_types_added.add("item_examine")
-                            break
-            if len(prompt_hint_objects) < 2 and "item_take" not in hint_types_added:
-                for action_info in self.game_state.numbered_actions_context:
-                    if len(prompt_hint_objects) >= 2:
-                        break
-                    if action_info["type"] == "take":
-                        current_action_type = "item_take"
-                        current_target = action_info["target"]
-                        display_string = f"Take {current_target}"
-                        is_duplicate = any(
-                            ex_h["action_type"] == current_action_type
-                            and (
-                                ex_h["target"].startswith(current_target)
-                                or current_target.startswith(ex_h["target"])
-                            )
-                            for ex_h in prompt_hint_objects
-                        )
-                        if not is_duplicate:
-                            prompt_hint_objects.append(
-                                {
-                                    "action_type": current_action_type,
-                                    "target": current_target,
-                                    "display_string": display_string,
-                                }
-                            )
-                            hint_types_added.add("item_take")
-                            break
-            if len(prompt_hint_objects) < 2 and "item_examine" not in hint_types_added:
-                for action_info in self.game_state.numbered_actions_context:
-                    if len(prompt_hint_objects) >= 2:
-                        break
-                    if action_info["type"] == "look_at_item":
-                        current_action_type = "item_examine"
-                        current_target = action_info["target"]
-                        display_string = f"Examine {current_target}"
-                        is_duplicate = any(
-                            ex_h["action_type"] == current_action_type
-                            and (
-                                ex_h["target"].startswith(current_target)
-                                or current_target.startswith(ex_h["target"])
-                            )
-                            for ex_h in prompt_hint_objects
-                        )
-                        if not is_duplicate:
-                            prompt_hint_objects.append(
-                                {
-                                    "action_type": current_action_type,
-                                    "target": current_target,
-                                    "display_string": display_string,
-                                }
-                            )
-                            hint_types_added.add("item_examine")
-                            break
-            if "move" not in hint_types_added and len(prompt_hint_objects) < 2:
-                for action_info in self.game_state.numbered_actions_context:
-                    if len(prompt_hint_objects) >= 2:
-                        break
-                    if action_info["type"] == "move":
-                        current_action_type = "move"
-                        current_target = action_info["target"]
-                        display_string = f"Go to {current_target}"
-                        is_duplicate = any(
-                            ex_h["action_type"] == current_action_type
-                            and (
-                                ex_h["target"].startswith(current_target)
-                                or current_target.startswith(ex_h["target"])
-                            )
-                            for ex_h in prompt_hint_objects
-                        )
-                        if not is_duplicate:
-                            prompt_hint_objects.append(
-                                {
-                                    "action_type": current_action_type,
-                                    "target": current_target,
-                                    "display_string": display_string,
-                                }
-                            )
-                            hint_types_added.add("move")
-                            break
-        active_hint_display_strings = [h["display_string"] for h in prompt_hint_objects[:2]]
-        hint_string = (
-            f" (Hint: {Colors.DIM}{' | '.join(active_hint_display_strings)}{Colors.RESET})"
-            if active_hint_display_strings
-            else (
-                f" (Hint: {Colors.DIM}type 'look' or 'help'{Colors.RESET})"
-                if not (
-                    hasattr(self.game_state, "numbered_actions_context")
-                    and self.game_state.numbered_actions_context
-                )
-                else ""
-            )
-        )
-        time_info = self.game_state._get_current_game_time_period_str()
-        mode_label = self.game_state._get_mode_label()
-        prompt_text = (
-            f"\n[{Colors.DIM}{time_info}{Colors.RESET} | {Colors.CYAN}{self.game_state.current_location_name}{Colors.RESET} "
-            f"| {mode_label} | {self.game_state.verbosity_level} | {player_state_info}]"
-            f"{hint_string} What do you do? {self.game_state._prompt_arrow()}"
-        )
-        raw_action_input = self.game_state._input_color(prompt_text, Colors.WHITE)
         fast_input = raw_action_input.strip().lower()
         if fast_input == "!!":
             if not self.game_state.command_history:
@@ -541,6 +352,20 @@ class CommandHandler:
             self._handle_unknown_intent()
             return None, None
         return None, None
+
+    def _handle_pace_command(self, argument):
+        if not argument:
+            current = "on" if terminal.narrative_pace_enabled else "off"
+            self.game_state._print_color(
+                f"Narrative pacing is {current}. Use 'pace on' or 'pace off'.", Colors.CYAN
+            )
+            return
+        value = str(argument).strip().lower()
+        if value not in ("on", "off"):
+            self.game_state._print_color("Invalid value. Use 'pace on' or 'pace off'.", Colors.YELLOW)
+            return
+        terminal.set_narrative_pace(value == "on")
+        self.game_state._print_color(f"Narrative pacing turned {value}.", Colors.GREEN)
 
     def _handle_theme_command(self, argument):
         if not argument:
@@ -824,6 +649,18 @@ class CommandHandler:
             show_atmospherics_this_turn = False
         elif command == "rephrase":
             self._handle_retry_or_rephrase("rephrase")
+            action_taken_this_turn = False
+            show_atmospherics_this_turn = False
+        elif command == "more":
+            self.game_state._handle_more_command()
+            action_taken_this_turn = False
+            show_atmospherics_this_turn = False
+        elif command == "saves":
+            self.game_state._handle_saves_command()
+            action_taken_this_turn = False
+            show_atmospherics_this_turn = False
+        elif command == "pace":
+            self._handle_pace_command(argument)
             action_taken_this_turn = False
             show_atmospherics_this_turn = False
         else:

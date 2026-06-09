@@ -4,6 +4,12 @@
 import re
 import random
 
+from rich.console import Group
+from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
+
+from . import terminal
 from .game_config import Colors, DEFAULT_ITEMS
 from .static_fallbacks import STATIC_ATMOSPHERIC_DETAILS
 from .gemini_interactions import is_usable_ai_text
@@ -13,16 +19,31 @@ class DisplayMixin:
     """Mixin providing all display, output, and UI-related methods."""
 
     def _print_color(self, text, color_code, end="\n"):
-        print(f"{color_code}{text}{Colors.RESET}", end=end)
+        terminal.write_line(f"{color_code}{text}{Colors.RESET}", end=end)
 
     def _input_color(self, prompt_text, color_code):
-        return input(f"{color_code}{prompt_text}{Colors.RESET}")
+        return terminal.read_line(f"{color_code}{prompt_text}{Colors.RESET}")
+
+    def _print_block(self, text, color_code):
+        """Print text preceded by exactly one blank line."""
+        terminal.ensure_blank_line()
+        self._print_color(text, color_code)
+
+    def _print_renderable(self, renderable):
+        """Print a Rich renderable (Panel, Table, ...) through the funnel."""
+        terminal.ensure_blank_line()
+        terminal.write_renderable(renderable)
+
+    def _print_narrative(self, text, color_code):
+        """Print a narrative beat, paragraph-paced when the player enabled it."""
+        terminal.ensure_blank_line()
+        terminal.write_narrative(f"{color_code}{text}{Colors.RESET}")
 
     def _prompt_arrow(self):
         return f"{Colors.GREEN}> {Colors.RESET}"
 
     def _separator_line(self):
-        return Colors.DIM + ("-" * 60) + Colors.RESET
+        return Colors.DIM + terminal.separator() + Colors.RESET
 
     def _get_mode_label(self):
         if self.low_ai_data_mode or not self.gemini_api.model:
@@ -30,26 +51,48 @@ class DisplayMixin:
         return "AI"
 
     def _apply_verbosity(self, text):
+        """Trim text to the chosen verbosity, always on sentence/paragraph boundaries.
+
+        The untrimmed text is kept on self._last_full_text so the 'more'
+        command can reveal the rest.
+        """
         if text is None:
             return None
         normalized = str(text).strip()
         if not normalized:
             return normalized
+        self._last_full_text = normalized
+        if self.verbosity_level == "rich":
+            return normalized
+        paragraphs = [p.strip() for p in re.split(r"\n\s*\n", normalized) if p.strip()]
+        first_paragraph = paragraphs[0]
         if self.verbosity_level == "brief":
-            sentence = re.split(r"(?<=[.!?])\s+", normalized, maxsplit=1)[0]
-            if len(sentence) > 180:
-                sentence = sentence[:177].rstrip() + "..."
-            return sentence
-        if self.verbosity_level == "standard" and len(normalized) > 550:
-            return normalized[:547].rstrip() + "..."
-        return normalized
+            sentences = re.split(r"(?<=[.!?])\s+", first_paragraph)
+            selected = " ".join(sentences[:2])
+        else:  # standard
+            selected = first_paragraph
+        if selected != normalized:
+            selected += " […more]"
+        return selected
+
+    def _handle_more_command(self):
+        full_text = getattr(self, "_last_full_text", None)
+        if not full_text:
+            self._print_color("There is nothing more to reveal right now.", Colors.YELLOW)
+            return
+        self._print_block(full_text, Colors.CYAN)
 
     def _print_turn_header(self):
         if not self.turn_headers_enabled:
             return
         time_info = self._get_current_game_time_period_str()
         location = self.current_location_name or "Unknown"
-        self._print_color(f"{time_info}  ·  {location}", Colors.DIM)
+        parts = [time_info, location]
+        if self.player_character and self.player_character.apparent_state:
+            parts.append(self.player_character.apparent_state)
+        if self._get_mode_label() == "LOW-AI":
+            parts.append("LOW-AI")
+        self._print_block("  ·  ".join(parts), Colors.DIM)
 
     def _describe_item_brief(self, item_name):
         item_defaults = DEFAULT_ITEMS.get(item_name, {})
@@ -116,13 +159,19 @@ class DisplayMixin:
             context = {"npcs": [], "exits": []}
         talk_target = context["npcs"][0] if context.get("npcs") else None
         move_target = context["exits"][0]["name"] if context.get("exits") else "an available exit"
+        examine_target = context["items"][0] if context.get("items") else None
+        hint_1 = (
+            f"Tutorial 1/5: Try 'look at {examine_target}' to examine something closely."
+            if examine_target
+            else "Tutorial 1/5: Use 'look' to survey your surroundings."
+        )
         hint_2 = (
             f"Tutorial 2/5: Try 'talk to {talk_target}' to start a conversation."
             if talk_target
             else "Tutorial 2/5: Try 'look at [something]' to examine items, or 'think' to reflect."
         )
         tutorial_lines = {
-            1: "Tutorial 1/5: Use 'look' to survey your surroundings.",
+            1: hint_1,
             2: hint_2,
             3: "Tutorial 3/5: Use 'objectives' to see your active goals.",
             4: f"Tutorial 4/5: Move with 'move to {move_target}'.",
@@ -133,6 +182,16 @@ class DisplayMixin:
 
     def display_atmospheric_details(self):
         if self.player_character and self.current_location_name:
+            from .game_config import ATMOSPHERIC_COOLDOWN_ACTIONS
+
+            shown_at = getattr(self, "_atmospherics_shown_at", {})
+            last_shown = shown_at.get(self.current_location_name)
+            if (
+                last_shown is not None
+                and self.player_action_count - last_shown < ATMOSPHERIC_COOLDOWN_ACTIONS
+            ):
+                self.last_significant_event_summary = None
+                return
             details = None
             ai_generated = False
             if not self.low_ai_data_mode and self.gemini_api.model:
@@ -160,15 +219,16 @@ class DisplayMixin:
 
             if details:  # Ensure details is not None if fallbacks were empty
                 final_details = self._apply_verbosity(details)
-                self._print_color(f"\n{final_details}", Colors.CYAN)
+                self._print_block(final_details, Colors.CYAN)
+                shown_at[self.current_location_name] = self.player_action_count
+                self._atmospherics_shown_at = shown_at
                 if ai_generated:
                     self._remember_ai_output(final_details, "atmosphere")
             self.last_significant_event_summary = None
 
     def display_objectives(self):
-        self._print_color("\n--- Your Objectives ---", Colors.CYAN + Colors.BOLD)
         if not self.player_character or not self.player_character.objectives:
-            self._print_color("You have no specific objectives at the moment.", Colors.DIM)
+            self._print_block("You have no specific objectives at the moment.", Colors.DIM)
             return
         active_objectives = [
             obj
@@ -179,29 +239,37 @@ class DisplayMixin:
             obj for obj in self.player_character.objectives if obj.get("completed", False)
         ]
         if not active_objectives and not completed_objectives:
-            self._print_color("You have no specific objectives at the moment.", Colors.DIM)
+            self._print_block("You have no specific objectives at the moment.", Colors.DIM)
             return
+        sections = []
         if active_objectives:
-            self._print_color("\nOngoing:", Colors.YELLOW + Colors.BOLD)
+            sections.append(Text("Ongoing", style="bold yellow"))
             for obj in active_objectives:
-                self._print_color(f"- {obj.get('description', 'Unnamed objective')}", Colors.WHITE)
+                sections.append(
+                    Text(f"• {obj.get('description', 'Unnamed objective')}", style="white")
+                )
                 current_stage = self.player_character.get_current_stage_for_objective(obj.get("id"))
                 if current_stage:
-                    self._print_color(
-                        f"  Current Stage: {current_stage.get('description', 'No stage description')}",
-                        Colors.CYAN,
+                    sections.append(
+                        Text(
+                            f"  Current Stage: {current_stage.get('description', 'No stage description')}",
+                            style="cyan",
+                        )
                     )
         else:
-            self._print_color("\nNo active objectives right now.", Colors.DIM)
+            sections.append(Text("No active objectives right now.", style="dim"))
         if completed_objectives:
-            self._print_color("\nCompleted:", Colors.GREEN + Colors.BOLD)
+            sections.append(Text("Completed", style="bold green"))
             for obj in completed_objectives:
-                self._print_color(f"- {obj.get('description', 'Unnamed objective')}", Colors.WHITE)
+                sections.append(
+                    Text(f"• {obj.get('description', 'Unnamed objective')}", style="dim white")
+                )
+        self._print_renderable(
+            Panel(Group(*sections), title="Your Objectives", border_style="cyan", expand=False)
+        )
 
     def display_help(self, category=None):
-        self._print_color("\n--- Available Actions ---", Colors.CYAN + Colors.BOLD)
-        self._print_color("", Colors.RESET)
-        self._print_color(
+        self._print_block(
             f"Mode: {self._get_mode_label()} | Theme: {self.color_theme} | Verbosity: {self.verbosity_level}",
             Colors.DIM,
         )
@@ -277,6 +345,9 @@ class DisplayMixin:
                     "retry / rephrase",
                     "Generate an alternate wording of the last AI text.",
                 ),
+                ("more", "Show the rest of the last trimmed narrative text."),
+                ("saves", "List existing save slots."),
+                ("pace [on|off]", "Reveal dreams and major beats paragraph by paragraph."),
                 ("theme [default|high-contrast|mono]", "Switch color profile."),
                 ("verbosity [brief|standard|rich]", "Adjust narrative text density."),
                 ("turnheaders [on|off]", "Toggle turn boundary headers."),
@@ -288,26 +359,33 @@ class DisplayMixin:
             category.strip().lower() if isinstance(category, str) and category.strip() else "all"
         )
         if normalized_category == "all":
-            actions = [item for group in action_groups.values() for item in group]
+            groups_to_show = action_groups
         elif normalized_category in action_groups:
-            self._print_color(f"Category: {normalized_category}", Colors.DIM)
-            actions = action_groups[normalized_category]
+            groups_to_show = {normalized_category: action_groups[normalized_category]}
         else:
             available = ", ".join(action_groups.keys())
             self._print_color(
                 f"Unknown help category '{category}'. Available: {available}. Showing all commands.",
                 Colors.YELLOW,
             )
-            actions = [item for group in action_groups.values() for item in group]
+            groups_to_show = action_groups
 
-        for cmd, desc in actions:
-            self._print_color(f"{cmd:<65} {Colors.WHITE}- {desc}{Colors.RESET}", Colors.MAGENTA)
-        self._print_color("", Colors.RESET)
+        sections = []
+        for group_name, actions in groups_to_show.items():
+            grid = Table.grid(padding=(0, 2))
+            grid.add_column(style="magenta", no_wrap=False, max_width=40)
+            grid.add_column(style="white")
+            for cmd, desc in actions:
+                # Wrap in Text so '[item name]' isn't parsed as Rich markup.
+                grid.add_row(Text(cmd), Text(desc))
+            sections.append(
+                Panel(grid, title=group_name.capitalize(), border_style="cyan", expand=False)
+            )
+        self._print_renderable(Group(*sections))
         self._print_color(
             "Tip: use 'help movement', 'help social', 'help items', or 'help meta'.",
             Colors.DIM,
         )
-        self._print_color("", Colors.RESET)
 
     def _display_load_recap(self):
         if not self.player_character:
@@ -365,20 +443,6 @@ class DisplayMixin:
         if not self.player_character:
             self._print_color("No player character loaded.", Colors.RED)
             return
-        self._print_color("\n--- Your Status ---", Colors.CYAN + Colors.BOLD)
-        self._print_color(
-            f"Name: {Colors.GREEN}{self.player_character.name}{Colors.RESET}",
-            Colors.WHITE,
-        )
-        self._print_color(
-            f"Apparent State: {Colors.YELLOW}{self.player_character.apparent_state}{Colors.RESET}",
-            Colors.WHITE,
-        )
-        self._print_color(
-            f"Current Location: {Colors.CYAN}{self.current_location_name}{Colors.RESET}",
-            Colors.WHITE,
-        )
-        notoriety_desc = "Unknown"
         if self.player_notoriety_level == 0:
             notoriety_desc = "Unknown"
         elif self.player_notoriety_level < 0.5:
@@ -389,30 +453,44 @@ class DisplayMixin:
             notoriety_desc = "Talked About"
         else:
             notoriety_desc = "Infamous"
-        self._print_color(
-            f"Notoriety: {Colors.MAGENTA}{notoriety_desc} (Level {self.player_notoriety_level:.1f}){Colors.RESET}",
-            Colors.WHITE,
+        ai_mode = (
+            "Low AI / Fallback Friendly" if self._get_mode_label() == "LOW-AI" else "AI Dynamic"
         )
-        ai_mode = "Low AI / Fallback Friendly" if self.low_ai_data_mode else "AI Dynamic"
-        self._print_color(f"Narrative Mode: {Colors.CYAN}{ai_mode}{Colors.RESET}", Colors.WHITE)
-        self._print_color(f"Theme: {self.color_theme}", Colors.WHITE)
-        self._print_color(f"Verbosity: {self.verbosity_level}", Colors.WHITE)
-        self._print_color(
-            f"Turn Headers: {'on' if self.turn_headers_enabled else 'off'}",
-            Colors.WHITE,
+
+        grid = Table.grid(padding=(0, 2))
+        grid.add_column(style="bold cyan", justify="right")
+        grid.add_column()
+        grid.add_row("Name", Text(str(self.player_character.name), style="green"))
+        grid.add_row(
+            "Apparent State", Text(str(self.player_character.apparent_state), style="yellow")
         )
+        grid.add_row("Location", Text(str(self.current_location_name), style="cyan"))
+        grid.add_row(
+            "Notoriety",
+            Text(f"{notoriety_desc} (Level {self.player_notoriety_level:.1f})", style="magenta"),
+        )
+        grid.add_row("Narrative Mode", ai_mode)
+        grid.add_row("Theme", str(self.color_theme))
+        grid.add_row("Verbosity", str(self.verbosity_level))
+        grid.add_row("Turn Headers", "on" if self.turn_headers_enabled else "off")
         if self.player_action_count < self.tutorial_turn_limit:
-            self._print_color(
-                f"Tutorial Progress: {self.player_action_count}/{self.tutorial_turn_limit} actions",
-                Colors.DIM,
+            grid.add_row(
+                "Tutorial",
+                Text(
+                    f"{self.player_action_count}/{self.tutorial_turn_limit} actions",
+                    style="dim",
+                ),
             )
-        self._print_color("\n--- Skills ---", Colors.CYAN + Colors.BOLD)
+        sections = [grid]
+
+        sections.append(Text("Skills", style="bold cyan"))
         if self.player_character.skills:
             for skill_name, value in self.player_character.skills.items():
-                self._print_color(f"- {skill_name.capitalize()}: {value}", Colors.WHITE)
+                sections.append(Text(f"• {skill_name.capitalize()}: {value}", style="white"))
         else:
-            self._print_color("No specialized skills.", Colors.DIM)
-        self._print_color("\n--- Active Objectives ---", Colors.CYAN + Colors.BOLD)
+            sections.append(Text("No specialized skills.", style="dim"))
+
+        sections.append(Text("Active Objectives", style="bold cyan"))
         active_objectives = [
             obj
             for obj in self.player_character.objectives
@@ -420,16 +498,21 @@ class DisplayMixin:
         ]
         if active_objectives:
             for obj in active_objectives:
-                self._print_color(f"- {obj.get('description', 'Unnamed objective')}", Colors.WHITE)
+                sections.append(
+                    Text(f"• {obj.get('description', 'Unnamed objective')}", style="white")
+                )
                 current_stage = self.player_character.get_current_stage_for_objective(obj.get("id"))
                 if current_stage:
-                    self._print_color(
-                        f"  Current Stage: {current_stage.get('description', 'No stage description')}",
-                        Colors.CYAN,
+                    sections.append(
+                        Text(
+                            f"  Current Stage: {current_stage.get('description', 'No stage description')}",
+                            style="cyan",
+                        )
                     )
         else:
-            self._print_color("No active objectives.", Colors.DIM)
-        self._print_color("\n--- Inventory Highlights ---", Colors.CYAN + Colors.BOLD)
+            sections.append(Text("No active objectives.", style="dim"))
+
+        sections.append(Text("Inventory Highlights", style="bold cyan"))
         if self.player_character.inventory:
             highlights = []
             for item_obj in self.player_character.inventory:
@@ -444,12 +527,13 @@ class DisplayMixin:
                 else:
                     highlights.append(item_name)
             if highlights:
-                self._print_color(", ".join(highlights), Colors.GREEN)
+                sections.append(Text(", ".join(highlights), style="green"))
             else:
-                self._print_color("Carrying some items.", Colors.DIM)
+                sections.append(Text("Carrying some items.", style="dim"))
         else:
-            self._print_color("Carrying nothing of note.", Colors.DIM)
-        self._print_color("\n--- Relationships ---", Colors.CYAN + Colors.BOLD)
+            sections.append(Text("Carrying nothing of note.", style="dim"))
+
+        sections.append(Text("Relationships", style="bold cyan"))
         meaningful_relationships = False
         for char_name, char_obj in self.all_character_objects.items():
             if char_obj.is_player:
@@ -459,33 +543,45 @@ class DisplayMixin:
                 and char_obj.relationship_with_player != 0
             ):
                 relationship_text = self.get_relationship_text(char_obj.relationship_with_player)
-                self._print_color(f"- {char_name}: {relationship_text}", Colors.WHITE)
+                sections.append(Text(f"• {char_name}: {relationship_text}", style="white"))
                 meaningful_relationships = True
         if not meaningful_relationships:
-            self._print_color("No significant relationships established yet.", Colors.DIM)
-        self._print_color("", Colors.RESET)
+            sections.append(Text("No significant relationships established yet.", style="dim"))
+
+        self._print_renderable(
+            Panel(Group(*sections), title="Your Status", border_style="cyan", expand=False)
+        )
 
     def _handle_inventory_command(self):
         if self.player_character:
-            self._print_color("\n--- Your Inventory ---", Colors.CYAN + Colors.BOLD)
             inv_desc = self.player_character.get_inventory_description()
             if inv_desc.startswith("You are carrying: "):
                 items_str = inv_desc.replace("You are carrying: ", "", 1)
                 if items_str.lower() == "nothing.":
-                    self._print_color("- Nothing", Colors.DIM)
+                    self._print_block("You are carrying nothing.", Colors.DIM)
                 else:
+                    table = Table(
+                        title="Your Inventory",
+                        border_style="cyan",
+                        title_style="bold cyan",
+                        show_header=False,
+                        expand=False,
+                        min_width=30,
+                    )
+                    table.add_column(style="green")
                     items_list = items_str.split(", ")
                     for item_with_details in items_list:
-                        self._print_color(f"- {item_with_details.rstrip('.')}", Colors.GREEN)
+                        table.add_row(item_with_details.rstrip("."))
+                    self._print_renderable(table)
                     if items_list:
                         self._print_color(
                             "(Hint: You can 'use [item]', 'read [item]', 'drop [item]', or 'give [item] to [person]'.)",
                             Colors.DIM,
                         )
             elif inv_desc.lower() == "you are carrying nothing.":
-                self._print_color("- Nothing", Colors.DIM)
+                self._print_block("You are carrying nothing.", Colors.DIM)
             else:
-                print(inv_desc)
+                self._print_color(inv_desc, Colors.RESET)
         else:
             self._print_color(
                 "Cannot display inventory: Player character not available.", Colors.RED

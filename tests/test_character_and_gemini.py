@@ -210,8 +210,7 @@ def test_gemini_handle_env_and_config_and_generate_fallback(_getenv, tmp_path):
     assert "unclear or restricted" in out3
 
 
-@patch.dict("game_engine.command_handler.DEFAULT_ITEMS", {"book": {"is_notable": True}}, clear=True)
-def test_command_handler_hint_construction_branches():
+def test_command_handler_numbered_context_does_not_block_known_commands():
     state = _make_state()
     state.numbered_actions_context = [
         {"type": "talk", "target": "Sonia"},
@@ -237,6 +236,7 @@ def test_world_manager_advance_time_new_day_with_dream_static():
         game_time=95,
         current_day=1,
         _print_color=MagicMock(),
+        _print_narrative=MagicMock(),
         key_events_occurred=[],
         last_significant_event_summary=None,
         player_character=player,

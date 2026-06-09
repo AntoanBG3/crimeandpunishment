@@ -236,7 +236,6 @@ def validate_rules(characters_data, locations_data, items_data):
     early rather than at runtime when a rule silently fails to match.
     """
     warnings = []
-    all_location_names = set(locations_data.keys())
     all_item_names = set(items_data.keys())
 
     for char_name, rules in _RULES.items():

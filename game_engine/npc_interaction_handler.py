@@ -128,8 +128,10 @@ class NPCInteractionHandler:
                 and target_npc.greeting
             ):
                 initial_greeting_text = f'{target_npc.name}: "{target_npc.greeting}"'
-                self._print_color(f"{target_npc.name}: ", Colors.YELLOW, end="")
-                print(f'"{target_npc.greeting}"')
+                self._print_color(
+                    f'{Colors.YELLOW}{target_npc.name}:{Colors.RESET} "{target_npc.greeting}"',
+                    Colors.RESET,
+                )
                 self.current_conversation_log.append(initial_greeting_text)
                 if len(self.current_conversation_log) > MAX_CONVERSATION_LOG_LINES:
                     self.current_conversation_log.pop(0)
@@ -155,8 +157,10 @@ class NPCInteractionHandler:
                                 self._print_color(line, Colors.GREEN)
                             elif ":" in line:
                                 speaker, rest_of_line = line.split(":", 1)
-                                self._print_color(f"{speaker}:", Colors.YELLOW, end="")
-                                print(rest_of_line)
+                                self._print_color(
+                                    f"{Colors.YELLOW}{speaker}:{Colors.RESET}{rest_of_line}",
+                                    Colors.RESET,
+                                )
                             else:
                                 self._print_color(line, Colors.DIM)
                     self._print_color("--- End of History ---", Colors.CYAN + Colors.BOLD)
@@ -214,8 +218,10 @@ class NPCInteractionHandler:
                     NEGATIVE_KEYWORDS,
                     self.game_time,
                 )
-                self._print_color(f"{target_npc.name}: ", Colors.YELLOW, end="")
-                print(f'"{ai_response}"')
+                self._print_color(
+                    f'{Colors.YELLOW}{target_npc.name}:{Colors.RESET} "{ai_response}"',
+                    Colors.RESET,
+                )
                 logged_ai_response = f'{target_npc.name}: "{ai_response}"'
                 self.current_conversation_log.append(logged_ai_response)
                 if used_ai_dialogue:
@@ -320,8 +326,10 @@ class NPCInteractionHandler:
             ai_response = _persuade_fallback
             used_ai_dialogue = False
         ai_response = self._apply_verbosity(ai_response)
-        self._print_color(f"{target_npc.name}: ", Colors.YELLOW, end="")
-        print(f'"{ai_response}"')
+        self._print_color(
+            f'{Colors.YELLOW}{target_npc.name}:{Colors.RESET} "{ai_response}"',
+            Colors.RESET,
+        )
         if used_ai_dialogue:
             self._remember_ai_output(ai_response, "persuasion_dialogue")
         sentiment_impact_base = 0

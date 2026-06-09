@@ -268,7 +268,9 @@ def test_world_manager_time_period_and_item_initialization():
 
 
 def test_world_manager_select_player_character_non_interactive():
-    state = SimpleNamespace(_print_color=MagicMock(), _input_color=MagicMock())
+    state = SimpleNamespace(
+        _print_color=MagicMock(), _input_color=MagicMock(), _print_renderable=MagicMock()
+    )
     wm = WorldManager(state)
     with patch(
         "game_engine.world_manager.CHARACTERS_DATA",
@@ -341,6 +343,9 @@ def test_world_manager_validate_items_and_ambient_rumors_and_unknown_time():
         get_relationship_text=lambda _: "neutral",
         _get_objectives_summary=lambda _: "obj",
         player_notoriety_level=0,
+        player_action_count=10,
+        tutorial_turn_limit=5,
+        _print_block=MagicMock(),
     )
     wm = WorldManager(state)
     with patch("game_engine.world_manager.TIME_PERIODS", {"Morning": (0, 1)}):
@@ -401,6 +406,8 @@ def test_world_manager_exit_fallbacks_and_location_update_paths():
         all_character_objects={},
         npcs_in_current_location=[],
         game_time=0,
+        player_action_count=0,
+        _print_block=MagicMock(),
     )
     wm = WorldManager(state)
 
@@ -454,6 +461,9 @@ def test_world_manager_ambient_rumor_ai_path():
         _get_current_game_time_period_str=lambda: "Day 1, Morning",
         _remember_ai_output=MagicMock(),
         game_time=0,
+        player_action_count=10,
+        tutorial_turn_limit=5,
+        _print_block=MagicMock(),
     )
     wm = WorldManager(state)
 
