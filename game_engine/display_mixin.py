@@ -21,8 +21,10 @@ class DisplayMixin:
     def _print_color(self, text, color_code, end="\n"):
         terminal.write_line(f"{color_code}{text}{Colors.RESET}", end=end)
 
-    def _input_color(self, prompt_text, color_code):
-        return terminal.read_line(f"{color_code}{prompt_text}{Colors.RESET}")
+    def _input_color(self, prompt_text, color_code, completion=True):
+        return terminal.read_line(
+            f"{color_code}{prompt_text}{Colors.RESET}", completion=completion
+        )
 
     def _print_block(self, text, color_code):
         """Print text preceded by exactly one blank line."""
@@ -88,9 +90,8 @@ class DisplayMixin:
             return
         self._print_block(full_text, Colors.CYAN)
 
-    def _print_turn_header(self):
-        if not self.turn_headers_enabled:
-            return
+    def _status_line_text(self):
+        """Day/period, location, state (+LOW-AI); shared by header and toolbar."""
         time_info = self._get_current_game_time_period_str()
         location = self.current_location_name or "Unknown"
         parts = [time_info, location]
@@ -98,7 +99,12 @@ class DisplayMixin:
             parts.append(self.player_character.apparent_state)
         if self._get_mode_label() == "LOW-AI":
             parts.append("LOW-AI")
-        self._print_block("  ·  ".join(parts), Colors.DIM)
+        return "  ·  ".join(parts)
+
+    def _print_turn_header(self):
+        if not self.turn_headers_enabled:
+            return
+        self._print_block(self._status_line_text(), Colors.DIM)
 
     def _describe_item_brief(self, item_name):
         item_defaults = DEFAULT_ITEMS.get(item_name, {})

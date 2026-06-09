@@ -137,6 +137,7 @@ class NPCInteractionHandler:
                 player_dialogue = self._input_color(
                     f"You ({Colors.GREEN}{self.player_character.name}{Colors.RESET}): {self._prompt_arrow()}",
                     Colors.GREEN,
+                    completion=False,  # free-form dialogue, not commands
                 ).strip()
                 if player_dialogue.lower() in ["history", "review", "log"]:
                     from rich.console import Group as RichGroup

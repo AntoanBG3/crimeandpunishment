@@ -24,7 +24,13 @@ reassess 3B.** Nothing in 3A or 3C is thrown away if 3B happens later.
 
 ---
 
-## 3A — prompt_toolkit input layer (~1–2 weeks)
+## 3A — prompt_toolkit input layer — DONE
+
+Implemented as specified below: PromptSession with file history in
+`terminal.read_line` behind a strict non-TTY fallback, `GameCompleter` in
+`game_engine/completion.py`, bottom toolbar via `_status_line_text`, and no
+completion inside conversations. Verified with completer unit tests
+(`tests/test_completion.py`) and a pty-driven smoke run.
 
 ### Goal
 

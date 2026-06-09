@@ -1,2 +1,3 @@
 google-genai
 rich
+prompt_toolkit

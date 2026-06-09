@@ -8,7 +8,9 @@ emit still goes through builtins.print so tests can keep patching it.
 """
 
 import contextlib
+import os
 import re
+import sys
 import time
 
 from rich.console import Console
@@ -97,14 +99,67 @@ def write_dialogue(text, color=""):
     _last_line_blank = not rich_text.plain.strip()
 
 
-def read_line(prompt_text, color=""):
+# --- Interactive input (prompt_toolkit) -------------------------------------
+# In a real terminal, read_line uses a PromptSession for persistent up-arrow
+# history, Tab completion, and a bottom toolbar. Everywhere else (tests, pipes,
+# dumb terminals) it falls back to plain input() — the same rule the AI layer
+# follows with its static fallbacks.
+
+HISTORY_FILE = os.path.expanduser("~/.crimeandpunishment_history")
+
+_session = None
+_completer_provider = None
+_toolbar_provider = None
+
+
+def set_completer_provider(provider):
+    """provider: zero-arg callable returning a prompt_toolkit Completer or None."""
+    global _completer_provider
+    _completer_provider = provider
+
+
+def set_toolbar_provider(provider):
+    """provider: zero-arg callable returning plain toolbar text or None."""
+    global _toolbar_provider
+    _toolbar_provider = provider
+
+
+def _interactive_input_supported():
+    try:
+        return _console.is_terminal and sys.stdin.isatty()
+    except (AttributeError, ValueError):
+        return False
+
+
+def _get_session():
+    global _session
+    if _session is None:
+        from prompt_toolkit import PromptSession
+        from prompt_toolkit.history import FileHistory
+
+        _session = PromptSession(history=FileHistory(HISTORY_FILE))
+    return _session
+
+
+def read_line(prompt_text, color="", completion=True):
     global _last_line_blank
     rich_text = _render(str(prompt_text), color)
     with _console.capture() as capture:
         _console.print(rich_text, end="", width=render_width())
-    result = input(capture.get())
+    rendered = capture.get()
     _last_line_blank = False
-    return result
+    if not _interactive_input_supported():
+        return input(rendered)
+    from prompt_toolkit.formatted_text import ANSI
+
+    completer = _completer_provider() if (completion and _completer_provider) else None
+    toolbar = _toolbar_provider() if _toolbar_provider else None
+    return _get_session().prompt(
+        ANSI(rendered),
+        completer=completer,
+        bottom_toolbar=toolbar,
+        complete_while_typing=False,
+    )
 
 
 def ensure_blank_line():

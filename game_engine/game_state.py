@@ -76,6 +76,18 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
         self.last_ai_generated_text: Optional[str] = None
         self.last_ai_generation_source: Optional[str] = None
         apply_color_theme(self.color_theme)
+        terminal.set_completer_provider(self._make_completer)
+        terminal.set_toolbar_provider(self._toolbar_text)
+
+    def _make_completer(self):
+        from .completion import GameCompleter
+
+        return GameCompleter(self.command_handler._build_intent_context)
+
+    def _toolbar_text(self) -> Optional[str]:
+        if not self.player_character:
+            return None
+        return f" {self._status_line_text()} "
 
     def _get_current_game_time_period_str(self) -> str:
         return f"Day {self.current_day}, {self.world_manager.get_current_time_period()}"

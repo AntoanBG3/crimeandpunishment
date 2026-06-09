@@ -1,10 +1,10 @@
 # UX Roadmap — Leftover Tasks
 
-Tier 1 (foundation), Tier 2 (Rich presentation layer), and all of the smaller
-items discovered along the way are implemented. What remains is the ambitious
-Tier 3 work: the prompt_toolkit input layer (3A), the optional Textual TUI
-(3B), and the gameplay-level UX items (3C) minus the two already done
-(3C.8 load picker, 3C.9 polish).
+Tier 1 (foundation), Tier 2 (Rich presentation layer), Tier 3A (prompt_toolkit
+input layer), and all of the smaller items discovered along the way are
+implemented. What remains is the optional Textual TUI (3B) and the
+gameplay-level UX items (3C) minus the two already done (3C.8 load picker,
+3C.9 polish).
 
 > **See [TIER3_PLAN.md](TIER3_PLAN.md) for the extensive, step-by-step Tier 3
 > implementation plan** (architecture sketches, file-level changes, testing and
@@ -28,15 +28,17 @@ examines the item. Piped/non-TTY input auto-skips the API-key prompt. The
 `blessed` dependency and the dead `SPINNER_FRAMES`/`SEPARATOR_LINE` constants
 are gone.
 
-## Tier 3A — prompt_toolkit input layer (recommended next, ~1–2 weeks)
+## Tier 3A — prompt_toolkit input layer — DONE
 
-- Replace `input()` in `terminal.read_line` with `prompt_toolkit.PromptSession`.
-- Persistent up-arrow command history (gitignored history file), complementing `!!`.
-- Tab completion fed by `CommandHandler._build_intent_context()`:
-  commands from `COMMAND_SYNONYMS`, then NPC names after `talk to`, items after
-  `take`/`look at`/`use`, exits after `move to`. Biggest discoverability win available.
-- Bottom toolbar showing Day/Period/Location/state, freeing the turn header entirely.
-- Coexists with Rich (input vs output ownership); PyInstaller-clean.
+Implemented: `terminal.read_line` uses a lazy `PromptSession` when stdin/stdout
+is a real terminal (plain `input()` everywhere else, so tests and pipes are
+unaffected). Persistent up-arrow history in `~/.crimeandpunishment_history`;
+Tab completion via `game_engine/completion.py` (`GameCompleter`), fed by
+`CommandHandler._build_intent_context()` — verbs from `COMMAND_SYNONYMS`, then
+NPCs after `talk to`/`persuade`, scene items after `take`, inventory after
+`drop`/`use`/`give`, both after `read`/`look`, exits after `move to`; no
+completion inside conversations (free-form dialogue). Bottom toolbar shows the
+same day/period/location/state line as the turn header (`_status_line_text`).
 
 ## Tier 3B — Full TUI with Textual (4–8 weeks, reassess after 3A)
 
