@@ -589,7 +589,9 @@ class GeminiAPI:
     def configure(self, print_func, input_func):
         self._print_color_func = print_func
         self._input_color_func = input_func
-        self._print_color_func("\n--- Gemini API Key Configuration ---", Colors.MAGENTA)
+        self._print_color_func(
+            f"\n{Colors.BOLD}Gemini API Key Configuration{Colors.RESET}", Colors.MAGENTA
+        )
 
         if not self._load_genai():
             return {"api_configured": False, "low_ai_preference": False}

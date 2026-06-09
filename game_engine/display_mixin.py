@@ -144,7 +144,7 @@ class DisplayMixin:
             self._print_color(f"({' · '.join(tags)})", Colors.DIM)
 
     def _display_command_history(self):
-        self._print_color("\n--- Recent Commands ---", Colors.CYAN + Colors.BOLD)
+        self._print_block("Recent Commands", Colors.CYAN + Colors.BOLD)
         if not self.command_history:
             self._print_color("No commands recorded yet.", Colors.DIM)
             return
@@ -399,7 +399,7 @@ class DisplayMixin:
         if not self.player_character:
             return
 
-        self._print_color("\n--- Session Recap ---", Colors.CYAN + Colors.BOLD)
+        self._print_block("Session Recap", Colors.CYAN + Colors.BOLD)
         self._print_color(f"Location: {self.current_location_name}", Colors.WHITE)
         self._print_color(f"Time: {self._get_current_game_time_period_str()}", Colors.WHITE)
 

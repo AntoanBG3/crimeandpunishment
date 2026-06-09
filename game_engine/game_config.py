@@ -204,6 +204,7 @@ COMMAND_SYNONYMS = {
     "talk to": ["speak to", "chat with", "ask", "question"],
     "move to": ["go to", "walk to", "travel to", "head to"],
     "objectives": ["goals", "tasks", "obj", "purpose"],
+    "journal": ["notes"],
     "think": ["reflect", "ponder", "contemplate"],
     "wait": ["pass time"],
     "inventory": ["inv", "i", "possessions", "belongings"],

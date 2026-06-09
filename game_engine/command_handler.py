@@ -53,8 +53,16 @@ class CommandHandler:
         if len(self.game_state.command_history) > self.game_state.max_command_history:
             self.game_state.command_history.pop(0)
 
+    @staticmethod
+    def _strip_articles(target):
+        target = target.strip()
+        for article in ("the ", "a ", "an "):
+            if target.startswith(article):
+                return target[len(article):]
+        return target
+
     def _resolve_prefix_match(self, target, options, label, descriptor_lookup=None):
-        target = target.lower()
+        target = self._strip_articles(target.lower())
         matches = [option for option in options if option.lower().startswith(target)]
         if not matches:
             # Fall back to word-boundary matching so 'axe' finds
@@ -144,10 +152,14 @@ class CommandHandler:
         )
 
     def _get_matching_exit(self, target_input, location_exits):
+        target_input = self._strip_articles(target_input.lower())
         matches = []
         for target_loc_key, desc_text in location_exits.items():
+            key_lower = target_loc_key.lower()
             if (
-                target_loc_key.lower() == target_input
+                key_lower == target_input
+                or key_lower.startswith(target_input)
+                or any(word.startswith(target_input) for word in key_lower.split())
                 or desc_text.lower().startswith(target_input)
                 or target_input in desc_text.lower()
             ):

@@ -1374,34 +1374,42 @@ class ItemInteractionHandler:
         if not self.player_character:
             self._print_color("Cannot use items: Player character not set.", Colors.RED)
             return False
+        interaction_verb = {
+            "use_self_implicit": "use",
+            "use_on": "use",
+            "read": "read",
+            "give": "give",
+        }.get(interaction_type, "use")
         item_to_use_name = None
         item_obj_in_inventory = None
         if item_name_input:
-            for inv_item_obj_loop in self.player_character.inventory:
-                if inv_item_obj_loop["name"].lower().startswith(item_name_input.lower()):
-                    item_to_use_name = inv_item_obj_loop["name"]
-                    item_obj_in_inventory = inv_item_obj_loop
-                    break
-            if not item_to_use_name:
-                if self.player_character.has_item(item_name_input):
-                    item_to_use_name = item_name_input
-                    item_obj_in_inventory = next(
-                        (
-                            item
-                            for item in self.player_character.inventory
-                            if item["name"] == item_to_use_name
-                        ),
-                        None,
-                    )
-                else:
-                    self._print_color(
-                        f"You don't have '{item_name_input}' to {interaction_type.replace('_', ' ')}.",
-                        Colors.RED,
-                    )
-                    return False
+            matched_item, ambiguous = self.command_handler._get_matching_inventory_item(
+                item_name_input
+            )
+            if ambiguous:
+                return False
+            if matched_item:
+                item_to_use_name = matched_item["name"]
+                item_obj_in_inventory = matched_item
+            elif self.player_character.has_item(item_name_input):
+                item_to_use_name = item_name_input
+                item_obj_in_inventory = next(
+                    (
+                        item
+                        for item in self.player_character.inventory
+                        if item["name"] == item_to_use_name
+                    ),
+                    None,
+                )
+            else:
+                self._print_color(
+                    f"You don't have '{item_name_input}' to {interaction_verb}.",
+                    Colors.RED,
+                )
+                return False
         elif interaction_type != "use_self_implicit":
             self._print_color(
-                f"What do you want to {interaction_type.replace('_', ' ')}{(' on ' + target_name_input) if target_name_input else ''}?",
+                f"What do you want to {interaction_verb}{(' on ' + target_name_input) if target_name_input else ''}?",
                 Colors.RED,
             )
             return False

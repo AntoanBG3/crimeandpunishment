@@ -201,6 +201,35 @@ class TestUXCommands(unittest.TestCase):
         self.assertEqual(len(self.game.numbered_actions_context), 1)
         self.game.world_manager.update_current_location_details.assert_not_called()
 
+    def test_journal_is_a_known_command(self):
+        handler = self.game.command_handler
+        self.assertEqual(handler.parse_action("journal"), ("journal", None))
+        self.assertEqual(handler.parse_action("notes"), ("journal", None))
+        self.assertTrue(handler._is_known_command("journal"))
+
+    def test_prefix_match_strips_articles(self):
+        handler = self.game.command_handler
+        match, _ = handler._resolve_prefix_match(
+            "the old newspaper", ["old newspaper"], "item"
+        )
+        self.assertEqual(match, "old newspaper")
+        match, _ = handler._resolve_prefix_match("a watch", ["father's silver watch"], "item")
+        self.assertEqual(match, "father's silver watch")
+
+    def test_exit_match_articles_and_key_words(self):
+        handler = self.game.command_handler
+        exits = {"Stairwell (Outside)": "A dim passage leading down."}
+        self.assertEqual(handler._get_matching_exit("the stairwell", exits)[0], "Stairwell (Outside)")
+        self.assertEqual(handler._get_matching_exit("stairwell", exits)[0], "Stairwell (Outside)")
+
+    def test_use_message_does_not_leak_interaction_mode(self):
+        self.game.player_character.inventory = []
+        self.game.player_character.has_item = MagicMock(return_value=False)
+        self.game.handle_use_item("vodka", None, "use_self_implicit")
+        message = self.game._print_color.call_args[0][0]
+        self.assertIn("to use.", message)
+        self.assertNotIn("self implicit", message)
+
     def test_prefix_match_falls_back_to_word_boundaries(self):
         handler = self.game.command_handler
         match, ambiguous = handler._resolve_prefix_match(
