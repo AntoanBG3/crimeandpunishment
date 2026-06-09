@@ -9,4 +9,7 @@ if importlib.util.find_spec("google.genai") is None:
 
 if __name__ == "__main__":
     game_instance = Game()
-    game_instance.run()
+    try:
+        game_instance.run()
+    except (KeyboardInterrupt, EOFError):
+        print("\nFarewell. St. Petersburg will wait.")

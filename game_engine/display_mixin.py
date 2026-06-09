@@ -104,6 +104,10 @@ class DisplayMixin:
     def _print_turn_header(self):
         if not self.turn_headers_enabled:
             return
+        # The live toolbar already shows this line; don't repeat it every turn
+        # unless the player explicitly asked for headers.
+        if terminal.toolbar_active() and not getattr(self, "turn_headers_explicit", False):
+            return
         self._print_block(self._status_line_text(), Colors.DIM)
 
     def _describe_item_brief(self, item_name):

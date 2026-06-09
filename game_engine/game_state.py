@@ -72,6 +72,7 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
         self.command_history: List[str] = []
         self.max_command_history = 25
         self.turn_headers_enabled = True
+        self.turn_headers_explicit = False
         self.clear_on_move = False
         self.last_turn_result_icon = "..."
         self.verbosity_level = DEFAULT_VERBOSITY_LEVEL
@@ -188,6 +189,7 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
             "color_theme": self.color_theme,
             "verbosity_level": self.verbosity_level,
             "turn_headers_enabled": self.turn_headers_enabled,
+            "turn_headers_explicit": self.turn_headers_explicit,
             "narrative_pace": terminal.narrative_pace_enabled,
             "clear_on_move": self.clear_on_move,
             "tutorial_steps_done": sorted(self.tutorial_steps_done),
@@ -261,6 +263,7 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
                 self.verbosity_level = DEFAULT_VERBOSITY_LEVEL
             self.gemini_api.response_length_pref = self.verbosity_level
             self.turn_headers_enabled = game_state_data.get("turn_headers_enabled", True)
+            self.turn_headers_explicit = game_state_data.get("turn_headers_explicit", False)
             terminal.set_narrative_pace(game_state_data.get("narrative_pace", False))
             self.clear_on_move = game_state_data.get("clear_on_move", False)
             self.tutorial_steps_done = set(game_state_data.get("tutorial_steps_done", []))

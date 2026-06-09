@@ -241,6 +241,18 @@ class TestUXCommands(unittest.TestCase):
         match, ambiguous = handler._resolve_prefix_match("sled", ["old newspaper"], "item")
         self.assertIsNone(match)
 
+    def test_turn_header_suppressed_when_toolbar_active(self):
+        self.game.turn_headers_enabled = True
+        self.game.turn_headers_explicit = False
+        with patch("game_engine.terminal.toolbar_active", return_value=True):
+            self.game._print_turn_header()
+        self.game._print_block.assert_not_called()
+        # Explicit 'turnheaders on' overrides the suppression.
+        self.game.turn_headers_explicit = True
+        with patch("game_engine.terminal.toolbar_active", return_value=True):
+            self.game._print_turn_header()
+        self.game._print_block.assert_called()
+
     def test_map_command_marks_visited_and_unvisited(self):
         self.game._print_renderable = MagicMock()
         self.game.visited_locations = {"A", "B"}

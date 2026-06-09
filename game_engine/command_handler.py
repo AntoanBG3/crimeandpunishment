@@ -456,6 +456,8 @@ class CommandHandler:
         normalized = str(argument).strip().lower()
         if normalized in ["on", "true", "yes", "1"]:
             self.game_state.turn_headers_enabled = True
+            # Explicit opt-in overrides the suppress-when-toolbar-visible default.
+            self.game_state.turn_headers_explicit = True
             self.game_state._print_color("Turn headers enabled.", Colors.GREEN)
             return
         if normalized in ["off", "false", "no", "0"]:

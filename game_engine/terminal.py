@@ -146,6 +146,11 @@ def set_toolbar_provider(provider):
     _toolbar_provider = provider
 
 
+def toolbar_active():
+    """True when the live bottom toolbar is being shown to the player."""
+    return _toolbar_provider is not None and _interactive_input_supported()
+
+
 def _interactive_input_supported():
     try:
         return _console.is_terminal and sys.stdin.isatty()

@@ -64,6 +64,7 @@ class TestGameState(unittest.TestCase):
             "color_theme": "default",
             "verbosity_level": "brief",
             "turn_headers_enabled": True,
+            "turn_headers_explicit": False,
             "narrative_pace": False,
             "clear_on_move": False,
             "tutorial_steps_done": [],
