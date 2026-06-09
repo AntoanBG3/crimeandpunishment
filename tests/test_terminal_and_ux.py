@@ -69,6 +69,16 @@ class TestTerminal(unittest.TestCase):
         self.assertIn("hello", rendered)
         self.assertIn("Box", rendered)
 
+    def test_write_dialogue_hanging_indent(self):
+        quote = "Speaker: " + ("word " * 40).strip()
+        with patch("builtins.print") as mock_print:
+            terminal.write_dialogue(quote)
+        lines = mock_print.call_args[0][0].splitlines()
+        self.assertGreater(len(lines), 1)
+        self.assertFalse(lines[0].startswith(" "))
+        for continuation in lines[1:]:
+            self.assertTrue(continuation.startswith(" " * terminal.DIALOGUE_HANGING_INDENT))
+
 
 class TestUXCommands(unittest.TestCase):
     def setUp(self):
@@ -143,6 +153,40 @@ class TestUXCommands(unittest.TestCase):
         self.assertIn("test", rendered)
         self.assertIn("Sonya Marmeladova", rendered)
         self.assertIn("Haymarket Square", rendered)
+
+    def test_load_without_slot_offers_numbered_picker(self):
+        self.game._print_renderable = MagicMock()
+        self.game.load_game = MagicMock()
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            previous_dir = os.getcwd()
+            os.chdir(tmp_dir)
+            try:
+                for slot_file in ("savegame.json", "savegame_alt.json"):
+                    with open(slot_file, "w", encoding="utf-8") as f:
+                        json.dump({"player_character_name": "P", "current_day": 1}, f)
+                result = self.game.command_handler._process_command("load", None)
+            finally:
+                os.chdir(previous_dir)
+        self.assertEqual(result, (False, False, 0, False))
+        self.game.load_game.assert_not_called()
+        slots = [a for a in self.game.numbered_actions_context if a["type"] == "load_slot"]
+        self.assertEqual(len(slots), 2)
+        # The default slot uses "" so numeric dispatch loads it instead of re-prompting.
+        self.assertIn("", [a["target"] for a in slots])
+        with patch.object(self.game, "_input_color", return_value="1"):
+            command, argument = self.game.command_handler._get_player_input()
+        self.assertEqual(command, "load")
+
+    def test_manual_key_input_skips_without_tty(self):
+        from game_engine.gemini_interactions import GeminiAPI
+
+        api = GeminiAPI()
+        api._print_color_func = MagicMock()
+        api._input_color_func = MagicMock()
+        with patch("sys.stdin.isatty", return_value=False):
+            result = api._handle_manual_key_input()
+        self.assertEqual(result, {"api_configured": False, "low_ai_preference": False})
+        api._input_color_func.assert_not_called()
 
     def test_atmospherics_cooldown_skips_repeat(self):
         self.game.gemini_api = MagicMock()

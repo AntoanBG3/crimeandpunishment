@@ -328,6 +328,8 @@ class CommandHandler:
                     return "look", target
                 if action_type == "look_at_npc":
                     return "look", target
+                if action_type == "load_slot":
+                    return "load", target
                 if action_info["type"] == "select_item":
                     return ("select_item", action_info["target"])
                 # In range but an unrecognized action type: surface it rather than
@@ -535,6 +537,17 @@ class CommandHandler:
             action_taken_this_turn = False
             show_atmospherics_this_turn = False
         elif command == "load":
+            if argument is None:
+                slots = self.game_state._list_save_slots()
+                if len(slots) > 1:
+                    # Multiple saves: show a numbered picker instead of silently
+                    # loading the default slot.
+                    self.game_state._handle_saves_command(numbered=True)
+                    return False, False, 0, False
+                if len(slots) == 1 and slots[0][0]:
+                    # Only one save exists and it's a named slot; load it
+                    # rather than failing on the missing default file.
+                    argument = slots[0][0]
             if self.game_state.load_game(argument):
                 show_atmospherics_this_turn = True
             else:

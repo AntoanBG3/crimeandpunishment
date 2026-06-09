@@ -485,9 +485,12 @@ class ItemInteractionHandler:
                         Colors.GREEN,
                     )
 
+                    # Numbered selection examines the item; take/use/give stay
+                    # word commands. More predictable than the old "what to do
+                    # with..." sub-prompt.
                     self.numbered_actions_context.append(
                         {
-                            "type": "select_item",
+                            "type": "look_at_item",
                             "target": item_name,
                             "display": item_name,
                         }

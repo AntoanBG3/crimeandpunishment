@@ -131,6 +131,7 @@ def test_world_manager_branches_for_move_endings_and_world_state_updates():
         current_location_name="Start",
         player_character=player,
         _print_color=MagicMock(),
+        _print_narrative=MagicMock(),
         _get_matching_exit=MagicMock(return_value=("Pawnbroker's Apartment", False)),
         current_location_description_shown_this_visit=True,
         last_significant_event_summary=None,

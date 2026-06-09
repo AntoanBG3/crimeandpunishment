@@ -522,7 +522,7 @@ def test_display_guard_and_branch_paths():
 
 
 def test_event_manager_error_cooldown_and_gossip_paths():
-    game = SimpleNamespace(game_time=50, _print_color=MagicMock())
+    game = SimpleNamespace(game_time=50, _print_color=MagicMock(), _print_dialogue=MagicMock())
     manager = EventManager(game)
     action = MagicMock(side_effect=RuntimeError("bad action"))
     manager.triggered_events = {"recent_event_recent"}
@@ -557,6 +557,7 @@ def test_event_manager_error_cooldown_and_gossip_paths():
         _get_objectives_summary=lambda _npc: "objectives",
         _get_current_game_time_period_str=lambda: "Day 1, Morning",
         _print_color=MagicMock(),
+        _print_dialogue=MagicMock(),
         player_character=player,
         overheard_rumors=[],
     )
@@ -668,6 +669,7 @@ def test_event_manager_fallback_edge_paths():
     game = SimpleNamespace(
         player_character=player,
         current_location_name="Raskolnikov's Garret",
+        _print_dialogue=MagicMock(),
         game_time=50,
         all_character_objects={},
         world_manager=SimpleNamespace(get_current_time_period=MagicMock(return_value="Night")),

@@ -516,6 +516,15 @@ class GeminiAPI:
         return None
 
     def _handle_manual_key_input(self):
+        if not sys.stdin.isatty():
+            # Piped/non-interactive input would loop on the key prompt until
+            # EOFError; skip straight to placeholder responses instead.
+            self._print_color_func(
+                "No interactive terminal detected. Running with placeholder responses.",
+                Colors.YELLOW,
+            )
+            self.model = None
+            return {"api_configured": False, "low_ai_preference": False}
         while True:
             manual_api_key_input = self._input_color_func(
                 "Please enter your Gemini API key (or type 'skip' to use placeholder responses): ",

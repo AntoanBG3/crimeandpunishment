@@ -454,10 +454,7 @@ class EventManager:
                 for line in lines:
                     if ":" in line:
                         speaker, dialogue = line.split(":", 1)
-                        self.game._print_color(
-                            f'{Colors.YELLOW}{speaker.strip()}:{Colors.RESET} "{dialogue.strip()}"',
-                            Colors.RESET,
-                        )
+                        self.game._print_dialogue(speaker.strip(), f'"{dialogue.strip()}"')
                     else:
                         self.game._print_color(f"{Colors.DIM}{line}{Colors.RESET}", Colors.DIM)
 

@@ -39,6 +39,12 @@ class DisplayMixin:
         terminal.ensure_blank_line()
         terminal.write_narrative(f"{color_code}{text}{Colors.RESET}")
 
+    def _print_dialogue(self, speaker, quote):
+        """Print a speaker-attributed line; wrapped lines hang under the name."""
+        terminal.write_dialogue(
+            f'{Colors.YELLOW}{speaker}:{Colors.RESET} {quote}', Colors.RESET
+        )
+
     def _prompt_arrow(self):
         return f"{Colors.GREEN}> {Colors.RESET}"
 

@@ -7,6 +7,8 @@ from typing import Set, Optional, List, Dict, Any
 
 from rich.rule import Rule
 
+from . import terminal
+
 from .game_config import (
     Colors,
     SAVE_GAME_FILE,  # API_CONFIG_FILE, GEMINI_MODEL_NAME removed
@@ -171,6 +173,7 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
             "color_theme": self.color_theme,
             "verbosity_level": self.verbosity_level,
             "turn_headers_enabled": self.turn_headers_enabled,
+            "narrative_pace": terminal.narrative_pace_enabled,
             "command_history": self.command_history[-self.max_command_history :],
         }
         try:
@@ -240,6 +243,7 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
             if self.verbosity_level not in VERBOSITY_LEVELS:
                 self.verbosity_level = DEFAULT_VERBOSITY_LEVEL
             self.turn_headers_enabled = game_state_data.get("turn_headers_enabled", True)
+            terminal.set_narrative_pace(game_state_data.get("narrative_pace", False))
             loaded_history = game_state_data.get("command_history", [])
             self.command_history = (
                 loaded_history[-self.max_command_history :]
@@ -289,28 +293,40 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
             self.player_character = None
             return False
 
-    def _handle_saves_command(self) -> None:
+    def _list_save_slots(self) -> List[Any]:
+        """Existing save files as (slot_name_or_None, path); None = the default slot."""
         import glob
+
+        slots = []
+        for path in sorted(glob.glob("savegame*.json")):
+            if path == SAVE_GAME_FILE:
+                slots.append((None, path))
+            elif path.startswith("savegame_") and path.endswith(".json"):
+                slots.append((path[len("savegame_"):-len(".json")], path))
+        return slots
+
+    def _handle_saves_command(self, numbered: bool = False) -> bool:
+        """Show the saved-games table. With numbered=True, also populate
+        numbered_actions_context so the player can pick a slot by number.
+        Returns True if any saves were listed."""
         import datetime
         from rich.table import Table
 
-        save_files = sorted(glob.glob("savegame*.json"))
-        if not save_files:
+        slots = self._list_save_slots()
+        if not slots:
             self._print_color("No saved games found.", Colors.YELLOW)
-            return
+            return False
+        if numbered:
+            self.numbered_actions_context.clear()
         table = Table(title="Saved Games", border_style="cyan", title_style="bold cyan")
+        if numbered:
+            table.add_column("#", justify="right", style="white")
         table.add_column("Slot", style="magenta")
         table.add_column("Character", style="green")
         table.add_column("Day", justify="right")
         table.add_column("Location", style="cyan")
         table.add_column("Saved", style="dim")
-        for path in save_files:
-            if path == SAVE_GAME_FILE:
-                slot = "(default)"
-            elif path.startswith("savegame_") and path.endswith(".json"):
-                slot = path[len("savegame_"):-len(".json")]
-            else:
-                continue
+        for index, (slot, path) in enumerate(slots, start=1):
             character = day = location = "?"
             try:
                 with open(path, "r", encoding="utf-8") as f:
@@ -323,9 +339,27 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
             saved_at = datetime.datetime.fromtimestamp(os.path.getmtime(path)).strftime(
                 "%Y-%m-%d %H:%M"
             )
-            table.add_row(slot, character, day, location, saved_at)
+            slot_label = slot if slot else "(default)"
+            row = [slot_label, character, day, location, saved_at]
+            if numbered:
+                row.insert(0, str(index))
+                # "" (not None) for the default slot so the numbered 'load'
+                # dispatch skips the picker and load_game falls back to the
+                # default file.
+                self.numbered_actions_context.append(
+                    {"type": "load_slot", "target": slot or "", "display": f"Load {slot_label}"}
+                )
+            table.add_row(*row)
         self._print_renderable(table)
-        self._print_color("Use 'load [slot]' to restore or 'save [slot]' to overwrite.", Colors.DIM)
+        if numbered:
+            self._print_color(
+                "Type the number of the save to load, or 'load [slot]'.", Colors.DIM
+            )
+        else:
+            self._print_color(
+                "Use 'load [slot]' to restore or 'save [slot]' to overwrite.", Colors.DIM
+            )
+        return True
 
     def _initialize_game(self) -> bool:
         # Call configure and get results

@@ -128,10 +128,7 @@ class NPCInteractionHandler:
                 and target_npc.greeting
             ):
                 initial_greeting_text = f'{target_npc.name}: "{target_npc.greeting}"'
-                self._print_color(
-                    f'{Colors.YELLOW}{target_npc.name}:{Colors.RESET} "{target_npc.greeting}"',
-                    Colors.RESET,
-                )
+                self._print_dialogue(target_npc.name, f'"{target_npc.greeting}"')
                 self.current_conversation_log.append(initial_greeting_text)
                 if len(self.current_conversation_log) > MAX_CONVERSATION_LOG_LINES:
                     self.current_conversation_log.pop(0)
@@ -142,28 +139,34 @@ class NPCInteractionHandler:
                     Colors.GREEN,
                 ).strip()
                 if player_dialogue.lower() in ["history", "review", "log"]:
-                    self._print_color(
-                        "\n--- Recent Conversation History ---",
-                        Colors.CYAN + Colors.BOLD,
-                    )
+                    from rich.console import Group as RichGroup
+                    from rich.panel import Panel
+                    from rich.text import Text as RichText
+
                     if not self.current_conversation_log:
-                        self._print_color(
-                            "No history recorded yet for this conversation.", Colors.DIM
-                        )
+                        lines = [
+                            RichText("No history recorded yet for this conversation.", style="dim")
+                        ]
                     else:
-                        history_to_show = self.current_conversation_log[-10:]
-                        for line in history_to_show:
+                        lines = []
+                        for line in self.current_conversation_log[-10:]:
                             if line.startswith("You:"):
-                                self._print_color(line, Colors.GREEN)
+                                lines.append(RichText(line, style="green"))
                             elif ":" in line:
                                 speaker, rest_of_line = line.split(":", 1)
-                                self._print_color(
-                                    f"{Colors.YELLOW}{speaker}:{Colors.RESET}{rest_of_line}",
-                                    Colors.RESET,
-                                )
+                                styled = RichText(f"{speaker}:", style="yellow")
+                                styled.append(rest_of_line)
+                                lines.append(styled)
                             else:
-                                self._print_color(line, Colors.DIM)
-                    self._print_color("--- End of History ---", Colors.CYAN + Colors.BOLD)
+                                lines.append(RichText(line, style="dim"))
+                    self._print_renderable(
+                        Panel(
+                            RichGroup(*lines),
+                            title="Recent Conversation",
+                            border_style="dim",
+                            expand=False,
+                        )
+                    )
                     continue
                 if not player_dialogue:
                     # Empty input costs no turn and produces no NPC reply; re-prompt.
@@ -218,10 +221,7 @@ class NPCInteractionHandler:
                     NEGATIVE_KEYWORDS,
                     self.game_time,
                 )
-                self._print_color(
-                    f'{Colors.YELLOW}{target_npc.name}:{Colors.RESET} "{ai_response}"',
-                    Colors.RESET,
-                )
+                self._print_dialogue(target_npc.name, f'"{ai_response}"')
                 logged_ai_response = f'{target_npc.name}: "{ai_response}"'
                 self.current_conversation_log.append(logged_ai_response)
                 if used_ai_dialogue:
@@ -326,10 +326,7 @@ class NPCInteractionHandler:
             ai_response = _persuade_fallback
             used_ai_dialogue = False
         ai_response = self._apply_verbosity(ai_response)
-        self._print_color(
-            f'{Colors.YELLOW}{target_npc.name}:{Colors.RESET} "{ai_response}"',
-            Colors.RESET,
-        )
+        self._print_dialogue(target_npc.name, f'"{ai_response}"')
         if used_ai_dialogue:
             self._remember_ai_output(ai_response, "persuasion_dialogue")
         sentiment_impact_base = 0

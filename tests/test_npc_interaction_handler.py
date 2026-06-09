@@ -95,9 +95,13 @@ class TestNPCInteractionHandler(unittest.TestCase):
         self.assertEqual(self.npc.apparent_state, "intensely persuasive")
 
     def test_talk_to_history_command(self):
+        from game_engine import terminal
+
+        self.game._print_renderable = MagicMock()
         self.mock_input_color.side_effect = ["history", "Farewell"]
         self.game._handle_talk_to_command("Porfiry")
-        self.mock_print_color.assert_any_call("\n--- Recent Conversation History ---", Colors.CYAN + Colors.BOLD)
+        rendered = terminal.renderable_to_text(self.game._print_renderable.call_args[0][0])
+        self.assertIn("Recent Conversation", rendered)
 
     def test_talk_to_empty_dialogue(self):
         self.mock_input_color.side_effect = ["", "Farewell"]

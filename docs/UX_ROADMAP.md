@@ -1,18 +1,32 @@
 # UX Roadmap — Leftover Tasks
 
-Tier 1 (foundation) and Tier 2 (Rich presentation layer) of the UX overhaul are
-implemented. This document captures what remains: the ambitious Tier 3 paths and
-smaller items discovered during implementation.
+Tier 1 (foundation), Tier 2 (Rich presentation layer), and all of the smaller
+items discovered along the way are implemented. What remains is the ambitious
+Tier 3 work: the prompt_toolkit input layer (3A), the optional Textual TUI
+(3B), and the gameplay-level UX items (3C) minus the two already done
+(3C.8 load picker, 3C.9 polish).
+
+> **See [TIER3_PLAN.md](TIER3_PLAN.md) for the extensive, step-by-step Tier 3
+> implementation plan** (architecture sketches, file-level changes, testing and
+> packaging notes, sequencing). The sections below are the short summary.
 
 ## Where things stand
 
-All game output now flows through `game_engine/terminal.py`, which uses Rich to
+All game output flows through `game_engine/terminal.py`, which uses Rich to
 word-wrap at `min(terminal width, 88)`, parse the ANSI codes embedded by the
 `Colors` class, and honor `NO_COLOR` / dumb terminals / piped output. The final
 emit goes through `builtins.print`, so tests keep patching the same seam.
-Status, objectives, inventory, and the `saves` listing render as Rich
-panels/tables via `_print_renderable`; the AI spinner is `console.status`;
-dreams go through `write_narrative` (paragraph pacing, toggled with `pace on`).
+
+On top of that funnel: status, objectives, inventory, help, the conversation
+`history` panel, and the `saves` listing render as Rich panels/tables via
+`_print_renderable`; dialogue prints with a hanging indent via
+`write_dialogue`/`_print_dialogue`; the AI spinner is `console.status`; dreams,
+endings, and progression narration go through `write_narrative` (paragraph
+pacing, toggled with `pace on`, persisted in saves). `load` without a slot
+offers a numbered picker when several saves exist; a typed scene number
+examines the item. Piped/non-TTY input auto-skips the API-key prompt. The
+`blessed` dependency and the dead `SPINNER_FRAMES`/`SEPARATOR_LINE` constants
+are gone.
 
 ## Tier 3A — prompt_toolkit input layer (recommended next, ~1–2 weeks)
 
@@ -51,30 +65,28 @@ cost — only do this if the ambition justifies it.
   verbosity level (prompt templates in `gemini_interactions.py`) instead of
   generating long and trimming after the fact.
 
-## Discovered during implementation
+## Discovered during implementation — all resolved
 
-- **Interactive save/load picker.** `saves` lists slots in a table, but `load`
-  still takes a typed slot name. A numbered picker reusing
-  `numbered_actions_context` would close the loop.
-- **Hanging indent for dialogue.** NPC lines wrap to column 0; a hanging indent
-  under the speaker name would read better. Needs per-line indent support in
-  `terminal.write_line` (Rich `Padding` or `Text` with `pad`).
-- **Conversation history sub-command (`history` inside `talk to`) still uses
-  `--- … ---` headers**; restyle with a dim Rich panel for consistency.
-- **`display_help` is still a flat aligned list** (65-char column). A Rich
-  table grouped by category would scan better, and the column width overflows
-  at narrow terminal widths.
-- **Endings/scripted events don't use `write_narrative`** yet — only dreams do.
-  Worth routing major `event_manager` narration through `_print_narrative`.
-- **`pace` is not persisted** in save files (theme/verbosity are). Add it to
-  `save_game`/`load_game` if it should survive restarts.
-- **`SPINNER_FRAMES` and `SEPARATOR_LINE` in `game_config.py` are now unused**
-  (the spinner is Rich's, separators are width-aware via `terminal.separator()`).
-  Remove once nothing external references them.
-- **`blessed` is still in `requirements.txt`** but unused in production code
-  (only two standalone test scripts import it). Drop it and the two scripts.
-- **API-key prompt loop**: with piped/EOF input the interactive key prompt
-  re-asks until EOFError. Should detect non-TTY stdin and fall back to skip.
-- **`look at [item]` numbered entries**: scene items map to `select_item`
-  (prompting "what to do with…"); a dedicated examine number was removed in the
-  compact listing. Consider `N. item` = examine, with take/use via words.
+- ~~Interactive save/load picker~~ — **done.** `load` with no slot and multiple
+  saves shows the numbered `saves` table (`_handle_saves_command(numbered=True)`)
+  and dispatches the choice via `numbered_actions_context` (`load_slot` type);
+  a single named save with no default file loads directly.
+- ~~Hanging indent for dialogue~~ — **done.** `terminal.write_dialogue` indents
+  wrapped continuation lines; NPC dialogue, persuasion, and NPC–NPC interaction
+  go through `DisplayMixin._print_dialogue`.
+- ~~Conversation history headers~~ — **done.** The in-conversation `history`
+  sub-command renders a dim "Recent Conversation" panel.
+- ~~`display_help` flat list~~ — **done** in Tier 2 (per-category Rich panels).
+- ~~Endings/scripted events bypass `write_narrative`~~ — **done.** The
+  game-ending conclusion and objective-progression `narrate` texts go through
+  `_print_narrative`, so `pace on` covers them.
+- ~~`pace` not persisted~~ — **done.** `narrative_pace` is saved and restored
+  in `save_game`/`load_game`.
+- ~~Dead `SPINNER_FRAMES`/`SEPARATOR_LINE`~~ — **done.** Removed from
+  `game_config.py`.
+- ~~`blessed` dependency~~ — **done.** Dropped from `requirements.txt`;
+  deleted `tests/blessed_manual.py` and `tests/blessed_sanity.py`.
+- ~~API-key prompt loop on piped input~~ — **done.** Non-TTY stdin skips
+  straight to placeholder responses instead of looping to EOFError.
+- ~~Numbered scene items prompt "what to do with…"~~ — **done.** A typed number
+  now examines the item (`look_at_item`); take/use/give remain word commands.

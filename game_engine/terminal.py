@@ -81,6 +81,22 @@ def write_narrative(text, color=""):
         write_line(paragraph, color)
 
 
+DIALOGUE_HANGING_INDENT = 2
+
+
+def write_dialogue(text, color=""):
+    """Print a dialogue line with a hanging indent on wrapped continuation lines."""
+    global _last_line_blank
+    rich_text = _render("" if text is None else str(text), color)
+    indent = " " * DIALOGUE_HANGING_INDENT
+    with _console.capture() as capture:
+        _console.print(rich_text, end="\n", width=render_width() - DIALOGUE_HANGING_INDENT)
+    lines = capture.get().splitlines()
+    out = "\n".join(lines[:1] + [indent + line for line in lines[1:]])
+    print(out)
+    _last_line_blank = not rich_text.plain.strip()
+
+
 def read_line(prompt_text, color=""):
     global _last_line_blank
     rich_text = _render(str(prompt_text), color)

@@ -217,7 +217,7 @@ def evaluate_player_progression(game, event, target=None, secondary=None):
                     pc.add_to_inventory(grant, 1)
                 narrate = rule.get("narrate")
                 if narrate:
-                    game._print_color(f"\n{narrate}", Colors.CYAN + Colors.BOLD)
+                    game._print_narrative(narrate, Colors.CYAN + Colors.BOLD)
         return bool(advanced_objs)
     except Exception as exc:
         # Progression is best-effort; an unexpected state must never break the
