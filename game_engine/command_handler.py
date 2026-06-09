@@ -57,6 +57,14 @@ class CommandHandler:
         target = target.lower()
         matches = [option for option in options if option.lower().startswith(target)]
         if not matches:
+            # Fall back to word-boundary matching so 'axe' finds
+            # "raskolnikov's axe" and 'watch' finds "father's silver watch".
+            matches = [
+                option
+                for option in options
+                if any(word.startswith(target) for word in option.lower().split())
+            ]
+        if not matches:
             return None, False
         if len(matches) > 1:
             entries = []

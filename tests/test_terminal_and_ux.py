@@ -188,6 +188,30 @@ class TestUXCommands(unittest.TestCase):
         self.assertEqual(result, {"api_configured": False, "low_ai_preference": False})
         api._input_color_func.assert_not_called()
 
+    def test_look_at_strips_connective_words(self):
+        self.game._handle_look_at_location_item = MagicMock(return_value=True)
+        self.game._handle_look_command("at old newspaper")
+        self.game._handle_look_at_location_item.assert_called_once_with("old newspaper")
+
+    def test_targeted_look_keeps_numbered_actions_and_skips_scene_listing(self):
+        self.game._handle_look_at_location_item = MagicMock(return_value=True)
+        self.game.world_manager = MagicMock()
+        self.game.numbered_actions_context = [{"type": "talk", "target": "X", "display": "X"}]
+        self.game._handle_look_command("the axe", show_full_look_details=True)
+        self.assertEqual(len(self.game.numbered_actions_context), 1)
+        self.game.world_manager.update_current_location_details.assert_not_called()
+
+    def test_prefix_match_falls_back_to_word_boundaries(self):
+        handler = self.game.command_handler
+        match, ambiguous = handler._resolve_prefix_match(
+            "axe", ["raskolnikov's axe", "old newspaper"], "item"
+        )
+        self.assertEqual(match, "raskolnikov's axe")
+        self.assertFalse(ambiguous)
+        # No match at all stays a clean miss.
+        match, ambiguous = handler._resolve_prefix_match("sled", ["old newspaper"], "item")
+        self.assertIsNone(match)
+
     def test_atmospherics_cooldown_skips_repeat(self):
         self.game.gemini_api = MagicMock()
         self.game.gemini_api.model = None

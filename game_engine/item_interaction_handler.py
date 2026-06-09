@@ -420,28 +420,34 @@ class ItemInteractionHandler:
         return False
 
     def _handle_look_command(self, argument, show_full_look_details=False):
+        is_general_look = argument is None or argument.lower() in ["around", ""]
+
+        if argument and not is_general_look:
+            # Targeted examine: show only the examination, not the location
+            # header or the scene listing, and leave the numbered actions from
+            # the last 'look' intact.
+            target_to_look_at = argument.lower()
+            # 'look at X' parses as look + 'at X'; strip the connective words.
+            for prefix in ("at the ", "at ", "the "):
+                if target_to_look_at.startswith(prefix):
+                    target_to_look_at = target_to_look_at[len(prefix):]
+                    break
+            if not (
+                self._handle_look_at_location_item(target_to_look_at)
+                or self._handle_look_at_inventory_item(target_to_look_at)
+                or self._handle_look_at_npc(target_to_look_at)
+                or self._handle_look_at_scenery(target_to_look_at)
+            ):
+                self._print_color(
+                    f"You don't see '{target_to_look_at}' here to look at specifically.",
+                    Colors.RED,
+                )
+            return
+
         self.numbered_actions_context.clear()
         action_number = 1
         current_location_data = LOCATIONS_DATA.get(self.current_location_name)
-        is_general_look = argument is None or argument.lower() in ["around", ""]
         self.world_manager.update_current_location_details(from_explicit_look_cmd=is_general_look)
-
-        if argument and not is_general_look:
-            target_to_look_at = argument.lower()
-            if self._handle_look_at_location_item(target_to_look_at):
-                self._print_color(self._separator_line(), Colors.DIM)
-            elif self._handle_look_at_inventory_item(target_to_look_at):
-                self._print_color(self._separator_line(), Colors.DIM)
-            elif self._handle_look_at_npc(target_to_look_at):
-                self._print_color(self._separator_line(), Colors.DIM)
-            elif self._handle_look_at_scenery(target_to_look_at):
-                self._print_color(self._separator_line(), Colors.DIM)
-            else:
-                self._print_color(
-                    f"You don't see '{argument}' here to look at specifically.",
-                    Colors.RED,
-                )
-                self._print_color(self._separator_line(), Colors.DIM)
 
         if show_full_look_details:
             npcs_present_for_hint = False
