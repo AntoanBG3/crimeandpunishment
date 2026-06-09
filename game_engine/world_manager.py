@@ -616,6 +616,10 @@ class WorldManager:
         if ambiguous:
             return False, False
         if potential_target_loc_name:
+            if getattr(self.game_state, "clear_on_move", False):
+                from . import terminal
+
+                terminal.clear_screen()
             old_location = self.game_state.current_location_name
             self.game_state.current_location_name = potential_target_loc_name
             self.game_state.player_character.current_location = potential_target_loc_name

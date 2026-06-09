@@ -218,6 +218,12 @@ def evaluate_player_progression(game, event, target=None, secondary=None):
                 narrate = rule.get("narrate")
                 if narrate:
                     game._print_narrative(narrate, Colors.CYAN + Colors.BOLD)
+                time_str_fn = getattr(game, "_get_current_game_time_period_str", None)
+                pc.add_journal_entry(
+                    "Progress",
+                    narrate or f"{obj.get('description', obj_id)} — a new stage begins.",
+                    time_str_fn() if callable(time_str_fn) else "",
+                )
         return bool(advanced_objs)
     except Exception as exc:
         # Progression is best-effort; an unexpected state must never break the

@@ -241,6 +241,85 @@ class TestUXCommands(unittest.TestCase):
         match, ambiguous = handler._resolve_prefix_match("sled", ["old newspaper"], "item")
         self.assertIsNone(match)
 
+    def test_map_command_marks_visited_and_unvisited(self):
+        self.game._print_renderable = MagicMock()
+        self.game.visited_locations = {"A", "B"}
+        self.game.current_location_name = "A"
+        locations = {
+            "A": {"exits": {"B": "east", "C": "west"}},
+            "B": {"exits": {"A": "west", "D": "north"}},
+            "C": {"exits": {}},
+        }
+        with patch("game_engine.location_module.LOCATIONS_DATA", locations):
+            self.game._handle_map_command()
+        rendered = terminal.renderable_to_text(self.game._print_renderable.call_args[0][0])
+        self.assertIn("A (you are here)", rendered)
+        self.assertIn("C (unvisited)", rendered)
+        self.assertIn("D (unvisited)", rendered)  # one level deeper via visited B
+
+    def test_journal_filter(self):
+        self.game._print_renderable = MagicMock()
+        self.game.player_character.journal_entries = [
+            "(Day 1) [DREAM]: blood on the stairs",
+            "(Day 1) [PROGRESS]: a new stage begins",
+        ]
+        self.game._display_journal("dreams")
+        rendered = terminal.renderable_to_text(self.game._print_renderable.call_args[0][0])
+        self.assertIn("blood on the stairs", rendered)
+        self.assertNotIn("new stage", rendered)
+        self.game._display_journal("nonsense")
+        self.game._print_color.assert_called_with(
+            "No journal entries about 'nonsense'.", Colors.YELLOW
+        )
+
+    def test_progression_advance_writes_journal_entry(self):
+        from game_engine.objective_progression import evaluate_player_progression
+
+        pc = MagicMock()
+        pc.name = "Rodion Raskolnikov"
+        pc.get_objective_by_id.return_value = {"active": True, "completed": False, "description": "Obj"}
+        pc.get_current_stage_for_objective.return_value = {"stage_id": "any"}
+        pc.advance_objective_stage.return_value = True
+        pc.has_item.return_value = True
+        game = MagicMock()
+        game.player_character = pc
+        with patch(
+            "game_engine.objective_progression._RULES",
+            {"Rodion Raskolnikov": [
+                {"obj": "o1", "event": "confess", "from": "any", "to": "next", "narrate": "It is done."}
+            ]},
+        ):
+            self.assertTrue(evaluate_player_progression(game, "confess"))
+        pc.add_journal_entry.assert_called_once()
+        self.assertEqual(pc.add_journal_entry.call_args[0][0], "Progress")
+
+    def test_clearscreen_command_toggles_setting(self):
+        handler = self.game.command_handler
+        handler._handle_clearscreen_command("on")
+        self.assertTrue(self.game.clear_on_move)
+        handler._handle_clearscreen_command("off")
+        self.assertFalse(self.game.clear_on_move)
+
+    def test_generation_length_hint_follows_verbosity(self):
+        from types import SimpleNamespace
+
+        captured = {}
+
+        def fake_generate(prompt, **_kwargs):
+            captured["prompt"] = prompt
+            return SimpleNamespace(text="fine")
+
+        self.game.gemini_api.model = SimpleNamespace(generate_content=fake_generate)
+        self.game.gemini_api.response_length_pref = "brief"
+        with patch("game_engine.terminal.status"):
+            from game_engine.gemini_interactions import GeminiAPI
+
+            result = GeminiAPI._generate_content_with_fallback(
+                self.game.gemini_api, "Describe the room."
+            )
+        self.assertEqual(result, "fine")
+        self.assertIn("one or two vivid sentences", captured["prompt"])
+
     def test_atmospherics_cooldown_skips_repeat(self):
         self.game.gemini_api = MagicMock()
         self.game.gemini_api.model = None

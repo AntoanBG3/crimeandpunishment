@@ -444,96 +444,100 @@ class ItemInteractionHandler:
                 )
             return
 
+        self.world_manager.update_current_location_details(from_explicit_look_cmd=is_general_look)
+        if show_full_look_details:
+            self._display_scene_actions()
+
+    def _display_scene_actions(self):
+        """The numbered People/Items/Exits listing; also rebuilds
+        numbered_actions_context. Used by 'look' and the 'actions' command."""
         self.numbered_actions_context.clear()
         action_number = 1
         current_location_data = LOCATIONS_DATA.get(self.current_location_name)
-        self.world_manager.update_current_location_details(from_explicit_look_cmd=is_general_look)
+        npcs_present_for_hint = False
+        if self.npcs_in_current_location:
+            self._print_block("People", Colors.BOLD)
+            for npc in self.npcs_in_current_location:
+                talk_to_npc_display = f"Talk to {npc.name}"
+                self.numbered_actions_context.append(
+                    {
+                        "type": "talk",
+                        "target": npc.name,
+                        "display": talk_to_npc_display,
+                    }
+                )
+                rel_text = self.get_relationship_text(npc.relationship_with_player)
+                self._print_color(
+                    f"{action_number}. {npc.name} — {npc.apparent_state} · {rel_text}",
+                    Colors.YELLOW,
+                )
+                action_number += 1
+                npcs_present_for_hint = True
+        current_loc_items = self.dynamic_location_items.get(self.current_location_name, [])
+        items_present_for_hint = False
+        if current_loc_items:
+            self._print_block("Items", Colors.BOLD)
+            for item_info in current_loc_items:
+                item_name = item_info["name"]
+                item_qty = item_info.get("quantity", 1)
+                item_default_info = DEFAULT_ITEMS.get(item_name, {})
 
-        if show_full_look_details:
-            npcs_present_for_hint = False
-            if self.npcs_in_current_location:
-                self._print_block("People", Colors.BOLD)
-                for npc in self.npcs_in_current_location:
-                    talk_to_npc_display = f"Talk to {npc.name}"
-                    self.numbered_actions_context.append(
-                        {
-                            "type": "talk",
-                            "target": npc.name,
-                            "display": talk_to_npc_display,
-                        }
-                    )
-                    rel_text = self.get_relationship_text(npc.relationship_with_player)
-                    self._print_color(
-                        f"{action_number}. {npc.name} — {npc.apparent_state} · {rel_text}",
-                        Colors.YELLOW,
-                    )
-                    action_number += 1
-                    npcs_present_for_hint = True
-            current_loc_items = self.dynamic_location_items.get(self.current_location_name, [])
-            items_present_for_hint = False
-            if current_loc_items:
-                self._print_block("Items", Colors.BOLD)
-                for item_info in current_loc_items:
-                    item_name = item_info["name"]
-                    item_qty = item_info.get("quantity", 1)
-                    item_default_info = DEFAULT_ITEMS.get(item_name, {})
+                qty_str = ""
+                if (
+                    item_default_info.get("stackable")
+                    or item_default_info.get("value") is not None
+                ) and item_qty > 1:
+                    qty_str = f" (x{item_qty})"
 
-                    qty_str = ""
-                    if (
-                        item_default_info.get("stackable")
-                        or item_default_info.get("value") is not None
-                    ) and item_qty > 1:
-                        qty_str = f" (x{item_qty})"
+                self._print_color(
+                    f"{action_number}. {item_name}{qty_str} "
+                    f"({self._describe_item_brief(item_name)})",
+                    Colors.GREEN,
+                )
 
-                    self._print_color(
-                        f"{action_number}. {item_name}{qty_str} "
-                        f"({self._describe_item_brief(item_name)})",
-                        Colors.GREEN,
-                    )
-
-                    # Numbered selection examines the item; take/use/give stay
-                    # word commands. More predictable than the old "what to do
-                    # with..." sub-prompt.
-                    self.numbered_actions_context.append(
-                        {
-                            "type": "look_at_item",
-                            "target": item_name,
-                            "display": item_name,
-                        }
-                    )
-                    action_number += 1
-                    items_present_for_hint = True
-            has_accessible_exits = False
-            if current_location_data and current_location_data.get("exits"):
-                self._print_block("Exits", Colors.BOLD)
-                for exit_target_loc, exit_desc in current_location_data["exits"].items():
-                    display_text = f"To {exit_target_loc}"
-                    self.numbered_actions_context.append(
-                        {
-                            "type": "move",
-                            "target": exit_target_loc,
-                            "description": exit_desc,
-                            "display": display_text,
-                        }
-                    )
-                    self._print_color(f"{action_number}. {display_text}", Colors.BLUE)
-                    action_number += 1
-                    has_accessible_exits = True
-            if not has_accessible_exits:
-                self._print_block("No obvious exits.", Colors.DIM)
-            if not self.npcs_in_current_location and not current_loc_items:
-                self._print_block("No one and nothing else of note here.", Colors.DIM)
-            if self.player_action_count < self.tutorial_turn_limit:
-                tutorial_hints = []
-                if items_present_for_hint:
-                    tutorial_hints.append("'take [item]' or 'look at [item]'")
-                if npcs_present_for_hint:
-                    tutorial_hints.append("'talk to [name]'")
-                if tutorial_hints:
-                    self._print_block(
-                        f"(Hint: try {', '.join(tutorial_hints)}, or type a number.)",
-                        Colors.DIM,
-                    )
+                # Numbered selection examines the item; take/use/give stay
+                # word commands. More predictable than the old "what to do
+                # with..." sub-prompt.
+                self.numbered_actions_context.append(
+                    {
+                        "type": "look_at_item",
+                        "target": item_name,
+                        "display": item_name,
+                    }
+                )
+                action_number += 1
+                items_present_for_hint = True
+        has_accessible_exits = False
+        if current_location_data and current_location_data.get("exits"):
+            self._print_block("Exits", Colors.BOLD)
+            for exit_target_loc, exit_desc in current_location_data["exits"].items():
+                display_text = f"To {exit_target_loc}"
+                self.numbered_actions_context.append(
+                    {
+                        "type": "move",
+                        "target": exit_target_loc,
+                        "description": exit_desc,
+                        "display": display_text,
+                    }
+                )
+                self._print_color(f"{action_number}. {display_text}", Colors.BLUE)
+                action_number += 1
+                has_accessible_exits = True
+        if not has_accessible_exits:
+            self._print_block("No obvious exits.", Colors.DIM)
+        if not self.npcs_in_current_location and not current_loc_items:
+            self._print_block("No one and nothing else of note here.", Colors.DIM)
+        if self.player_action_count < self.tutorial_turn_limit:
+            tutorial_hints = []
+            if items_present_for_hint:
+                tutorial_hints.append("'take [item]' or 'look at [item]'")
+            if npcs_present_for_hint:
+                tutorial_hints.append("'talk to [name]'")
+            if tutorial_hints:
+                self._print_block(
+                    f"(Hint: try {', '.join(tutorial_hints)}, or type a number.)",
+                    Colors.DIM,
+                )
 
     def _handle_take_command(self, argument):
         if not argument:

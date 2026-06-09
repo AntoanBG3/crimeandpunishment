@@ -389,6 +389,23 @@ class CommandHandler:
         terminal.set_narrative_pace(value == "on")
         self.game_state._print_color(f"Narrative pacing turned {value}.", Colors.GREEN)
 
+    def _handle_clearscreen_command(self, argument):
+        if not argument:
+            current = "on" if getattr(self.game_state, "clear_on_move", False) else "off"
+            self.game_state._print_color(
+                f"Screen clearing on move is {current}. Use 'clearscreen on' or 'clearscreen off'.",
+                Colors.CYAN,
+            )
+            return
+        value = str(argument).strip().lower()
+        if value not in ("on", "off"):
+            self.game_state._print_color(
+                "Invalid value. Use 'clearscreen on' or 'clearscreen off'.", Colors.YELLOW
+            )
+            return
+        self.game_state.clear_on_move = value == "on"
+        self.game_state._print_color(f"Screen clearing on move turned {value}.", Colors.GREEN)
+
     def _handle_theme_command(self, argument):
         if not argument:
             available = ", ".join(COLOR_THEME_MAP.keys())
@@ -423,6 +440,7 @@ class CommandHandler:
             )
             return
         self.game_state.verbosity_level = requested_level
+        self.game_state.gemini_api.response_length_pref = requested_level
         self.game_state._print_color(
             f"Verbosity set to {self.game_state.verbosity_level}.", Colors.GREEN
         )
@@ -585,9 +603,7 @@ class CommandHandler:
             show_atmospherics_this_turn = False
         elif command == "journal":
             if self.game_state.player_character:
-                self.game_state._print_color(
-                    self.game_state.player_character.get_journal_summary(), Colors.CYAN
-                )
+                self.game_state._display_journal(argument)
             action_taken_this_turn = False
             show_atmospherics_this_turn = False
         elif command == "look":
@@ -692,8 +708,20 @@ class CommandHandler:
             self.game_state._handle_saves_command()
             action_taken_this_turn = False
             show_atmospherics_this_turn = False
+        elif command == "actions":
+            self.game_state._display_scene_actions()
+            action_taken_this_turn = False
+            show_atmospherics_this_turn = False
+        elif command == "map":
+            self.game_state._handle_map_command()
+            action_taken_this_turn = False
+            show_atmospherics_this_turn = False
         elif command == "pace":
             self._handle_pace_command(argument)
+            action_taken_this_turn = False
+            show_atmospherics_this_turn = False
+        elif command == "clearscreen":
+            self._handle_clearscreen_command(argument)
             action_taken_this_turn = False
             show_atmospherics_this_turn = False
         else:

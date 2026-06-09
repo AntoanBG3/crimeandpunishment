@@ -43,6 +43,7 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
         self.dynamic_location_items: Dict[str, Any] = {}
 
         self.gemini_api = GeminiAPI()
+        self.gemini_api.response_length_pref = DEFAULT_VERBOSITY_LEVEL
         self.nl_parser = NaturalLanguageParser(self.gemini_api)
         self.event_manager = EventManager(self)
         # self.game_config = __import__('game_config') # Removed
@@ -67,9 +68,11 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
         self.actions_since_last_autosave = 0
         self.player_action_count = 0
         self.tutorial_turn_limit = 5
+        self.tutorial_steps_done: Set[str] = set()
         self.command_history: List[str] = []
         self.max_command_history = 25
         self.turn_headers_enabled = True
+        self.clear_on_move = False
         self.last_turn_result_icon = "..."
         self.verbosity_level = DEFAULT_VERBOSITY_LEVEL
         self.color_theme = DEFAULT_COLOR_THEME
@@ -186,6 +189,8 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
             "verbosity_level": self.verbosity_level,
             "turn_headers_enabled": self.turn_headers_enabled,
             "narrative_pace": terminal.narrative_pace_enabled,
+            "clear_on_move": self.clear_on_move,
+            "tutorial_steps_done": sorted(self.tutorial_steps_done),
             "command_history": self.command_history[-self.max_command_history :],
         }
         try:
@@ -254,8 +259,11 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
             self.verbosity_level = game_state_data.get("verbosity_level", DEFAULT_VERBOSITY_LEVEL)
             if self.verbosity_level not in VERBOSITY_LEVELS:
                 self.verbosity_level = DEFAULT_VERBOSITY_LEVEL
+            self.gemini_api.response_length_pref = self.verbosity_level
             self.turn_headers_enabled = game_state_data.get("turn_headers_enabled", True)
             terminal.set_narrative_pace(game_state_data.get("narrative_pace", False))
+            self.clear_on_move = game_state_data.get("clear_on_move", False)
+            self.tutorial_steps_done = set(game_state_data.get("tutorial_steps_done", []))
             loaded_history = game_state_data.get("command_history", [])
             self.command_history = (
                 loaded_history[-self.max_command_history :]
@@ -464,6 +472,7 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
             if special_flag:
                 self.last_turn_result_icon = "QUIT"
                 break
+            self._mark_tutorial_progress(command, argument)
             self.world_manager._update_world_state_after_action(command, action_taken, time_units)
             self._display_turn_feedback(show_atmospherics, command)
             if action_taken:
@@ -480,6 +489,9 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
                 "more",
                 "saves",
                 "pace",
+                "clearscreen",
+                "actions",
+                "map",
                 "save",
                 "load",
                 "toggle_lowai",

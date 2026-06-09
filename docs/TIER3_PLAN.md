@@ -282,7 +282,20 @@ indefinitely without accumulating cost.
 
 ---
 
-## 3C — Gameplay/design UX (parallel track, library-agnostic)
+## 3C — Gameplay/design UX — DONE
+
+All items below are implemented: `map` (Rich tree, visited/unvisited marking),
+`journal` panel with category filtering plus automatic Progress entries on
+objective advances, `actions` (shared `_display_scene_actions` helper),
+`clearscreen on|off` (persisted, clears on move), paging for taller-than-screen
+help output, the trigger-based tutorial (`tutorial_steps_done`, persisted,
+hints offered at most twice and only when the scene allows the action), and
+generation-time verbosity (`response_length_pref` appends a length instruction
+in `_generate_content_with_fallback`). A command-wiring test
+(`tests/test_command_wiring.py`) now guards COMMAND_SYNONYMS/dispatch
+agreement via ast.
+
+## 3C — original plan (for reference)
 
 Independent items, roughly ordered by value/effort. Each follows the
 existing pattern: `COMMAND_SYNONYMS` entry + `_process_command` branch +

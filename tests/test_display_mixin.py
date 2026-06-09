@@ -127,10 +127,18 @@ class TestDisplayMixin(unittest.TestCase):
         self.game.command_handler = MagicMock()
         self.game.command_handler._build_intent_context = MagicMock(return_value={"npcs": ["Porfiry"], "exits": [{"name": "door"}]})
 
+        # No items in scene, so the first applicable step is 'talk'.
         self.game._display_tutorial_hint()
         self.mock_print_color.assert_called()
+        self.assertIn("talk to Porfiry", self.mock_print_color.call_args[0][0])
 
-        self.game.player_action_count = 10  # Over limit
+        # Performing the step moves the hint to the next one.
+        self.game._mark_tutorial_progress("talk to", "Porfiry")
+        self.mock_print_color.reset_mock()
+        self.game._display_tutorial_hint()
+        self.assertIn("objectives", self.mock_print_color.call_args[0][0])
+
+        self.game.player_action_count = 20  # Over limit
         self.mock_print_color.reset_mock()
         self.game._display_tutorial_hint()
         self.mock_print_color.assert_not_called()

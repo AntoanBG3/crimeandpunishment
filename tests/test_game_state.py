@@ -65,6 +65,8 @@ class TestGameState(unittest.TestCase):
             "verbosity_level": "brief",
             "turn_headers_enabled": True,
             "narrative_pace": False,
+            "clear_on_move": False,
+            "tutorial_steps_done": [],
             "command_history": [],
         }
 

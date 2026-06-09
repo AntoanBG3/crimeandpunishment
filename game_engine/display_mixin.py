@@ -31,10 +31,10 @@ class DisplayMixin:
         terminal.ensure_blank_line()
         self._print_color(text, color_code)
 
-    def _print_renderable(self, renderable):
+    def _print_renderable(self, renderable, allow_paging=False):
         """Print a Rich renderable (Panel, Table, ...) through the funnel."""
         terminal.ensure_blank_line()
-        terminal.write_renderable(renderable)
+        terminal.write_renderable(renderable, allow_paging=allow_paging)
 
     def _print_narrative(self, text, color_code):
         """Print a narrative beat, paragraph-paced when the player enabled it."""
@@ -152,41 +152,132 @@ class DisplayMixin:
         for idx, command_text in enumerate(history_to_show, start=1):
             self._print_color(f"{idx}. {command_text}", Colors.WHITE)
 
+    TUTORIAL_STEPS = ("examine", "talk", "objectives", "move", "help")
+
+    def _mark_tutorial_progress(self, command, argument):
+        """Record tutorial steps as the player actually performs them."""
+        steps = self.tutorial_steps_done
+        if command == "look" and argument:
+            steps.add("examine")
+        elif command == "talk to":
+            steps.add("talk")
+        elif command == "objectives":
+            steps.add("objectives")
+        elif command == "move to":
+            steps.add("move")
+        elif command == "help":
+            steps.add("help")
+
     def _display_tutorial_hint(self):
-        if self.player_action_count >= self.tutorial_turn_limit:
+        """Hint at the first tutorial step the player hasn't performed yet,
+        but only when the scene actually allows it (no 'talk to' hint in an
+        empty room). Each hint is offered at most twice."""
+        from .game_config import TUTORIAL_HINT_ACTION_LIMIT
+
+        if self.player_action_count >= TUTORIAL_HINT_ACTION_LIMIT:
             return
-        step = self.player_action_count + 1
-        # Don't repeat the same hint on consecutive non-action turns.
-        if getattr(self, "_tutorial_hint_shown_for_step", 0) >= step:
+        done = self.tutorial_steps_done
+        if all(step in done for step in self.TUTORIAL_STEPS):
             return
         if hasattr(self, "command_handler") and hasattr(
             self.command_handler, "_build_intent_context"
         ):
             context = self.command_handler._build_intent_context()
         else:
-            context = {"npcs": [], "exits": []}
-        talk_target = context["npcs"][0] if context.get("npcs") else None
-        move_target = context["exits"][0]["name"] if context.get("exits") else "an available exit"
+            context = {"npcs": [], "exits": [], "items": []}
         examine_target = context["items"][0] if context.get("items") else None
-        hint_1 = (
-            f"Tutorial 1/5: Try 'look at {examine_target}' to examine something closely."
-            if examine_target
-            else "Tutorial 1/5: Use 'look' to survey your surroundings."
+        talk_target = context["npcs"][0] if context.get("npcs") else None
+        move_target = context["exits"][0]["name"] if context.get("exits") else None
+        candidates = [
+            (
+                "examine",
+                examine_target,
+                f"(Tutorial) Try 'look at {examine_target}' to examine something closely.",
+            ),
+            (
+                "talk",
+                talk_target,
+                f"(Tutorial) Try 'talk to {talk_target}' to start a conversation.",
+            ),
+            ("objectives", True, "(Tutorial) Use 'objectives' to see your active goals."),
+            ("move", move_target, f"(Tutorial) Move with 'move to {move_target}'."),
+            (
+                "help",
+                True,
+                "(Tutorial) Type 'help' for all commands, or 'help movement' / 'help social'.",
+            ),
+        ]
+        hint_counts = getattr(self, "_tutorial_hint_counts", {})
+        for step_id, available, hint in candidates:
+            if step_id in done or not available:
+                continue
+            if hint_counts.get(step_id, 0) >= 2:
+                # Offered twice and ignored; stop nagging about this step.
+                done.add(step_id)
+                continue
+            self._print_color(hint, Colors.YELLOW)
+            hint_counts[step_id] = hint_counts.get(step_id, 0) + 1
+            self._tutorial_hint_counts = hint_counts
+            return
+
+    def _display_journal(self, category=None):
+        """Journal entries as a dim panel; optional category filter
+        (e.g. 'journal dreams', 'journal rumors', 'journal progress')."""
+        entries = list(getattr(self.player_character, "journal_entries", []))
+        if category:
+            needle = str(category).strip().lower().rstrip("s")
+            entries = [entry for entry in entries if needle in entry.lower()]
+            if not entries:
+                self._print_color(f"No journal entries about '{category}'.", Colors.YELLOW)
+                return
+        if not entries:
+            self._print_color("Your journal is empty.", Colors.DIM)
+            return
+        lines = [Text(entry, style="white") for entry in entries[-10:]]
+        self._print_renderable(
+            Panel(Group(*lines), title="Journal", border_style="dim", expand=False)
         )
-        hint_2 = (
-            f"Tutorial 2/5: Try 'talk to {talk_target}' to start a conversation."
-            if talk_target
-            else "Tutorial 2/5: Try 'look at [something]' to examine items, or 'think' to reflect."
+
+    def _handle_map_command(self):
+        """Tree of known geography: exits from here, one level deeper for
+        places already visited. Unvisited places are dimmed; nothing is
+        revealed beyond what exits already advertise."""
+        from rich.tree import Tree
+        from .location_module import LOCATIONS_DATA
+
+        location_name = self.current_location_name
+        if not location_name:
+            self._print_color("You have no sense of where you are.", Colors.RED)
+            return
+        visited = self.visited_locations
+
+        def label_for(name):
+            if name == location_name:
+                return Text(f"{name} (you are here)", style="bold cyan")
+            if name in visited:
+                return Text(name, style="white")
+            return Text(f"{name} (unvisited)", style="dim")
+
+        tree = Tree(label_for(location_name))
+        exits_here = LOCATIONS_DATA.get(location_name, {}).get("exits", {})
+        if not exits_here:
+            tree.add(Text("No obvious exits.", style="dim"))
+        for exit_target in exits_here:
+            branch = tree.add(label_for(exit_target))
+            if exit_target in visited:
+                for onward in LOCATIONS_DATA.get(exit_target, {}).get("exits", {}):
+                    if onward != location_name:
+                        branch.add(label_for(onward))
+        self._print_renderable(tree)
+        elsewhere = sorted(
+            place
+            for place in visited
+            if place != location_name and place not in exits_here
         )
-        tutorial_lines = {
-            1: hint_1,
-            2: hint_2,
-            3: "Tutorial 3/5: Use 'objectives' to see your active goals.",
-            4: f"Tutorial 4/5: Move with 'move to {move_target}'.",
-            5: "Tutorial 5/5: Type 'help' for all commands, or 'help movement' / 'help social'.",
-        }
-        self._print_color(tutorial_lines.get(step, ""), Colors.YELLOW)
-        self._tutorial_hint_shown_for_step = step
+        if elsewhere:
+            self._print_color(
+                f"You also know the way to: {', '.join(elsewhere)}.", Colors.DIM
+            )
 
     def display_atmospheric_details(self):
         if self.player_character and self.current_location_name:
@@ -332,6 +423,8 @@ class DisplayMixin:
             ],
             "meta": [
                 ("objectives / obj", "See your current goals."),
+                ("actions / options", "List everything you can do right now, numbered."),
+                ("map", "Show known places and the ways between them."),
                 (
                     "journal / notes",
                     "Review your journal entries (rumors, news, etc.).",
@@ -356,6 +449,7 @@ class DisplayMixin:
                 ("more", "Show the rest of the last trimmed narrative text."),
                 ("saves", "List existing save slots."),
                 ("pace [on|off]", "Reveal dreams and major beats paragraph by paragraph."),
+                ("clearscreen [on|off]", "Clear the screen when moving to a new place."),
                 ("theme [default|high-contrast|mono]", "Switch color profile."),
                 ("verbosity [brief|standard|rich]", "Adjust narrative text density."),
                 ("turnheaders [on|off]", "Toggle turn boundary headers."),
@@ -389,7 +483,7 @@ class DisplayMixin:
             sections.append(
                 Panel(grid, title=group_name.capitalize(), border_style="cyan", expand=False)
             )
-        self._print_renderable(Group(*sections))
+        self._print_renderable(Group(*sections), allow_paging=True)
         self._print_color(
             "Tip: use 'help movement', 'help social', 'help items', or 'help meta'.",
             Colors.DIM,
@@ -481,11 +575,12 @@ class DisplayMixin:
         grid.add_row("Theme", str(self.color_theme))
         grid.add_row("Verbosity", str(self.verbosity_level))
         grid.add_row("Turn Headers", "on" if self.turn_headers_enabled else "off")
-        if self.player_action_count < self.tutorial_turn_limit:
+        steps_done = len(self.tutorial_steps_done & set(self.TUTORIAL_STEPS))
+        if steps_done < len(self.TUTORIAL_STEPS):
             grid.add_row(
                 "Tutorial",
                 Text(
-                    f"{self.player_action_count}/{self.tutorial_turn_limit} actions",
+                    f"{steps_done}/{len(self.TUTORIAL_STEPS)} steps tried",
                     style="dim",
                 ),
             )

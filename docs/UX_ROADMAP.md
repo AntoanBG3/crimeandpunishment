@@ -2,9 +2,8 @@
 
 Tier 1 (foundation), Tier 2 (Rich presentation layer), Tier 3A (prompt_toolkit
 input layer), and all of the smaller items discovered along the way are
-implemented. What remains is the optional Textual TUI (3B) and the
-gameplay-level UX items (3C) minus the two already done (3C.8 load picker,
-3C.9 polish).
+implemented, as is all of Tier 3C. The only remaining roadmap item is the
+optional Textual TUI (3B).
 
 > **See [TIER3_PLAN.md](TIER3_PLAN.md) for the extensive, step-by-step Tier 3
 > implementation plan** (architecture sketches, file-level changes, testing and
@@ -52,20 +51,18 @@ the default/test mode with a `--no-tui` fallback); PyInstaller needs
 `--collect-all textual`. 3A delivers most of the felt gain at a fraction of the
 cost — only do this if the ambition justifies it.
 
-## Tier 3C — Gameplay/design UX (parallel, library-agnostic)
+## Tier 3C — Gameplay/design UX — DONE
 
-- `map` command rendering known locations and exits from `accessible_locations`
-  plus `visited_locations` (data already in `LOCATIONS_DATA`).
-- Extend the existing `journal` with objective-stage completions and a capped
-  log of notable AI moments (extend `_remember_ai_output`), persisted in saves.
-- Setting-gated screen clear on `move to` so each location reads as a fresh page.
-- Paging for long output (help, dreams, generated documents) via `console.pager()`.
-- `actions` command exposing the full numbered verb–target list.
-- Trigger-based tutorial: fire hints off actual player behavior (first
-  conversation, first room fully explored) instead of a flat action count.
-- Verbosity at generation time: prompt Gemini for the target length per
-  verbosity level (prompt templates in `gemini_interactions.py`) instead of
-  generating long and trimming after the fact.
+Implemented: `map` (tree of known places, unvisited dimmed), `journal` as a
+panel with category filters and automatic Progress entries on objective
+advances, `actions` (numbered scene listing on demand), `clearscreen on|off`
+(persisted; clears on move), paging for taller-than-screen help, the
+trigger-based tutorial (steps keyed off actual player behavior, persisted in
+saves, each hint offered at most twice), and generation-time verbosity (the
+AI is asked for 1–2 sentences / one paragraph per the verbosity setting
+instead of generating long and trimming). `tests/test_command_wiring.py`
+guards COMMAND_SYNONYMS/dispatch agreement so unreachable commands like the
+old `journal` bug can't recur.
 
 ## Discovered during implementation — all resolved
 

@@ -112,6 +112,7 @@ AMBIENT_RUMOR_CHANCE_PUBLIC_PLACE = 0.05  # Chance to overhear ambient rumor in 
 NPC_SHARE_RUMOR_MIN_RELATIONSHIP = -2  # NPC won't share rumors if relationship is too low
 EVENT_COOLDOWN_RESET_INTERVAL = 50  # Time units between repeatable-event cooldown resets
 ATMOSPHERIC_COOLDOWN_ACTIONS = 5  # Min player actions between ambient atmosphere lines per location
+TUTORIAL_HINT_ACTION_LIMIT = 12  # Stop offering tutorial hints after this many player actions
 FULL_DESCRIPTION_COOLDOWN_ACTIONS = 5  # Don't repeat a location's full description within this many actions
 DEBUG_LOGS = False
 
@@ -205,6 +206,8 @@ COMMAND_SYNONYMS = {
     "move to": ["go to", "walk to", "travel to", "head to"],
     "objectives": ["goals", "tasks", "obj", "purpose"],
     "journal": ["notes"],
+    "actions": ["what can i do", "options"],
+    "map": ["where am i", "surroundings"],
     "think": ["reflect", "ponder", "contemplate"],
     "wait": ["pass time"],
     "inventory": ["inv", "i", "possessions", "belongings"],
@@ -230,6 +233,7 @@ COMMAND_SYNONYMS = {
     "more": ["continue reading", "full text"],
     "saves": ["list saves", "save slots"],
     "pace": ["narrative pace"],
+    "clearscreen": ["clear screen"],
 }
 
 # --- Player States (for NPC reactions) ---

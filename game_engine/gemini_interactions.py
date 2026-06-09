@@ -143,6 +143,9 @@ class GeminiAPI:
         self.genai = None
         self._genai_warning_shown = False
         self.chosen_model_name = DEFAULT_GEMINI_MODEL_NAME  # Initialize with default
+        # Kept in sync with the game's verbosity level so content is asked for
+        # at the right length instead of generated long and trimmed after.
+        self.response_length_pref = "brief"
         self._print_color_func = lambda text, color, end="\n": print(
             f"{color}{text}{Colors.RESET}", end=end
         )
@@ -606,9 +609,15 @@ class GeminiAPI:
 
         return self._handle_manual_key_input()
 
+    _LENGTH_INSTRUCTIONS = {
+        "brief": "\n\nKeep the response to one or two vivid sentences.",
+        "standard": "\n\nKeep the response to a single short paragraph.",
+    }
+
     def _generate_content_with_fallback(self, prompt, error_message_context="generating content"):
         if not self.model:
             return f"(OOC: Gemini API not configured or key invalid. Cannot fulfill request for {error_message_context}.)"
+        prompt += self._LENGTH_INSTRUCTIONS.get(self.response_length_pref, "")
         try:
             safety_settings = [
                 {

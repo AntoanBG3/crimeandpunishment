@@ -450,7 +450,8 @@ def test_display_guard_and_branch_paths():
     game.command_handler = SimpleNamespace()
     game.player_action_count = 1
     game._display_tutorial_hint()
-    assert any("look at" in call.args[0] or "think" in call.args[0] for call in game._print_color.call_args_list)
+    # Empty scene context: examine/talk steps are skipped, objectives hint shows.
+    assert any("objectives" in call.args[0] for call in game._print_color.call_args_list)
 
     game.player_character = Character("P", "p", "g", "Room", ["Room"], is_player=True)
     game.current_location_name = "Room"
@@ -903,6 +904,7 @@ def test_item_look_take_and_drop_more_paths():
 def test_command_handler_more_branches(_theme):
     state = _make_state()
     state.player_character.get_journal_summary = MagicMock(return_value="J")
+    state._display_journal = MagicMock()
     state.gemini_api = SimpleNamespace(model=object(), _generate_content_with_fallback=MagicMock(return_value="alt"))
     state.last_ai_generated_text = "orig"
     handler = CommandHandler(state)

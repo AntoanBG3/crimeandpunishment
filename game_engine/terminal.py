@@ -61,13 +61,35 @@ def write_line(text, color="", end="\n"):
         _last_line_blank = not rich_text.plain.strip()
 
 
-def write_renderable(renderable):
-    """Print a Rich renderable (Panel, Table, ...) through the same funnel."""
+_ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
+
+
+def write_renderable(renderable, allow_paging=False):
+    """Print a Rich renderable (Panel, Table, ...) through the same funnel.
+
+    With allow_paging, output taller than the terminal goes through the
+    system pager (plain text) instead of scrolling past."""
     global _last_line_blank
     with _console.capture() as capture:
         _console.print(renderable, width=render_width())
-    print(capture.get(), end="")
+    rendered = capture.get()
+    if (
+        allow_paging
+        and _interactive_input_supported()
+        and rendered.count("\n") >= max((_console.size.height or 24) - 2, 5)
+    ):
+        import pydoc
+
+        pydoc.pager(_ANSI_ESCAPE_RE.sub("", rendered))
+        _last_line_blank = False
+        return
+    print(rendered, end="")
     _last_line_blank = False
+
+
+def clear_screen():
+    if _console.is_terminal:
+        _console.clear()
 
 
 def write_narrative(text, color=""):
