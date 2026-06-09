@@ -104,8 +104,14 @@ class TestDisplayMixin(unittest.TestCase):
     def test_display_item_properties(self):
         props = {"readable": True, "consumable": True, "value": 10, "is_notable": True, "stackable": True, "owner": "me", "use_effect_player": True}
         self.game._display_item_properties(props)
-        self.mock_print_color.assert_any_call("--- Properties ---", Colors.BLUE + Colors.BOLD)
-        self.mock_print_color.assert_any_call("- Type: Readable", Colors.BLUE)
+        self.mock_print_color.assert_called_once_with(
+            "(readable · consumable · worth 10 kopeks · notable · belongs to me · can be used)",
+            Colors.DIM,
+        )
+
+        self.mock_print_color.reset_mock()
+        self.game._display_item_properties({})
+        self.mock_print_color.assert_not_called()
 
     def test_display_command_history(self):
         self.game.command_history = []

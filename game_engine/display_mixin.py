@@ -126,26 +126,22 @@ class DisplayMixin:
         return f"appears {npc.apparent_state}"
 
     def _display_item_properties(self, item_default):
-        properties_to_display = []
+        """One compact dim line, matching the scene listing's tag idiom."""
+        tags = []
         if item_default.get("readable", False):
-            properties_to_display.append("Type: Readable")
+            tags.append("readable")
         if item_default.get("consumable", False):
-            properties_to_display.append("Type: Consumable")
+            tags.append("consumable")
         if item_default.get("value") is not None:
-            properties_to_display.append(f"Value: {item_default['value']} kopeks")
+            tags.append(f"worth {item_default['value']} kopeks")
         if item_default.get("is_notable", False):
-            properties_to_display.append("Trait: Notable")
-        if item_default.get("stackable", False):
-            properties_to_display.append("Trait: Stackable")
+            tags.append("notable")
         if item_default.get("owner"):
-            properties_to_display.append(f"Belongs to: {item_default['owner']}")
+            tags.append(f"belongs to {item_default['owner']}")
         if item_default.get("use_effect_player"):
-            properties_to_display.append("Action: Can be 'used'")
-        if properties_to_display:
-            self._print_color("--- Properties ---", Colors.BLUE + Colors.BOLD)
-            for prop_str in properties_to_display:
-                self._print_color(f"- {prop_str}", Colors.BLUE)
-            self._print_color("", Colors.RESET)
+            tags.append("can be used")
+        if tags:
+            self._print_color(f"({' · '.join(tags)})", Colors.DIM)
 
     def _display_command_history(self):
         self._print_color("\n--- Recent Commands ---", Colors.CYAN + Colors.BOLD)
