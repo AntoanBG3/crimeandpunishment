@@ -49,11 +49,7 @@ class DisplayMixin:
             return
         time_info = self._get_current_game_time_period_str()
         location = self.current_location_name or "Unknown"
-        self._print_color(self._separator_line(), Colors.DIM)
-        self._print_color(
-            f"[{time_info} | {location} | {self.last_turn_result_icon} | Mode: {self._get_mode_label()}]",
-            Colors.DIM,
-        )
+        self._print_color(f"{time_info}  ·  {location}", Colors.DIM)
 
     def _describe_item_brief(self, item_name):
         item_defaults = DEFAULT_ITEMS.get(item_name, {})

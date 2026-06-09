@@ -362,9 +362,9 @@ class TestGameStateCommands(unittest.TestCase):
             ]
         )
 
-        self.assertIn("test_apple (x3) - A juicy red apple, looking crisp.", printed_content)
-        self.assertIn("test_sword - A long, sharp sword, gleaming slightly.", printed_content)
-        self.assertIn("test_coin - A single gold coin.", printed_content)
+        self.assertIn("test_apple (x3) — A juicy red apple, looking crisp.", printed_content)
+        self.assertIn("test_sword — A long, sharp sword, gleaming slightly.", printed_content)
+        self.assertIn("test_coin — A single gold coin.", printed_content)
 
         expected_context_actions = [
             {"type": "select_item", "target": "test_apple", "display": "test_apple"},
