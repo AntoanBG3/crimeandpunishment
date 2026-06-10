@@ -237,6 +237,47 @@ def _get_session():
     return _session
 
 
+def load_history_lines(limit=200):
+    """Entries from the shared history file, oldest first.
+
+    Parses prompt_toolkit FileHistory's on-disk format ('# timestamp'
+    comment lines, '+'-prefixed entry lines, multi-line entries as
+    consecutive '+' lines) so the TUI's up-arrow history and the console's
+    PromptSession share one file.
+    """
+    entries = []
+    current = None
+    try:
+        with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+            for raw in f:
+                raw = raw.rstrip("\n")
+                if raw.startswith("+"):
+                    current = raw[1:] if current is None else f"{current}\n{raw[1:]}"
+                elif current is not None:
+                    entries.append(current)
+                    current = None
+    except OSError:
+        return []
+    if current is not None:
+        entries.append(current)
+    return entries[-limit:]
+
+
+def append_history_line(line):
+    """Append one entry to the shared history file in FileHistory's format."""
+    if not str(line).strip():
+        return
+    import datetime
+
+    try:
+        with open(HISTORY_FILE, "a", encoding="utf-8") as f:
+            f.write(f"\n# {datetime.datetime.now()}\n")
+            for part in str(line).split("\n"):
+                f.write(f"+{part}\n")
+    except OSError:
+        pass
+
+
 def read_line(prompt_text, color="", completion=True):
     global _last_line_blank
     rich_text = _render(str(prompt_text), color)

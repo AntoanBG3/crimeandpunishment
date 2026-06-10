@@ -73,13 +73,17 @@ def _default_runner():
 
 
 class CommandInput(Input):
-    """Input with Tab-cycling completion fed by the game's scene context.
+    """Input with Tab-cycling completion and up/down persistent history.
 
     First Tab completes from terminal.completion_candidates (the same
     provider the console's prompt_toolkit completer uses); repeated Tabs
     cycle through the candidates; any other key resets the cycle. The
     conversation loop disables completion via completion_enabled (the
     read(..., completion=False) flag crossing the backend seam).
+
+    Up/down walk the same history file the console's PromptSession uses
+    (terminal.HISTORY_FILE); the draft line is kept at the bottom of the
+    walk, prompt_toolkit-style.
     """
 
     def __init__(self, **kwargs):
@@ -88,6 +92,9 @@ class CommandInput(Input):
         self._cycle_base = None
         self._cycle_candidates = []
         self._cycle_index = -1
+        self.history = terminal.load_history_lines()
+        self._history_index = None
+        self._draft = ""
 
     def on_key(self, event):
         if event.key == "tab" and self.completion_enabled:
@@ -96,6 +103,40 @@ class CommandInput(Input):
             self._cycle_completion()
             return
         self._reset_cycle()
+        if event.key == "up":
+            event.stop()
+            event.prevent_default()
+            self._history_step(-1)
+        elif event.key == "down":
+            event.stop()
+            event.prevent_default()
+            self._history_step(1)
+
+    def record_submitted(self, line):
+        """Add a submitted line to in-memory and on-disk history."""
+        self._history_index = None
+        self._draft = ""
+        if line.strip():
+            self.history.append(line)
+            terminal.append_history_line(line)
+
+    def _history_step(self, direction):
+        if not self.history:
+            return
+        if self._history_index is None:
+            if direction > 0:
+                return  # nothing below the draft
+            self._draft = self.value
+            self._history_index = len(self.history)
+        index = self._history_index + direction
+        if index >= len(self.history):
+            # Walked back past the newest entry: restore the draft.
+            self._history_index = None
+            self.value = self._draft
+        else:
+            self._history_index = max(0, index)
+            self.value = self.history[self._history_index]
+        self.cursor_position = len(self.value)
 
     def _cycle_completion(self):
         if self._cycle_base is None:
@@ -181,6 +222,7 @@ class CrimeAndPunishmentApp(App):
     def on_input_submitted(self, event):
         line = event.value
         event.input.value = ""
+        event.input.record_submitted(line)
         self.write_log(Text(f"> {line}", style="dim"))
         self.backend.input_queue.put(line)
 

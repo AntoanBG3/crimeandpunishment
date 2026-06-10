@@ -1,5 +1,6 @@
 import os
 import sys
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -127,8 +128,52 @@ class TestTerminalWithoutBackend(unittest.TestCase):
         mock_print.assert_called_once()
 
 
+class TestSharedHistory(unittest.TestCase):
+    """terminal.load_history_lines/append_history_line must speak
+    prompt_toolkit FileHistory's on-disk format exactly."""
+
+    def test_round_trip_with_prompt_toolkit_filehistory(self):
+        from prompt_toolkit.history import FileHistory
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "history")
+            with patch.object(terminal, "HISTORY_FILE", path):
+                history = FileHistory(path)
+                history.store_string("look")
+                history.store_string("move to stairwell")
+                history.store_string("line one\nline two")
+                self.assertEqual(
+                    terminal.load_history_lines(),
+                    ["look", "move to stairwell", "line one\nline two"],
+                )
+                terminal.append_history_line("inventory")
+                newest_first = list(FileHistory(path).load_history_strings())
+                self.assertEqual(newest_first[0], "inventory")
+                self.assertEqual(terminal.load_history_lines()[-1], "inventory")
+
+    def test_missing_file_and_blank_lines_are_safe(self):
+        with patch.object(terminal, "HISTORY_FILE", "/nonexistent/dir/history"):
+            self.assertEqual(terminal.load_history_lines(), [])
+            terminal.append_history_line("ignored")  # must not raise
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "history")
+            with patch.object(terminal, "HISTORY_FILE", path):
+                terminal.append_history_line("   ")  # blank: not recorded
+                self.assertEqual(terminal.load_history_lines(), [])
+
+
 class TestTextualApp(unittest.IsolatedAsyncioTestCase):
     """Drive the real Textual app with a stub game loop via run_test()."""
+
+    def setUp(self):
+        # Never let app tests touch the user's real history file.
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmpdir.cleanup)
+        patcher = patch.object(
+            terminal, "HISTORY_FILE", os.path.join(self._tmpdir.name, "history")
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     async def test_round_trip_through_the_app(self):
         from game_engine.tui_app import CrimeAndPunishmentApp
@@ -223,6 +268,50 @@ class TestTextualApp(unittest.IsolatedAsyncioTestCase):
             command_input.cursor_position = len(command_input.value)
             await pilot.press("tab")
             self.assertEqual(command_input.value, "take a")
+
+    async def test_history_walk_with_draft_restore(self):
+        from game_engine.tui_app import CrimeAndPunishmentApp
+
+        terminal.append_history_line("look")
+        terminal.append_history_line("inventory")
+
+        def stub_game():
+            terminal.read_line("> ")  # park
+
+        app = CrimeAndPunishmentApp(game_runner=stub_game)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.2)
+            command_input = app.query_one("CommandInput")
+            self.assertEqual(command_input.history, ["look", "inventory"])
+            command_input.value = "dra"
+            command_input.cursor_position = 3
+            await pilot.press("up")
+            self.assertEqual(command_input.value, "inventory")
+            await pilot.press("up")
+            self.assertEqual(command_input.value, "look")
+            await pilot.press("up")  # clamped at the oldest entry
+            self.assertEqual(command_input.value, "look")
+            await pilot.press("down")
+            self.assertEqual(command_input.value, "inventory")
+            await pilot.press("down")  # back past the newest: draft restored
+            self.assertEqual(command_input.value, "dra")
+
+    async def test_submitted_lines_persist_to_history_file(self):
+        from game_engine.tui_app import CrimeAndPunishmentApp
+
+        def stub_game():
+            terminal.read_line("> ")
+            terminal.read_line("> ")  # park
+
+        app = CrimeAndPunishmentApp(game_runner=stub_game)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.2)
+            command_input = app.query_one("CommandInput")
+            command_input.value = "objectives"
+            await pilot.press("enter")
+            await pilot.pause(0.2)
+            self.assertEqual(command_input.history[-1], "objectives")
+        self.assertEqual(terminal.load_history_lines(), ["objectives"])
 
     async def test_status_message_shows_and_clears(self):
         from game_engine.tui_app import CrimeAndPunishmentApp
