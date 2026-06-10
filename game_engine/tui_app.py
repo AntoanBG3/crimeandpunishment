@@ -46,8 +46,8 @@ class TextualBackend:
     def emit(self, renderable):
         self._post(self.app.write_log, renderable)
 
-    def read(self, prompt_text, completion=True):
-        self._post(self.app.show_prompt, prompt_text, completion)
+    def read(self, prompt_text, completion=True, secret=False):
+        self._post(self.app.show_prompt, prompt_text, completion, secret)
         line = self.input_queue.get()
         if line is _QUIT:
             raise EOFError
@@ -201,12 +201,13 @@ class CrimeAndPunishmentApp(App):
     def write_log(self, renderable):
         self.query_one("#log", RichLog).write(renderable)
 
-    def show_prompt(self, prompt_text, completion=True):
+    def show_prompt(self, prompt_text, completion=True, secret=False):
         self.refresh_status_bar()
         prompt = str(prompt_text).strip() or ">"
         command_input = self.query_one(CommandInput)
         command_input.placeholder = prompt
         command_input.completion_enabled = completion
+        command_input.password = secret
 
     def refresh_status_bar(self):
         status_text = terminal.toolbar_text()
@@ -222,8 +223,13 @@ class CrimeAndPunishmentApp(App):
     def on_input_submitted(self, event):
         line = event.value
         event.input.value = ""
-        event.input.record_submitted(line)
-        self.write_log(Text(f"> {line}", style="dim"))
+        if event.input.password:
+            # Secret prompt (API key): mask the echo, keep it out of history.
+            self.write_log(Text("> ********", style="dim"))
+            event.input.password = False
+        else:
+            event.input.record_submitted(line)
+            self.write_log(Text(f"> {line}", style="dim"))
         self.backend.input_queue.put(line)
 
     def on_unmount(self):

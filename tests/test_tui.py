@@ -18,6 +18,7 @@ class FakeBackend:
         self.emitted = []
         self.read_prompts = []
         self.read_completion_flags = []
+        self.read_secret_flags = []
         self.read_replies = []
         self.cleared = 0
         self.status_messages = []
@@ -25,9 +26,10 @@ class FakeBackend:
     def emit(self, renderable):
         self.emitted.append(renderable)
 
-    def read(self, prompt_text, completion=True):
+    def read(self, prompt_text, completion=True, secret=False):
         self.read_prompts.append(prompt_text)
         self.read_completion_flags.append(completion)
+        self.read_secret_flags.append(secret)
         return self.read_replies.pop(0) if self.read_replies else ""
 
     def clear(self):
@@ -82,6 +84,12 @@ class TestTerminalBackendSeam(unittest.TestCase):
         self.backend.read_replies.append("hello")
         terminal.read_line("You: ", "", completion=False)
         self.assertEqual(self.backend.read_completion_flags, [False])
+
+    def test_read_line_secret_flag_crosses_the_seam(self):
+        self.backend.read_replies.append("key-123")
+        result = terminal.read_line("API key: ", "", secret=True)
+        self.assertEqual(result, "key-123")
+        self.assertEqual(self.backend.read_secret_flags, [True])
 
     def test_clear_screen_routes_to_backend(self):
         terminal.clear_screen()
@@ -312,6 +320,33 @@ class TestTextualApp(unittest.IsolatedAsyncioTestCase):
             await pilot.pause(0.2)
             self.assertEqual(command_input.history[-1], "objectives")
         self.assertEqual(terminal.load_history_lines(), ["objectives"])
+
+    async def test_secret_prompt_masks_echo_and_skips_history(self):
+        from game_engine.tui_app import CrimeAndPunishmentApp
+
+        captured = {}
+
+        def stub_game():
+            captured["key"] = terminal.read_line("API key: ", secret=True)
+            terminal.read_line("> ")  # park
+
+        app = CrimeAndPunishmentApp(game_runner=stub_game)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.2)
+            command_input = app.query_one("CommandInput")
+            self.assertTrue(command_input.password)
+            command_input.value = "key-secret-123"
+            await pilot.press("enter")
+            await pilot.pause(0.2)
+            log = app.query_one("RichLog")
+            rendered = "\n".join(str(line) for line in log.lines)
+            self.assertIn("> ********", rendered)
+            self.assertNotIn("key-secret-123", rendered)
+            self.assertNotIn("key-secret-123", command_input.history)
+            # The next, non-secret prompt unmasks the input.
+            self.assertFalse(command_input.password)
+        self.assertEqual(captured["key"], "key-secret-123")
+        self.assertEqual(terminal.load_history_lines(), [])
 
     async def test_status_message_shows_and_clears(self):
         from game_engine.tui_app import CrimeAndPunishmentApp

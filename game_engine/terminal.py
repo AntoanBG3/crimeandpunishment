@@ -28,8 +28,8 @@ MIN_TEXT_WIDTH = 40
 _console = Console(highlight=False, soft_wrap=False)
 
 # Active UI backend; None means the classic console path. A backend must
-# provide: emit(renderable), read(prompt_text, completion=True) -> str,
-# clear(), status(message) -> context manager.
+# provide: emit(renderable), read(prompt_text, completion=True,
+# secret=False) -> str, clear(), status(message) -> context manager.
 _backend = None
 
 # Tracks whether the last emitted line was blank, so blocks can guarantee a
@@ -278,17 +278,26 @@ def append_history_line(line):
         pass
 
 
-def read_line(prompt_text, color="", completion=True):
+def read_line(prompt_text, color="", completion=True, secret=False):
     global _last_line_blank
     rich_text = _render(str(prompt_text), color)
     if _backend is not None:
         _last_line_blank = False
-        return _backend.read(rich_text.plain, completion=completion)
+        return _backend.read(rich_text.plain, completion=completion, secret=secret)
     with _console.capture() as capture:
         _console.print(rich_text, end="", width=render_width())
     rendered = capture.get()
     _last_line_blank = False
     if not _interactive_input_supported():
+        if secret:
+            try:
+                if sys.stdin.isatty():
+                    import getpass
+
+                    return getpass.getpass(rendered)
+            except (AttributeError, ValueError):
+                pass
+        # Piped input: nothing to mask.
         return input(rendered)
     from prompt_toolkit.formatted_text import ANSI
 
@@ -299,6 +308,7 @@ def read_line(prompt_text, color="", completion=True):
         completer=completer,
         bottom_toolbar=toolbar,
         complete_while_typing=False,
+        is_password=secret,
     )
 
 

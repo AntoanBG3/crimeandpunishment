@@ -149,7 +149,9 @@ class GeminiAPI:
         self._print_color_func = lambda text, color, end="\n": print(
             f"{color}{text}{Colors.RESET}", end=end
         )
-        self._input_color_func = lambda prompt, color: input(f"{color}{prompt}{Colors.RESET}")
+        self._input_color_func = lambda prompt, color, completion=True, secret=False: input(
+            f"{color}{prompt}{Colors.RESET}"
+        )
 
     def _load_genai(self):
         if self.genai:
@@ -532,6 +534,7 @@ class GeminiAPI:
             manual_api_key_input = self._input_color_func(
                 "Please enter your Gemini API key (or type 'skip' to use placeholder responses): ",
                 Colors.MAGENTA,
+                secret=True,
             ).strip()
 
             if not manual_api_key_input:

@@ -382,5 +382,52 @@ class TestUXCommands(unittest.TestCase):
             self.assertEqual(len(brief_calls), 1)
 
 
+class TestSecretInput(unittest.TestCase):
+    """read_line(secret=True) must mask on every console path."""
+
+    def test_prompt_toolkit_path_uses_is_password(self):
+        with patch.object(
+            terminal, "_interactive_input_supported", return_value=True
+        ), patch.object(terminal, "_get_session") as mock_session:
+            mock_session.return_value.prompt.return_value = "key-1"
+            result = terminal.read_line("API key: ", secret=True)
+        self.assertEqual(result, "key-1")
+        kwargs = mock_session.return_value.prompt.call_args.kwargs
+        self.assertTrue(kwargs["is_password"])
+
+    def test_non_secret_prompt_is_not_password(self):
+        with patch.object(
+            terminal, "_interactive_input_supported", return_value=True
+        ), patch.object(terminal, "_get_session") as mock_session:
+            mock_session.return_value.prompt.return_value = "look"
+            terminal.read_line("> ")
+        kwargs = mock_session.return_value.prompt.call_args.kwargs
+        self.assertFalse(kwargs["is_password"])
+
+    def test_plain_tty_path_uses_getpass(self):
+        import sys
+
+        with patch.object(
+            terminal, "_interactive_input_supported", return_value=False
+        ), patch.object(sys.stdin, "isatty", return_value=True), patch(
+            "getpass.getpass", return_value="key-2"
+        ) as mock_getpass, patch("builtins.input") as mock_input:
+            result = terminal.read_line("API key: ", secret=True)
+        self.assertEqual(result, "key-2")
+        mock_getpass.assert_called_once()
+        mock_input.assert_not_called()
+
+    def test_piped_path_falls_back_to_plain_input(self):
+        import sys
+
+        with patch.object(
+            terminal, "_interactive_input_supported", return_value=False
+        ), patch.object(sys.stdin, "isatty", return_value=False), patch(
+            "builtins.input", return_value="key-3"
+        ) as mock_input:
+            self.assertEqual(terminal.read_line("API key: ", secret=True), "key-3")
+        mock_input.assert_called_once()
+
+
 if __name__ == "__main__":
     unittest.main()
