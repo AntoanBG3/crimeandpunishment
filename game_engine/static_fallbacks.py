@@ -60,6 +60,14 @@ STATIC_ENHANCED_OBSERVATIONS = [
     "Despite your efforts, nothing further of note catches your eye.",
 ]
 
+# Parting beats shown when the player ends a conversation; {name} is the NPC.
+STATIC_NPC_PARTING_BEATS = [
+    "{name} nods in parting.",
+    "{name} murmurs a farewell and turns back to their own affairs.",
+    "{name} watches you go for a moment, then turns away.",
+    "{name} inclines their head as you take your leave.",
+]
+
 STATIC_PLAYER_REFLECTIONS = [
     "Your thoughts are a jumble.",
     "You ponder your situation.",

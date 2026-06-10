@@ -106,7 +106,47 @@ class TestNPCInteractionHandler(unittest.TestCase):
     def test_talk_to_empty_dialogue(self):
         self.mock_input_color.side_effect = ["", "Farewell"]
         self.game._handle_talk_to_command("Porfiry")
-        self.mock_print_color.assert_any_call("You remain silent for a moment.", Colors.DIM)
+        self.mock_print_color.assert_any_call(
+            "You remain silent for a moment. (Press Enter again to take your leave.)",
+            Colors.DIM,
+        )
+
+    def test_talk_to_double_silence_ends_conversation(self):
+        # Two consecutive empty inputs leave the conversation; no third prompt.
+        self.mock_input_color.side_effect = ["", ""]
+        self.game._handle_talk_to_command("Porfiry")
+        self.mock_print_color.assert_any_call(
+            f"Having nothing more to say, you take your leave of "
+            f"{Colors.YELLOW}Porfiry Petrovich{Colors.RESET}.",
+            Colors.WHITE,
+        )
+
+    def test_talk_to_silence_counter_resets_on_dialogue(self):
+        # silence, dialogue, silence: the second silence is not consecutive,
+        # so the conversation continues until the explicit farewell.
+        self.mock_input_color.side_effect = ["", "Hello", "", "Farewell"]
+        self.game._handle_talk_to_command("Porfiry")
+        self.mock_print_color.assert_any_call(
+            f"You end the conversation with {Colors.YELLOW}Porfiry Petrovich{Colors.RESET}.",
+            Colors.WHITE,
+        )
+
+    def test_talk_to_eof_breaks_off_conversation(self):
+        self.mock_input_color.side_effect = EOFError
+        self.game._handle_talk_to_command("Porfiry")
+        self.mock_print_color.assert_any_call(
+            f"\nYou break off the conversation with {Colors.YELLOW}Porfiry Petrovich{Colors.RESET}.",
+            Colors.WHITE,
+        )
+
+    def test_farewell_prints_parting_beat(self):
+        self.mock_input_color.side_effect = ["Farewell"]
+        with patch(
+            "game_engine.npc_interaction_handler.random.choice",
+            side_effect=lambda seq: seq[0],
+        ):
+            self.game._handle_talk_to_command("Porfiry")
+        self.mock_print_color.assert_any_call("Porfiry Petrovich nods in parting.", Colors.DIM)
 
     def test_talk_to_no_gemini_model(self):
         self.game.gemini_api.model = None
@@ -229,6 +269,12 @@ class TestNPCInteractionHandler(unittest.TestCase):
         self.assertFalse(
             self.game.check_conversation_conclusion("Indeed, the weather is fine today.")
         )
+        # Command-style exits conclude only as whole lines.
+        for word in ("leave", "exit", "quit", "q", "bye", "done", "never mind"):
+            self.assertTrue(self.game.check_conversation_conclusion(word))
+            self.assertTrue(self.game.check_conversation_conclusion(word.capitalize() + "."))
+        self.assertFalse(self.game.check_conversation_conclusion("I would never leave you."))
+        self.assertFalse(self.game.check_conversation_conclusion("Quit playing games with me."))
 
 
 if __name__ == "__main__":

@@ -12,6 +12,7 @@ from .game_config import (
 )
 from .gemini_interactions import is_usable_ai_text
 from .objective_progression import evaluate_player_progression
+from .static_fallbacks import STATIC_NPC_PARTING_BEATS
 
 # Neutral filler lines used when the AI is unavailable or returns an unusable
 # (empty / OOC) response, so an NPC never "speaks" an out-of-character marker.
@@ -37,6 +38,10 @@ class NPCInteractionHandler:
             if re.search(phrase_regex, text, re.IGNORECASE):
                 return True
         return False
+
+    def _print_parting_beat(self, target_npc):
+        beat = random.choice(STATIC_NPC_PARTING_BEATS).format(name=target_npc.name)
+        self._print_color(beat, Colors.DIM)
 
     def _record_npc_post_interaction_memories(self, target_npc, context_str):
         """Records NPC memories of the player's unusual state and notable inventory items after an interaction."""
@@ -123,7 +128,8 @@ class NPCInteractionHandler:
             if not getattr(self, "_conversation_hint_shown", False):
                 self._conversation_hint_shown = True
                 self._print_color(
-                    "(Speak freely. Say 'goodbye' to end the conversation, 'history' to review it.)",
+                    "(Speak freely. Say 'goodbye' or 'leave' to end the conversation, "
+                    "'history' to review it.)",
                     Colors.DIM,
                 )
             greeting = (
@@ -138,12 +144,22 @@ class NPCInteractionHandler:
                 if len(self.current_conversation_log) > MAX_CONVERSATION_LOG_LINES:
                     self.current_conversation_log.pop(0)
             conversation_active = True
+            consecutive_silences = 0
             while conversation_active:
-                player_dialogue = self._input_color(
-                    f"You ({Colors.GREEN}{self.player_character.name}{Colors.RESET}): {self._prompt_arrow()}",
-                    Colors.GREEN,
-                    completion=False,  # free-form dialogue, not commands
-                ).strip()
+                try:
+                    player_dialogue = self._input_color(
+                        f"You ({Colors.GREEN}{self.player_character.name}{Colors.RESET}): {self._prompt_arrow()}",
+                        Colors.GREEN,
+                        completion=False,  # free-form dialogue, not commands
+                    ).strip()
+                except (EOFError, KeyboardInterrupt):
+                    # Ctrl+C/Ctrl+D leaves the conversation, not the game.
+                    self._print_color(
+                        f"\nYou break off the conversation with {Colors.YELLOW}{target_npc.name}{Colors.RESET}.",
+                        Colors.WHITE,
+                    )
+                    self._print_parting_beat(target_npc)
+                    break
                 if player_dialogue.lower() in ["history", "review", "log"]:
                     from rich.console import Group as RichGroup
                     from rich.panel import Panel
@@ -175,9 +191,22 @@ class NPCInteractionHandler:
                     )
                     continue
                 if not player_dialogue:
-                    # Empty input costs no turn and produces no NPC reply; re-prompt.
-                    self._print_color("You remain silent for a moment.", Colors.DIM)
+                    # Empty input costs no turn and produces no NPC reply; a
+                    # second consecutive silence ends the conversation.
+                    consecutive_silences += 1
+                    if consecutive_silences >= 2:
+                        self._print_color(
+                            f"Having nothing more to say, you take your leave of {Colors.YELLOW}{target_npc.name}{Colors.RESET}.",
+                            Colors.WHITE,
+                        )
+                        self._print_parting_beat(target_npc)
+                        break
+                    self._print_color(
+                        "You remain silent for a moment. (Press Enter again to take your leave.)",
+                        Colors.DIM,
+                    )
                     continue
+                consecutive_silences = 0
                 logged_player_dialogue = f"You: {player_dialogue}"
                 self.current_conversation_log.append(logged_player_dialogue)
                 if len(self.current_conversation_log) > MAX_CONVERSATION_LOG_LINES:
@@ -187,6 +216,7 @@ class NPCInteractionHandler:
                         f"You end the conversation with {Colors.YELLOW}{target_npc.name}{Colors.RESET}.",
                         Colors.WHITE,
                     )
+                    self._print_parting_beat(target_npc)
                     conversation_active = False
                     break
                 used_ai_dialogue = False

@@ -155,6 +155,8 @@ CONCLUDING_PHRASES = [
     # "i see what you mean" does not prematurely end the conversation.
     r"^(enough|that will be all|we are done here|indeed|i see|very well then)\.?$",
     r"\b(i'm done|nothing else|that's it|exit conversation|end dialogue|stop talking|no more questions)\b",  # Added more ways
+    # Command-style exits: players instinctively type these as whole lines.
+    r"^(leave|exit|quit|q|bye|done|stop|back|never mind)\.?$",
 ]
 
 # --- Simplified keywords for relationship adjustments ---
