@@ -1,5 +1,14 @@
 # TUI Parity Plan — making `--tui` the default
 
+> **Status (2026-06-10): W1–W6 are implemented and merged.** Tab completion
+> and shared persistent history work in the TUI, the mode decision with the
+> non-TTY gate lives in `main.choose_mode()` (default still console — the
+> flip is the `DEFAULT_MODE` constant), saves are atomic, TUI exit joins the
+> game thread, the API key prompt is masked on every path, and the
+> backend-protocol contract is pinned by tests. Remaining: **W7** — the flip
+> itself, gated on a manual smoke pass on Windows and Linux (macOS done) and
+> the PyInstaller `--collect-all textual` change in the external build setup.
+
 Goal: bring the Textual TUI to feature parity with the classic console so the
 default mode can flip from console to TUI without regressing anything the
 README advertises. The flip itself is the last step and is gated on the exit
