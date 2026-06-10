@@ -136,6 +136,39 @@ class TestTerminalWithoutBackend(unittest.TestCase):
         mock_print.assert_called_once()
 
 
+class TestBackendProtocolContract(unittest.TestCase):
+    """The exact backend surface terminal.py relies on. A signature change
+    here must fail loudly, not as a TypeError at runtime in a thread."""
+
+    REQUIRED = {
+        "emit": ["renderable"],
+        "read": ["prompt_text", "completion", "secret"],
+        "clear": [],
+        "status": ["message"],
+    }
+
+    def _check(self, backend_cls):
+        import inspect
+
+        for name, expected in self.REQUIRED.items():
+            method = getattr(backend_cls, name)
+            actual = [p for p in inspect.signature(method).parameters if p != "self"]
+            self.assertEqual(actual, expected, f"{backend_cls.__name__}.{name}")
+
+    def test_textual_backend_matches_protocol(self):
+        from game_engine.tui_app import TextualBackend
+
+        self._check(TextualBackend)
+
+    def test_fake_backend_matches_protocol(self):
+        self._check(FakeBackend)
+
+    def test_no_backend_installed_by_default(self):
+        # The whole test suite relies on the console path being the default;
+        # nothing may leave a backend installed behind it.
+        self.assertIsNone(terminal.get_backend())
+
+
 class TestSharedHistory(unittest.TestCase):
     """terminal.load_history_lines/append_history_line must speak
     prompt_toolkit FileHistory's on-disk format exactly."""
@@ -369,6 +402,26 @@ class TestTextualApp(unittest.IsolatedAsyncioTestCase):
             await app.action_quit()
         # on_unmount joined the thread, so the "save" completed before teardown.
         self.assertTrue(finished_cleanly.is_set())
+
+    async def test_paced_narrative_renders_incrementally_in_log(self):
+        from game_engine.tui_app import CrimeAndPunishmentApp
+
+        def stub_game():
+            terminal.set_narrative_pace(True)
+            try:
+                terminal.write_narrative("First beat.\n\nSecond beat.")
+            finally:
+                terminal.set_narrative_pace(False)
+            terminal.read_line("> ")  # park
+
+        app = CrimeAndPunishmentApp(game_runner=stub_game)
+        with patch("game_engine.terminal.time.sleep"):
+            async with app.run_test() as pilot:
+                await pilot.pause(0.5)
+                log = app.query_one("RichLog")
+                rendered = "\n".join(str(line) for line in log.lines)
+                self.assertIn("First beat.", rendered)
+                self.assertIn("Second beat.", rendered)
 
     async def test_status_message_shows_and_clears(self):
         from game_engine.tui_app import CrimeAndPunishmentApp
