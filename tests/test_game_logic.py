@@ -615,6 +615,7 @@ class TestGameStateCommands(unittest.TestCase):
         mock_razumikhin = MagicMock(spec=Character)
         mock_razumikhin.name = "Dmitri Razumikhin"
         mock_razumikhin.greeting = "Ah, Rodya, old friend! What brings you here?"
+        mock_razumikhin.get_greeting = MagicMock(return_value=mock_razumikhin.greeting)
         mock_razumikhin.apparent_state = "cheerful"
         mock_razumikhin.relationship_with_player = 5  # Positive relationship
         mock_razumikhin.conversation_histories = {}  # Initialize conversation histories

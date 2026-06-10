@@ -126,15 +126,14 @@ class NPCInteractionHandler:
                     "(Speak freely. Say 'goodbye' to end the conversation, 'history' to review it.)",
                     Colors.DIM,
                 )
-            should_print_static_greeting = True
-            # Removed specific condition for Raskolnikov and Razumikhin
-            if (
-                should_print_static_greeting
-                and hasattr(target_npc, "greeting")
-                and target_npc.greeting
-            ):
-                initial_greeting_text = f'{target_npc.name}: "{target_npc.greeting}"'
-                self._print_dialogue(target_npc.name, f'"{target_npc.greeting}"')
+            greeting = (
+                target_npc.get_greeting(self.current_location_name)
+                if hasattr(target_npc, "get_greeting")
+                else getattr(target_npc, "greeting", None)
+            )
+            if greeting:
+                initial_greeting_text = f'{target_npc.name}: "{greeting}"'
+                self._print_dialogue(target_npc.name, f'"{greeting}"')
                 self.current_conversation_log.append(initial_greeting_text)
                 if len(self.current_conversation_log) > MAX_CONVERSATION_LOG_LINES:
                     self.current_conversation_log.pop(0)

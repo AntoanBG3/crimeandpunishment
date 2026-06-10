@@ -116,6 +116,15 @@ class Character:
         )
         self.schedule = schedule if schedule else {}
         self.apparent_state = __getattr__("CHARACTERS_DATA").get(name, {}).get("apparent_state", "normal")
+        self.location_greetings = (
+            __getattr__("CHARACTERS_DATA").get(name, {}).get("location_greetings", {})
+        )
+
+    def get_greeting(self, location_name=None):
+        """Greeting appropriate to the given location, falling back to the default."""
+        if location_name and location_name in self.location_greetings:
+            return self.location_greetings[location_name]
+        return self.greeting
 
     def add_journal_entry(self, entry_type, text_content, game_day_time_period_str):
         MAX_JOURNAL_ENTRIES = 20

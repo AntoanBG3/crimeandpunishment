@@ -320,6 +320,15 @@ def test_only_three_protagonists_are_playable():
     assert playable == ["Rodion Raskolnikov", "Sonya Marmeladova", "Porfiry Petrovich"]
 
 
+def test_location_greetings_reference_real_locations():
+    from game_engine.character_module import CHARACTERS_DATA
+    from game_engine.location_module import LOCATIONS_DATA
+
+    for name, data in CHARACTERS_DATA.items():
+        for location in data.get("location_greetings", {}):
+            assert location in LOCATIONS_DATA, f"{name}: unknown location {location!r}"
+
+
 def test_get_player_input_numbered_actions_and_repeat_shortcuts():
     state = _make_state()
     state.numbered_actions_context = [

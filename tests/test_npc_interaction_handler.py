@@ -114,6 +114,15 @@ class TestNPCInteractionHandler(unittest.TestCase):
         self.game._handle_talk_to_command("Porfiry")
         self.mock_print_color.assert_any_call(f"{Colors.DIM}(Using placeholder dialogue){Colors.RESET}", Colors.DIM)
 
+    def test_talk_to_uses_location_greeting(self):
+        self.npc.location_greetings = {"Room": "Sit down, my friend, sit down."}
+        self.game._print_dialogue = MagicMock()
+        self.mock_input_color.side_effect = ["Farewell"]
+        self.game._handle_talk_to_command("Porfiry")
+        self.game._print_dialogue.assert_any_call(
+            "Porfiry Petrovich", '"Sit down, my friend, sit down."'
+        )
+
     def test_talk_to_ends_when_npc_departs(self):
         # advance_time runs the NPC schedule; simulate it moving the NPC away.
         def _move_npc_away(_units):

@@ -24,6 +24,12 @@ class TestCharacterModule(unittest.TestCase):
         )
         self.character.skills = {"Observation": 2}
 
+    def test_get_greeting_per_location(self):
+        self.character.location_greetings = {"test_room": "Welcome to my room."}
+        self.assertEqual(self.character.get_greeting("test_room"), "Welcome to my room.")
+        self.assertEqual(self.character.get_greeting("another_room"), "Hello, tester!")
+        self.assertEqual(self.character.get_greeting(None), "Hello, tester!")
+
     def test_to_dict(self):
         char_dict = self.character.to_dict()
         expected_dict = {
