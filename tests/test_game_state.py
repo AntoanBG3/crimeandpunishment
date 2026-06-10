@@ -36,12 +36,15 @@ class TestGameState(unittest.TestCase):
         self.game.gemini_api.chosen_model_name = "test_model"
         self.game.low_ai_data_mode = False
 
+    @patch("os.replace")
     @patch("builtins.open", new_callable=mock_open)
     @patch("json.dump")
-    def test_save_game(self, mock_json_dump, mock_open):
+    def test_save_game(self, mock_json_dump, mock_open, mock_replace):
         self.game.save_game()
 
-        mock_open.assert_called_once_with("savegame.json", "w", encoding="utf-8")
+        # Atomic save: write to the temp file, then rename onto the real path.
+        mock_open.assert_called_once_with("savegame.json.tmp", "w", encoding="utf-8")
+        mock_replace.assert_called_once_with("savegame.json.tmp", "savegame.json")
 
         expected_save_data = {
             "player_character_name": "Test Player",
@@ -152,11 +155,27 @@ class TestGameState(unittest.TestCase):
         time_advanced = self.game._handle_wait_command()
         self.assertEqual(time_advanced, TIME_UNITS_PER_PLAYER_ACTION * 5)
 
+    @patch("os.replace")
     @patch("builtins.open", new_callable=mock_open)
     @patch("json.dump")
-    def test_save_game_with_slot(self, mock_json_dump, mock_open_file):
+    def test_save_game_with_slot(self, mock_json_dump, mock_open_file, mock_replace):
         self.game.save_game("slot1")
-        mock_open_file.assert_called_once_with("savegame_slot1.json", "w", encoding="utf-8")
+        mock_open_file.assert_called_once_with("savegame_slot1.json.tmp", "w", encoding="utf-8")
+        mock_replace.assert_called_once_with("savegame_slot1.json.tmp", "savegame_slot1.json")
+
+    def test_save_game_mid_write_failure_preserves_existing_save(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            save_path = os.path.join(tmpdir, "savegame.json")
+            with open(save_path, "w", encoding="utf-8") as f:
+                f.write('{"intact": true}')
+            with patch.object(self.game, "_get_save_file_path", return_value=save_path), patch(
+                "json.dump", side_effect=OSError("disk full")
+            ):
+                self.game.save_game()
+            with open(save_path, encoding="utf-8") as f:
+                self.assertEqual(f.read(), '{"intact": true}')
 
     @patch("os.path.exists", return_value=True)
     @patch("builtins.open", new_callable=mock_open, read_data="{}")

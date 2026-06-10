@@ -196,8 +196,12 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
             "command_history": self.command_history[-self.max_command_history :],
         }
         try:
-            with open(save_file, "w", encoding="utf-8") as f:
+            # Write-then-rename so an interrupted save (crash, killed thread)
+            # can never leave a truncated savegame behind.
+            temp_file = f"{save_file}.tmp"
+            with open(temp_file, "w", encoding="utf-8") as f:
                 json.dump(game_state_data, f, indent=4)
+            os.replace(temp_file, save_file)
             if is_autosave:
                 self._print_color(f"Autosaved to {save_file}", Colors.DIM)
             else:
