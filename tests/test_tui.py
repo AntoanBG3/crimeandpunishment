@@ -348,6 +348,28 @@ class TestTextualApp(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(captured["key"], "key-secret-123")
         self.assertEqual(terminal.load_history_lines(), [])
 
+    async def test_exit_joins_game_thread_through_in_flight_work(self):
+        import threading
+        import time
+
+        from game_engine.tui_app import CrimeAndPunishmentApp
+
+        finished_cleanly = threading.Event()
+
+        def stub_game():
+            try:
+                terminal.read_line("> ")
+            except EOFError:
+                time.sleep(0.3)  # simulates an in-flight autosave
+                finished_cleanly.set()
+
+        app = CrimeAndPunishmentApp(game_runner=stub_game)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.2)
+            await app.action_quit()
+        # on_unmount joined the thread, so the "save" completed before teardown.
+        self.assertTrue(finished_cleanly.is_set())
+
     async def test_status_message_shows_and_clears(self):
         from game_engine.tui_app import CrimeAndPunishmentApp
 

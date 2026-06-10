@@ -175,6 +175,7 @@ class CrimeAndPunishmentApp(App):
         super().__init__()
         self._game_runner = game_runner or _default_runner
         self._game_thread = None
+        self._shutting_down = False
         self.backend = TextualBackend(self)
 
     def compose(self):
@@ -195,8 +196,12 @@ class CrimeAndPunishmentApp(App):
             pass
         finally:
             terminal.set_backend(None)
-            with contextlib.suppress(Exception):
-                self.call_from_thread(self.exit)
+            # When the app initiated the shutdown it is blocked joining this
+            # thread; calling back into its event loop would deadlock until
+            # the join times out.
+            if not self._shutting_down:
+                with contextlib.suppress(Exception):
+                    self.call_from_thread(self.exit)
 
     def write_log(self, renderable):
         self.query_one("#log", RichLog).write(renderable)
@@ -233,8 +238,14 @@ class CrimeAndPunishmentApp(App):
         self.backend.input_queue.put(line)
 
     def on_unmount(self):
+        self._shutting_down = True
         terminal.set_backend(None)
         self.backend.input_queue.put(_QUIT)
+        # Give the game thread a moment to unwind (it may be mid-turn, e.g.
+        # finishing an autosave). With atomic saves the worst case after the
+        # timeout is a lost turn, never a corrupted file.
+        if self._game_thread is not None and self._game_thread.is_alive():
+            self._game_thread.join(timeout=2)
 
 
 def run_tui():
