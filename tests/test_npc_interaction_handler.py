@@ -114,6 +114,22 @@ class TestNPCInteractionHandler(unittest.TestCase):
         self.game._handle_talk_to_command("Porfiry")
         self.mock_print_color.assert_any_call(f"{Colors.DIM}(Using placeholder dialogue){Colors.RESET}", Colors.DIM)
 
+    def test_talk_to_ends_when_npc_departs(self):
+        # advance_time runs the NPC schedule; simulate it moving the NPC away.
+        def _move_npc_away(_units):
+            self.game.npcs_in_current_location = []
+
+        self.game.world_manager.advance_time = MagicMock(side_effect=_move_npc_away)
+        # Only one line of input: if the loop did not end on departure, the
+        # exhausted side_effect would raise StopIteration here.
+        self.mock_input_color.side_effect = ["Hello"]
+        self.game._handle_talk_to_command("Porfiry")
+        self.mock_print_color.assert_any_call(
+            f"\n{Colors.YELLOW}Porfiry Petrovich{Colors.RESET} has gone on their way; "
+            "the conversation is over.",
+            Colors.MAGENTA,
+        )
+
     def test_record_memories_unusual_state(self):
         self.game.player_character.apparent_state = "dangerously agitated"
         self.npc.add_player_memory = MagicMock()

@@ -284,6 +284,42 @@ def test_world_manager_select_player_character_non_interactive():
         assert wm.select_player_character(non_interactive=True) is True
 
 
+def test_quit_offers_save_prompt():
+    state = _make_state()
+    state.save_game = MagicMock()
+    handler = CommandHandler(state)
+
+    state._input_color.return_value = "y"
+    assert handler._process_command("quit", None) == (False, False, 0, True)
+    state.save_game.assert_called_once_with()
+
+    state.save_game.reset_mock()
+    state._input_color.return_value = ""
+    assert handler._process_command("quit", None) == (False, False, 0, True)
+    state.save_game.assert_not_called()
+
+    # Piped/EOF input must not block or crash the quit path.
+    state._input_color.side_effect = EOFError
+    assert handler._process_command("quit", None) == (False, False, 0, True)
+    state.save_game.assert_not_called()
+
+    # No player character (quit before the game started): no prompt at all.
+    state._input_color.side_effect = None
+    state._input_color.reset_mock()
+    state.player_character = None
+    assert handler._process_command("quit", None) == (False, False, 0, True)
+    state._input_color.assert_not_called()
+
+
+def test_only_three_protagonists_are_playable():
+    from game_engine.character_module import CHARACTERS_DATA
+
+    playable = [
+        name for name, data in CHARACTERS_DATA.items() if not data.get("non_playable", False)
+    ]
+    assert playable == ["Rodion Raskolnikov", "Sonya Marmeladova", "Porfiry Petrovich"]
+
+
 def test_get_player_input_numbered_actions_and_repeat_shortcuts():
     state = _make_state()
     state.numbered_actions_context = [

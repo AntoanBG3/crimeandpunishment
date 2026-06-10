@@ -513,6 +513,15 @@ class CommandHandler:
         time_to_advance = TIME_UNITS_PER_PLAYER_ACTION
         show_atmospherics_this_turn = True
         if command == "quit":
+            if self.game_state.player_character:
+                try:
+                    answer = self.game_state._input_color(
+                        "Save before quitting? (y/N): ", Colors.MAGENTA
+                    )
+                except (EOFError, KeyboardInterrupt):
+                    answer = ""
+                if str(answer).strip().lower() in ("y", "yes"):
+                    self.game_state.save_game()
             self.game_state._print_color("Exiting game. Goodbye.", Colors.MAGENTA)
             return False, False, 0, True
         if command == "select_item":

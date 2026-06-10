@@ -120,6 +120,12 @@ class NPCInteractionHandler:
                 f"\nYou approach {Colors.YELLOW}{target_npc.name}{Colors.RESET} (appears {target_npc.apparent_state}).",
                 Colors.WHITE,
             )
+            if not getattr(self, "_conversation_hint_shown", False):
+                self._conversation_hint_shown = True
+                self._print_color(
+                    "(Speak freely. Say 'goodbye' to end the conversation, 'history' to review it.)",
+                    Colors.DIM,
+                )
             should_print_static_greeting = True
             # Removed specific condition for Raskolnikov and Razumikhin
             if (
@@ -241,6 +247,14 @@ class NPCInteractionHandler:
                 self.world_manager.advance_time(TIME_UNITS_PER_PLAYER_ACTION)
                 if self.event_manager.check_and_trigger_events():
                     self.last_significant_event_summary = "an event occurred during conversation."
+                # Each exchange advances time, so the NPC's schedule may move
+                # them away mid-conversation; don't keep talking to the absent.
+                if conversation_active and target_npc not in self.npcs_in_current_location:
+                    self._print_color(
+                        f"\n{Colors.YELLOW}{target_npc.name}{Colors.RESET} has gone on their way; the conversation is over.",
+                        Colors.MAGENTA,
+                    )
+                    conversation_active = False
             self._record_npc_post_interaction_memories(target_npc, "during conversation")
             if (
                 self.player_character.name == "Rodion Raskolnikov"

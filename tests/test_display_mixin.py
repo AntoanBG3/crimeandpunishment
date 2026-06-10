@@ -69,6 +69,25 @@ class TestDisplayMixin(unittest.TestCase):
         self.game.verbosity_level = "rich"
         self.assertEqual(self.game._apply_verbosity("All of it. Stays."), "All of it. Stays.")
 
+    def test_apply_verbosity_does_not_split_abbreviations(self):
+        self.game.verbosity_level = "brief"
+        res = self.game._apply_verbosity(
+            "He walked the St. Petersburg streets at night. Mr. Luzhin watched. A third sentence."
+        )
+        self.assertEqual(
+            res,
+            "He walked the St. Petersburg streets at night. Mr. Luzhin watched. […more]",
+        )
+
+    def test_split_sentences_abbreviations(self):
+        from game_engine.game_config import split_sentences
+
+        self.assertEqual(
+            split_sentences("You've seen much on the St. Petersburg streets. You are weary."),
+            ["You've seen much on the St. Petersburg streets.", "You are weary."],
+        )
+        self.assertEqual(split_sentences("One. Two! Three?"), ["One.", "Two!", "Three?"])
+
     def test_print_turn_header(self):
         self.game.turn_headers_enabled = False
         self.game._print_turn_header()

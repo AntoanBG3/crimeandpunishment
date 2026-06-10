@@ -16,6 +16,7 @@ from .game_config import (
     HIGHLY_NOTABLE_ITEMS_FOR_MEMORY,
     FULL_DESCRIPTION_COOLDOWN_ACTIONS,
     DEBUG_LOGS,
+    split_sentences,
 )
 from .static_fallbacks import STATIC_DREAM_SEQUENCES, STATIC_RUMORS
 from .gemini_interactions import is_usable_ai_text
@@ -219,8 +220,7 @@ class WorldManager:
                 char_data = CHARACTERS_DATA.get(name, {})
                 persona = char_data.get("persona", "")
                 if persona:
-                    sentences = persona.split(". ")
-                    blurb = ". ".join(sentences[:2]) + "."
+                    blurb = " ".join(split_sentences(persona)[:2])
                     self.game_state._print_color(f"   {blurb}", Colors.DIM)
             while True:
                 try:

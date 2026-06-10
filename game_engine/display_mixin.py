@@ -10,7 +10,7 @@ from rich.table import Table
 from rich.text import Text
 
 from . import terminal
-from .game_config import Colors, DEFAULT_ITEMS
+from .game_config import Colors, DEFAULT_ITEMS, split_sentences
 from .static_fallbacks import STATIC_ATMOSPHERIC_DETAILS
 from .gemini_interactions import is_usable_ai_text
 
@@ -75,7 +75,7 @@ class DisplayMixin:
         paragraphs = [p.strip() for p in re.split(r"\n\s*\n", normalized) if p.strip()]
         first_paragraph = paragraphs[0]
         if self.verbosity_level == "brief":
-            sentences = re.split(r"(?<=[.!?])\s+", first_paragraph)
+            sentences = split_sentences(first_paragraph)
             selected = " ".join(sentences[:2])
         else:  # standard
             selected = first_paragraph

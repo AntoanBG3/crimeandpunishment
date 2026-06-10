@@ -1,6 +1,7 @@
 # game_config.py
 import json
 import logging
+import re
 import sys
 import os
 
@@ -25,6 +26,37 @@ def get_data_path(relative_path):
             print(f"Found it at alt_p: {alt_p}")
             return alt_p
     return p
+
+
+# Abbreviations that end with a period but do not end a sentence. Used by
+# split_sentences so "St. Petersburg" or "Mr. Luzhin" never get cut in half.
+_NON_TERMINAL_ABBREVIATIONS = (
+    "St.",
+    "Mr.",
+    "Mrs.",
+    "Ms.",
+    "Dr.",
+    "Prof.",
+    "etc.",
+    "i.e.",
+    "e.g.",
+)
+
+
+def split_sentences(text):
+    """Split text into sentences on .!? boundaries, abbreviation-aware.
+
+    Shared by the verbosity trimmer (DisplayMixin._apply_verbosity) and the
+    character-picker persona blurbs (WorldManager.select_player_character).
+    """
+    parts = re.split(r"(?<=[.!?])\s+", text)
+    sentences = []
+    for part in parts:
+        if sentences and sentences[-1].endswith(_NON_TERMINAL_ABBREVIATIONS):
+            sentences[-1] += " " + part
+        else:
+            sentences.append(part)
+    return sentences
 
 
 # --- ANSI Color Codes ---
