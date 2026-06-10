@@ -15,11 +15,11 @@ build/
 dist/
 *.egg-info/
 *.spec
-test_game_flow.sh
-.codex/
 
 # Testing & Coverage
 .coverage
+.coverage.*
+coverage.xml
 htmlcov/
 .pytest_cache/
 .tox/
@@ -27,6 +27,7 @@ htmlcov/
 # User-generated configuration and save files
 gemini_config.json
 gemini_config.json.*
+.env
 savegame.json
 savegame*.json
 CLAUDE.md
@@ -44,8 +45,10 @@ CLAUDE.md
 Thumbs.db
 
 # Log files and crash reports
+logs/
 *.log
 crash_report.txt
 
-# Misc
+# Local tooling and legacy scripts
 .codex/
+test_game_flow.sh

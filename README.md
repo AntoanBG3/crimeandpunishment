@@ -5,7 +5,7 @@
 
 <p align="center">
   <a href="https://github.com/AntoanBG3/crimeandpunishment/releases"><img src="https://img.shields.io/github/v/release/AntoanBG3/crimeandpunishment?style=for-the-badge&color=darkred" alt="Latest Release"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-black?style=for-the-badge" alt="MIT License"></a>
+  <a href="LICENSE.md"><img src="https://img.shields.io/badge/license-MIT-black?style=for-the-badge" alt="MIT License"></a>
   <img src="https://img.shields.io/badge/python-3.10%2B-blue?style=for-the-badge" alt="Python 3.10+">
   <img src="https://img.shields.io/badge/powered%20by-Gemini%20API-orange?style=for-the-badge" alt="Gemini API">
 </p>
@@ -53,7 +53,7 @@ cd crimeandpunishment
 # Create a virtual environment & install dependencies
 python -m venv .venv
 # On Windows
-.\venv\Scripts\activate      
+.\.venv\Scripts\activate      
 # On Linux / macOS
 # source .venv/bin/activate  
 
@@ -141,7 +141,7 @@ CrimeAndPunishment/
 ├── tests/                           # unittest suite (no network, no TTY required)
 ├── docs/                            # UX roadmap and Tier 3 design docs
 ├── requirements.txt                 # google-genai, rich, prompt_toolkit, textual
-└── LICENSE                          # MIT License
+└── LICENSE.md                       # MIT License
 ```
 
 ---
@@ -162,4 +162,4 @@ Contributions, bug reports, and features are welcome! Feel free to open an issue
 ---
 
 ## License
-This project is open-sourced under the **MIT License**. See the [LICENSE](LICENSE) file for comprehensive details.
+This project is open-sourced under the **MIT License**. See the [LICENSE](LICENSE.md) file for comprehensive details.
