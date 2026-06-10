@@ -16,16 +16,25 @@ word-wrap at `min(terminal width, 88)`, parse the ANSI codes embedded by the
 `Colors` class, and honor `NO_COLOR` / dumb terminals / piped output. The final
 emit goes through `builtins.print`, so tests keep patching the same seam.
 
-On top of that funnel: status, objectives, inventory, help, the conversation
-`history` panel, and the `saves` listing render as Rich panels/tables via
-`_print_renderable`; dialogue prints with a hanging indent via
+On top of that funnel: status, objectives, inventory, help, `map`, `journal`,
+the conversation `history` panel, and the `saves` listing render as Rich
+panels/tables/trees via `_print_renderable` (help pages when taller than the
+terminal); dialogue prints with a hanging indent via
 `write_dialogue`/`_print_dialogue`; the AI spinner is `console.status`; dreams,
 endings, and progression narration go through `write_narrative` (paragraph
 pacing, toggled with `pace on`, persisted in saves). `load` without a slot
 offers a numbered picker when several saves exist; a typed scene number
-examines the item. Piped/non-TTY input auto-skips the API-key prompt. The
-`blessed` dependency and the dead `SPINNER_FRAMES`/`SEPARATOR_LINE` constants
-are gone.
+examines the item. Piped/non-TTY input auto-skips the API-key prompt;
+Ctrl+C/Ctrl+D exit gracefully. The `blessed` dependency and the dead
+`SPINNER_FRAMES`/`SEPARATOR_LINE` constants are gone.
+
+Input is prompt_toolkit when interactive (Tab completion, persistent history,
+live bottom toolbar) and plain `input()` otherwise. While the toolbar is
+visible, the per-turn header is suppressed — `turnheaders on` brings it back
+explicitly (`turn_headers_explicit`, persisted). All UX settings (theme,
+verbosity, pace, clearscreen, turn headers, tutorial progress) persist in
+saves, and verbosity also steers AI generation length
+(`gemini_api.response_length_pref`).
 
 ## Tier 3A — prompt_toolkit input layer — DONE
 

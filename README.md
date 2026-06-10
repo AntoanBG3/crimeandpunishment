@@ -27,7 +27,8 @@ Step into 19th-century St. Petersburg and inhabit the minds of Dostoevsky's most
 - **Branching Objectives** – Experience multi-stage quest lines mirroring the novel. Help Raskolnikov *Grapple with Crime*, guide him as Sonya, or pursue the truth as Porfiry.
 - **RPG Mechanics & Skill Checks** – Utilize a D6 + Modifier system. Skills like *Persuasion*, *Observation*, and others actively determine the outcomes of key interactions.
 - **Atmospheric Generation** – The game’s text adapts dynamically based on the time of day, your exact location, and your character’s current mental state, creating unparalleled ambiance.
-- **Robust Save System** – Multiple named save slots and autosave securely preserve your progress.
+- **Robust Save System** – Multiple named save slots, autosave, and a numbered load picker preserve your progress.
+- **Polished Terminal UX** – Tab completion for commands and targets, persistent command history, a live status toolbar, word-wrapped prose, and Rich panels for status, objectives, inventory, map, and journal. Honors `NO_COLOR` and degrades gracefully when piped.
 
 ---
 
@@ -77,25 +78,33 @@ Below are the core, deterministic commands:
 
 | Action | Command | Alias / Variations | Description |
 |---|---|---|---|
-| **Observe** | `look [target]` | `l` | Examine your surroundings, a character, or an item. |
+| **Observe** | `look [at target]` | `l`, `examine` | Examine your surroundings, a character, or an item. |
 | **Travel** | `move to <place>` | `go to` | Move to a connected, adjacent location. |
+| **Map** | `map` | `where am i` | Tree of known places and the ways between them. |
+| **Actions** | `actions` | `options` | Numbered list of everything you can do right now. |
 | **Chat** | `talk to <name>` | `speak to`, `ask` | Initiate a conversation with an NPC. |
-| **Persuade** | `persuade <name>` | | Attempt a skill check to influence an NPC. |
-| **Take** | `take <item>` | `pick up`, `grab` | Add an ambient item to your inventory. |
-| **Drop** | `drop <item>` | | Leave a carried item at your current location. |
-| **Inventory** | `inventory` | `i` | View the items you are currently carrying. |
-| **Give** | `give <item> to <name>` | | Hand an item directly to an NPC. |
-| **Use** | `use <item>` | | Use or read an item from your inventory. |
-| **Status** | `status` | `stats` | Check psychological states, skills, and relationships. |
-| **Goals** | `objectives` | `quests` | Review your current missions and storyline progress. |
+| **Persuade** | `persuade <name> that <…>` | `convince` | Attempt a skill check to influence an NPC. |
+| **Take** | `take <item>` | `get`, `pick up` | Add an item from the scene to your inventory. |
+| **Drop** | `drop <item>` | `leave`, `discard` | Leave a carried item at your current location. |
+| **Inventory** | `inventory` | `i`, `inv` | View the items you are currently carrying. |
+| **Give** | `give <item> to <name>` | `offer` | Hand an item directly to an NPC. |
+| **Use / Read** | `use <item>` / `read <item>` | `use <item> on <target>` | Use or read an item from your inventory. |
+| **Status** | `status` | `char`, `profile`, `st` | Check psychological state, skills, and relationships. |
+| **Goals** | `objectives` | `goals`, `obj` | Review your current missions and storyline progress. |
 | **Ponder** | `think` | `reflect` | Generate an internal monologue reflecting your mental state. |
-| **Diary** | `journal` | | Review your securely gathered personal journal entries. |
-| **Pass Time** | `wait` | | Allow time to pass and the world to organically advance. |
-| **Progress**| `save [slot]` / `load` | | Manually manage your specific game saves. |
-| **Style** | `theme <name>` | | Switch color themes between `default`, `muted`, or `none`. |
-| **Density** | `verbosity <level>`| `density` | Adjust the amount and detail of generated text. |
+| **Diary** | `journal [filter]` | `notes` | Review journal entries; filter with `journal dreams`, `journal rumors`, … |
+| **Pass Time** | `wait` | `pass time` | Allow time to pass and the world to organically advance. |
+| **Progress** | `save [slot]` / `load [slot]` | `saves` lists slots | Manage saves; bare `load` offers a numbered picker. |
+| **More** | `more` | | Reveal the rest of the last trimmed narrative text. |
+| **Repeat** | `!!` | | Repeat your previous command. |
+| **Style** | `theme <name>` | | Switch between `default`, `high-contrast`, and `mono`. |
+| **Density** | `verbosity <level>` | `brief`, `standard`, `rich` | Adjust narrative text length (also steers the AI). |
+| **Pacing** | `pace [on\|off]` | | Reveal dreams and major beats paragraph by paragraph. |
+| **Screen** | `clearscreen [on\|off]` | | Clear the terminal when moving to a new place. |
 | **Help** | `help [category]` | | Show commands. Filter by `movement`, `social`, `items`, or `meta`. |
-| **Exit** | `quit` | `exit` | Leave the game and return to your terminal. |
+| **Exit** | `quit` | `exit`, `q` | Leave the game and return to your terminal. |
+
+Press **Tab** at the prompt to complete commands and targets; **↑/↓** browses your command history across sessions.
 
 ---
 
@@ -103,22 +112,31 @@ Below are the core, deterministic commands:
 
 ```
 CrimeAndPunishment/
-├── main.py                      # Application Entry Point
+├── main.py                          # Application entry point
 ├── game_engine/
-│   ├── game_state.py            # Core engine loop, command processing, temporal mechanics
-│   ├── character_module.py      # Entity mechanics (inventory, skills, objectives, AI memory)
-│   ├── event_manager.py         # Systems for scripted scenarios & emergent events
-│   ├── gemini_interactions.py   # Secure Google Gemini API wrapper & intent parsing
-│   ├── game_config.py           # Aesthetic configuration, constants, fallback systems
-│   └── location_module.py       # Spatial data loader and graph traversal
+│   ├── game_state.py                # Game hub: main loop, save/load, think/wait
+│   ├── terminal.py                  # Single I/O seam: Rich rendering, wrapping, prompt_toolkit input
+│   ├── completion.py                # Tab completion fed by scene context
+│   ├── display_mixin.py             # Output composition: panels, map, journal, tutorial, verbosity
+│   ├── command_handler.py           # Parsing, target matching, the dispatch table
+│   ├── item_interaction_handler.py  # take/drop/use/give/read and the scene listing
+│   ├── npc_interaction_handler.py   # talk to / persuade / confess
+│   ├── world_manager.py             # Time, schedules, movement, dreams, endings
+│   ├── event_manager.py             # Scripted scenarios & emergent events
+│   ├── objective_progression.py     # Data-driven objective stage advancement
+│   ├── gemini_interactions.py       # Google Gemini API wrapper & intent parsing
+│   ├── static_fallbacks.py          # Offline narrative fallbacks for every AI call
+│   ├── character_module.py          # Entity mechanics (inventory, skills, objectives, memory)
+│   ├── game_config.py               # Colors/themes, constants, COMMAND_SYNONYMS
+│   └── location_module.py           # Spatial data loader
 ├── data/
-│   ├── characters.json          # Protagonist specifications & NPC definitions
-│   ├── items.json               # Item catalogues outlining properties & mechanical effects
-│   └── locations.json           # Graphical map of St. Petersburg connections
-├── tests/                       # Automated Pytest suite for deterministic verification
-├── docs/                        # Foundational design documents & architecture schemas
-├── requirements.txt             # Virtual environment dependencies
-└── LICENSE                      # Open-source MIT License
+│   ├── characters.json              # Protagonist specifications & NPC definitions
+│   ├── items.json                   # Item catalogue: properties & mechanical effects
+│   └── locations.json               # Map of St. Petersburg connections
+├── tests/                           # unittest suite (no network, no TTY required)
+├── docs/                            # UX roadmap and Tier 3 design docs
+├── requirements.txt                 # google-genai, rich, prompt_toolkit
+└── LICENSE                          # MIT License
 ```
 
 ---
@@ -127,8 +145,8 @@ CrimeAndPunishment/
 To ensure the engine logic and deterministic behaviors remain fully functional during development:
 
 ```bash
-pip install pytest coverage
-python -m unittest discover tests
+python -m unittest discover tests          # full suite
+coverage run -m unittest discover tests && coverage report
 ```
 
 ---

@@ -180,15 +180,39 @@ synchronous loop.
 
 ---
 
-## 3B — Full TUI with Textual (4–8 weeks; reassess after 3A ships)
+## 3B — Full TUI with Textual (4–8 weeks; the only remaining tier)
 
 ### Honest framing
 
 This is a refactor, not a port. Textual is async and event-driven; the game
 is a blocking loop that prints imperatively from deep call stacks
 (`event_manager` actions, `world_manager` validation, nested conversation
-loops). The saving grace is that Tiers 1–2 funneled **all** I/O through
+loops). The saving grace is that Tiers 1–3 funneled **all** I/O through
 `terminal.py`, so the adapter has exactly one seam to intercept.
+
+### The seam as it exists today (post-3A/3C — read before designing)
+
+`terminal.py`'s full surface, every function of which the Textual backend
+must map or consciously no-op:
+
+| Function | Console behavior today | Textual mapping |
+|---|---|---|
+| `write_line(text, color, end)` | Rich-render + `print()` | `RichLog.write` via `call_from_thread` |
+| `write_dialogue(text)` | hanging-indent variant | same pane, keep the indent or use CSS padding |
+| `write_narrative(text)` | paragraph pacing when `pace on` | timed `RichLog.write` calls or skip pacing |
+| `write_renderable(r, allow_paging)` | panels/tables/trees; system pager when tall | `RichLog.write(r)`; paging is free (pane scrolls) |
+| `read_line(prompt, color, completion)` | `PromptSession` (TTY) / `input()` | block worker on a queue fed by `Input` widget |
+| `set_completer_provider` / `set_toolbar_provider` | prompt_toolkit completer + bottom toolbar | feed Textual `Input` autocomplete + a status bar widget |
+| `toolbar_active()` | suppresses the per-turn header | return True in TUI mode (status bar is persistent) |
+| `status(message)` | Rich spinner | `LoadingIndicator` / status-bar text |
+| `clear_screen()` | `console.clear()` on move (`clearscreen on`) | insert a rule/marker in the log instead |
+| `ensure_blank_line` / `separator` / `render_width` | rhythm + width helpers | pane-internal equivalents |
+
+prompt_toolkit interplay: in TUI mode the `PromptSession` path must not be
+used at all (Textual owns the event loop and the keyboard); the
+`GameCompleter` logic in `completion.py` is UI-agnostic enough to reuse for
+an `Input` autocomplete dropdown, but the prompt_toolkit `Completion`
+objects would need a thin adapter.
 
 ### Architecture: worker-thread adapter
 
