@@ -250,7 +250,9 @@ class NPCInteractionHandler:
                     # static line so the NPC never speaks OOC text verbatim.
                     ai_response = random.choice(_NPC_FALLBACK_LINES)
                     used_ai_dialogue = False
-                ai_response = self._apply_verbosity(ai_response)
+                # NPC dialogue is never hard-trimmed: verbosity steers the AI's
+                # length instruction instead (response_length_pref), so a long
+                # reply prints whole rather than cut off with [...more].
                 target_npc.update_relationship(
                     player_dialogue,
                     POSITIVE_KEYWORDS,
@@ -369,7 +371,7 @@ class NPCInteractionHandler:
             # static line the no-model path uses rather than speaking OOC text.
             ai_response = _persuade_fallback
             used_ai_dialogue = False
-        ai_response = self._apply_verbosity(ai_response)
+        # Dialogue is steered by the AI length instruction, never hard-trimmed.
         self._print_dialogue(target_npc.name, f'"{ai_response}"')
         if used_ai_dialogue:
             self._remember_ai_output(ai_response, "persuasion_dialogue")

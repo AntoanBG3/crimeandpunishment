@@ -154,6 +154,17 @@ class TestNPCInteractionHandler(unittest.TestCase):
         self.game._handle_talk_to_command("Porfiry")
         self.mock_print_color.assert_any_call(f"{Colors.DIM}(Using placeholder dialogue){Colors.RESET}", Colors.DIM)
 
+    def test_npc_dialogue_is_never_hard_trimmed(self):
+        # Verbosity steers the AI length instruction; a long reply that comes
+        # back anyway prints whole, never cut off with [...more].
+        self.game.verbosity_level = "brief"
+        long_reply = "One sentence. Two sentences. Three sentences. Four sentences."
+        self.game.gemini_api.get_npc_dialogue = MagicMock(return_value=long_reply)
+        self.game._print_dialogue = MagicMock()
+        self.mock_input_color.side_effect = ["Hello", "Farewell"]
+        self.game._handle_talk_to_command("Porfiry")
+        self.game._print_dialogue.assert_any_call("Porfiry Petrovich", f'"{long_reply}"')
+
     def test_talk_to_uses_location_greeting(self):
         self.npc.location_greetings = {"Room": "Sit down, my friend, sit down."}
         self.game._print_dialogue = MagicMock()
