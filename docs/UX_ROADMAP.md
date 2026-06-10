@@ -65,6 +65,10 @@ Classic console mode remains the default; the TUI is opt-in via
 `App.run_test()` (`tests/test_tui.py`). PyInstaller builds that include the
 TUI need `--collect-all textual`.
 
+Next step: [TUI_PARITY_PLAN.md](TUI_PARITY_PLAN.md) — close the remaining
+console/TUI gaps (completion, history, non-TTY fallback, safe shutdown, key
+masking), then flip the TUI to the default mode.
+
 ## Tier 3C — Gameplay/design UX — DONE
 
 Implemented: `map` (tree of known places, unvisited dimmed), `journal` as a
