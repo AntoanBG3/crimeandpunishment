@@ -5,6 +5,12 @@ Rich does the rendering work: word-wrapping at the terminal width (capped to
 MAX_TEXT_WIDTH), parsing the ANSI color codes that call sites embed via the
 Colors class, and honoring NO_COLOR / dumb terminals / piped output. The final
 emit still goes through builtins.print so tests can keep patching it.
+
+A UI backend can be installed with set_backend() (the Textual TUI does this);
+when one is active, output is handed to the backend as Rich renderables and
+input blocks on the backend instead of the console. With no backend (the
+default, and always the case under tests), behavior is the classic console
+path described above.
 """
 
 import contextlib
@@ -21,9 +27,25 @@ MIN_TEXT_WIDTH = 40
 
 _console = Console(highlight=False, soft_wrap=False)
 
+# Active UI backend; None means the classic console path. A backend must
+# provide: emit(renderable), read(prompt_text) -> str, clear(),
+# status(message) -> context manager, status_refresh().
+_backend = None
+
 # Tracks whether the last emitted line was blank, so blocks can guarantee a
 # single separating blank line without ever stacking two.
 _last_line_blank = True
+
+
+def set_backend(backend):
+    """Install (or with None, remove) a UI backend such as the Textual TUI."""
+    global _backend
+    _backend = backend
+
+
+def get_backend():
+    return _backend
+
 
 # Optional paragraph-by-paragraph reveal for major narrative beats (dreams,
 # endings). Off by default; toggled by the 'pace' command.
@@ -54,6 +76,10 @@ def _render(text, color=""):
 def write_line(text, color="", end="\n"):
     global _last_line_blank
     rich_text = _render("" if text is None else str(text), color)
+    if _backend is not None:
+        _backend.emit(rich_text)
+        _last_line_blank = not rich_text.plain.strip()
+        return
     with _console.capture() as capture:
         _console.print(rich_text, end=end, width=render_width())
     print(capture.get(), end="")
@@ -70,6 +96,11 @@ def write_renderable(renderable, allow_paging=False):
     With allow_paging, output taller than the terminal goes through the
     system pager (plain text) instead of scrolling past."""
     global _last_line_blank
+    if _backend is not None:
+        # The TUI log pane scrolls, so paging is unnecessary there.
+        _backend.emit(renderable)
+        _last_line_blank = False
+        return
     with _console.capture() as capture:
         _console.print(renderable, width=render_width())
     rendered = capture.get()
@@ -88,6 +119,9 @@ def write_renderable(renderable, allow_paging=False):
 
 
 def clear_screen():
+    if _backend is not None:
+        _backend.clear()
+        return
     if _console.is_terminal:
         _console.clear()
 
@@ -95,7 +129,8 @@ def clear_screen():
 def write_narrative(text, color=""):
     """Reveal long narrative beats paragraph by paragraph when pacing is on."""
     paragraphs = [p.strip() for p in re.split(r"\n\s*\n", str(text)) if p.strip()]
-    if not (narrative_pace_enabled and _console.is_terminal) or len(paragraphs) <= 1:
+    interactive = _backend is not None or _console.is_terminal
+    if not (narrative_pace_enabled and interactive) or len(paragraphs) <= 1:
         write_line(text, color)
         return
     for index, paragraph in enumerate(paragraphs):
@@ -112,6 +147,11 @@ def write_dialogue(text, color=""):
     """Print a dialogue line with a hanging indent on wrapped continuation lines."""
     global _last_line_blank
     rich_text = _render("" if text is None else str(text), color)
+    if _backend is not None:
+        # The log pane wraps at its own width; skip the manual indent.
+        _backend.emit(rich_text)
+        _last_line_blank = not rich_text.plain.strip()
+        return
     indent = " " * DIALOGUE_HANGING_INDENT
     with _console.capture() as capture:
         _console.print(rich_text, end="\n", width=render_width() - DIALOGUE_HANGING_INDENT)
@@ -147,8 +187,20 @@ def set_toolbar_provider(provider):
 
 
 def toolbar_active():
-    """True when the live bottom toolbar is being shown to the player."""
+    """True when a live status line is being shown to the player."""
+    if _backend is not None:
+        return True
     return _toolbar_provider is not None and _interactive_input_supported()
+
+
+def toolbar_text():
+    """Current toolbar/status-bar text, or None when no provider is set."""
+    if _toolbar_provider is None:
+        return None
+    try:
+        return _toolbar_provider()
+    except Exception:
+        return None
 
 
 def _interactive_input_supported():
@@ -171,6 +223,9 @@ def _get_session():
 def read_line(prompt_text, color="", completion=True):
     global _last_line_blank
     rich_text = _render(str(prompt_text), color)
+    if _backend is not None:
+        _last_line_blank = False
+        return _backend.read(rich_text.plain)
     with _console.capture() as capture:
         _console.print(rich_text, end="", width=render_width())
     rendered = capture.get()
@@ -208,6 +263,8 @@ def renderable_to_text(renderable, width=80):
 
 def status(message):
     """Transient spinner while the AI generates; silent when not a terminal."""
+    if _backend is not None:
+        return _backend.status(message)
     if not _console.is_terminal:
         return contextlib.nullcontext()
     return _console.status(f"[dim magenta]{message}[/]", spinner="dots")

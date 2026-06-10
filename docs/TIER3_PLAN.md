@@ -1,10 +1,11 @@
 # Tier 3 — Detailed Implementation Plan
 
-Tier 1 (foundation: wrapping, dedup, compact scene UI, minimal prompt) and
-Tier 2 (Rich presentation layer: panels, tables, rules, status spinner,
-paced narrative) are implemented. This document specifies the remaining,
-most ambitious tier in enough detail to start work directly. It assumes the
-current architecture:
+All of Tier 3 is now implemented (3A prompt_toolkit input, 3B Textual TUI,
+3C gameplay UX), on top of Tier 1 (foundation: wrapping, dedup, compact scene
+UI, minimal prompt) and Tier 2 (Rich presentation layer: panels, tables,
+rules, status spinner, paced narrative). This document is kept as the design
+record: each track opens with a summary of what shipped, followed by the
+original plan. It assumes the current architecture:
 
 - **All terminal I/O flows through `game_engine/terminal.py`**: `write_line`
   (wrapped, ANSI-parsed output), `write_renderable` (Rich panels/tables),
@@ -180,7 +181,38 @@ synchronous loop.
 
 ---
 
-## 3B — Full TUI with Textual (4–8 weeks; the only remaining tier)
+## 3B — Full TUI with Textual — DONE
+
+Implemented per the design below. What shipped:
+
+- **Backend seam in `terminal.py`**: `set_backend(backend)` / `get_backend()`.
+  A backend provides `emit(renderable)`, `read(prompt_text)`, `clear()`, and
+  `status(message)` (a context manager). With no backend — the default, and
+  always the case under tests — every function takes the classic console path
+  unchanged, so the existing suite needed zero edits.
+- **`game_engine/tui_app.py`**: `TextualBackend` + `CrimeAndPunishmentApp`
+  (RichLog narrative pane, one-line status bar, Input widget). The blocking
+  game loop runs in a daemon thread; output crosses threads via
+  `call_from_thread`; input blocks on a queue; a `_QUIT` sentinel raises
+  `EOFError` in the game thread at shutdown. The status bar doubles as the
+  toolbar (`toolbar_active()` returns True, keeping the per-turn header
+  suppressed) and as the AI "thinking" indicator; `clear_screen()` becomes a
+  rule in the log; the pager and the prompt_toolkit `PromptSession` are
+  bypassed entirely (the pane scrolls; Textual owns the keyboard).
+- **Entry point**: classic console stays the default; `python main.py --tui`
+  or `CRIME_TUI=1` opts in (with a graceful warning if textual is missing).
+- **Tests** (`tests/test_tui.py`): backend-seam delegation tests with a fake
+  backend, plus real-app tests via `App.run_test()` (round trip, quit
+  sentinel, status message lifecycle).
+- **Packaging**: `textual` added to `requirements.txt`; PyInstaller builds
+  including the TUI need `--collect-all textual`.
+
+Deliberately deferred polish: completion inside the Textual `Input`, a
+command palette fed by `COMMAND_SYNONYMS`, and a richer sidebar (objectives /
+inventory snapshot) — the one-line status bar carries the same content as the
+console toolbar.
+
+The original design follows for reference.
 
 ### Honest framing
 

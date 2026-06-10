@@ -1,9 +1,8 @@
-# UX Roadmap — Leftover Tasks
+# UX Roadmap — Status
 
-Tier 1 (foundation), Tier 2 (Rich presentation layer), Tier 3A (prompt_toolkit
-input layer), and all of the smaller items discovered along the way are
-implemented, as is all of Tier 3C. The only remaining roadmap item is the
-optional Textual TUI (3B).
+Every tier is implemented: Tier 1 (foundation), Tier 2 (Rich presentation
+layer), Tier 3A (prompt_toolkit input layer), Tier 3B (optional Textual TUI),
+Tier 3C (gameplay UX), and all of the smaller items discovered along the way.
 
 > **See [TIER3_PLAN.md](TIER3_PLAN.md) for the extensive, step-by-step Tier 3
 > implementation plan** (architecture sketches, file-level changes, testing and
@@ -48,17 +47,23 @@ NPCs after `talk to`/`persuade`, scene items after `take`, inventory after
 completion inside conversations (free-form dialogue). Bottom toolbar shows the
 same day/period/location/state line as the turn header (`_status_line_text`).
 
-## Tier 3B — Full TUI with Textual (4–8 weeks, reassess after 3A)
+## Tier 3B — Full TUI with Textual — DONE
 
-A refactor, not a port: run the blocking game loop in a worker thread;
-`terminal.write_line` posts to a scrollable `RichLog` pane via
-`call_from_thread`; input arrives through a queue from an `Input` widget.
-Thanks to the `terminal.py` funnel this touches only that module plus a new
-`tui_app.py`. Layout: narrative log, status sidebar, input bar, command
-palette. Costs: input-mocking tests break for TUI mode (keep plain console as
-the default/test mode with a `--no-tui` fallback); PyInstaller needs
-`--collect-all textual`. 3A delivers most of the felt gain at a fraction of the
-cost — only do this if the ambition justifies it.
+Implemented as designed: `terminal.py` gained a backend seam
+(`set_backend`/`get_backend`); with no backend installed (the default, and
+always the case under tests) every function behaves exactly as before, so the
+whole existing suite runs untouched. `game_engine/tui_app.py` provides
+`TextualBackend` plus the app: the blocking game loop runs unchanged in a
+daemon worker thread, output posts to a scrollable `RichLog` pane via
+`call_from_thread`, input blocks the game thread on a queue fed by the `Input`
+widget (a quit sentinel unblocks it at shutdown), the persistent status bar
+replaces the prompt_toolkit toolbar (`toolbar_active()` is True, so the
+per-turn header stays suppressed), the AI spinner becomes a status-bar
+message, and `clearscreen on` inserts a rule in the log instead of clearing.
+Classic console mode remains the default; the TUI is opt-in via
+`python main.py --tui` or `CRIME_TUI=1`. TUI tests drive the real app with
+`App.run_test()` (`tests/test_tui.py`). PyInstaller builds that include the
+TUI need `--collect-all textual`.
 
 ## Tier 3C — Gameplay/design UX — DONE
 
