@@ -59,6 +59,32 @@ class TestGameCompleter(unittest.TestCase):
         completer = GameCompleter(MagicMock(side_effect=RuntimeError("boom")))
         self.assertEqual(_completions(completer, "talk to so"), [])
 
+    def test_candidates_pairs_with_start_positions(self):
+        # The pure path the TUI's Tab cycling consumes.
+        self.assertEqual(
+            self.completer.candidates("talk to so"),
+            [("Sonya Marmeladova", -2)],
+        )
+        verb_results = self.completer.candidates("ta")
+        self.assertIn(("take", -2), verb_results)
+        self.assertIn(("talk to", -2), verb_results)
+
+    def test_terminal_completion_candidates_accessor(self):
+        terminal.set_completer_provider(lambda: self.completer)
+        self.addCleanup(terminal.set_completer_provider, None)
+        self.assertEqual(
+            terminal.completion_candidates("talk to so"),
+            [("Sonya Marmeladova", -2)],
+        )
+
+    def test_terminal_completion_candidates_without_provider(self):
+        self.assertEqual(terminal.completion_candidates("ta"), [])
+
+    def test_terminal_completion_candidates_swallows_errors(self):
+        terminal.set_completer_provider(lambda: 1 / 0)
+        self.addCleanup(terminal.set_completer_provider, None)
+        self.assertEqual(terminal.completion_candidates("ta"), [])
+
 
 class TestInteractiveInputWiring(unittest.TestCase):
     def test_read_line_falls_back_to_input_when_not_a_tty(self):

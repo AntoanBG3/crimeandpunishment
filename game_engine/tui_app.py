@@ -46,8 +46,8 @@ class TextualBackend:
     def emit(self, renderable):
         self._post(self.app.write_log, renderable)
 
-    def read(self, prompt_text):
-        self._post(self.app.show_prompt, prompt_text)
+    def read(self, prompt_text, completion=True):
+        self._post(self.app.show_prompt, prompt_text, completion)
         line = self.input_queue.get()
         if line is _QUIT:
             raise EOFError
@@ -72,6 +72,53 @@ def _default_runner():
     Game().run()
 
 
+class CommandInput(Input):
+    """Input with Tab-cycling completion fed by the game's scene context.
+
+    First Tab completes from terminal.completion_candidates (the same
+    provider the console's prompt_toolkit completer uses); repeated Tabs
+    cycle through the candidates; any other key resets the cycle. The
+    conversation loop disables completion via completion_enabled (the
+    read(..., completion=False) flag crossing the backend seam).
+    """
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.completion_enabled = True
+        self._cycle_base = None
+        self._cycle_candidates = []
+        self._cycle_index = -1
+
+    def on_key(self, event):
+        if event.key == "tab" and self.completion_enabled:
+            event.stop()
+            event.prevent_default()
+            self._cycle_completion()
+            return
+        self._reset_cycle()
+
+    def _cycle_completion(self):
+        if self._cycle_base is None:
+            candidates = terminal.completion_candidates(self.value)
+            if not candidates:
+                return
+            self._cycle_base = self.value
+            self._cycle_candidates = candidates
+            self._cycle_index = -1
+        self._cycle_index = (self._cycle_index + 1) % len(self._cycle_candidates)
+        candidate, start = self._cycle_candidates[self._cycle_index]
+        # prompt_toolkit semantics: the candidate replaces the last -start
+        # characters of the original input.
+        cut = len(self._cycle_base) + start
+        self.value = self._cycle_base[:cut] + candidate
+        self.cursor_position = len(self.value)
+
+    def _reset_cycle(self):
+        self._cycle_base = None
+        self._cycle_candidates = []
+        self._cycle_index = -1
+
+
 class CrimeAndPunishmentApp(App):
     TITLE = "Crime and Punishment"
 
@@ -92,7 +139,7 @@ class CrimeAndPunishmentApp(App):
     def compose(self):
         yield RichLog(wrap=True, markup=False, highlight=False, min_width=20, id="log")
         yield Static("", id="statusbar")
-        yield Input(placeholder="What do you do?", id="commandline")
+        yield CommandInput(placeholder="What do you do?", id="commandline")
 
     def on_mount(self):
         terminal.set_backend(self.backend)
@@ -113,10 +160,12 @@ class CrimeAndPunishmentApp(App):
     def write_log(self, renderable):
         self.query_one("#log", RichLog).write(renderable)
 
-    def show_prompt(self, prompt_text):
+    def show_prompt(self, prompt_text, completion=True):
         self.refresh_status_bar()
         prompt = str(prompt_text).strip() or ">"
-        self.query_one(Input).placeholder = prompt
+        command_input = self.query_one(CommandInput)
+        command_input.placeholder = prompt
+        command_input.completion_enabled = completion
 
     def refresh_status_bar(self):
         status_text = terminal.toolbar_text()

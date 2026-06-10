@@ -28,8 +28,8 @@ MIN_TEXT_WIDTH = 40
 _console = Console(highlight=False, soft_wrap=False)
 
 # Active UI backend; None means the classic console path. A backend must
-# provide: emit(renderable), read(prompt_text) -> str, clear(),
-# status(message) -> context manager, status_refresh().
+# provide: emit(renderable), read(prompt_text, completion=True) -> str,
+# clear(), status(message) -> context manager.
 _backend = None
 
 # Tracks whether the last emitted line was blank, so blocks can guarantee a
@@ -186,6 +186,23 @@ def set_toolbar_provider(provider):
     _toolbar_provider = provider
 
 
+def completion_candidates(text_before_cursor):
+    """(candidate, start_position) pairs from the registered completer.
+
+    The TUI's Tab cycling goes through here so both UIs complete from the
+    same scene context. Returns [] when no provider is registered.
+    """
+    if _completer_provider is None:
+        return []
+    try:
+        completer = _completer_provider()
+        if completer is None:
+            return []
+        return completer.candidates(text_before_cursor)
+    except Exception:
+        return []
+
+
 def toolbar_active():
     """True when a live status line is being shown to the player."""
     if _backend is not None:
@@ -225,7 +242,7 @@ def read_line(prompt_text, color="", completion=True):
     rich_text = _render(str(prompt_text), color)
     if _backend is not None:
         _last_line_blank = False
-        return _backend.read(rich_text.plain)
+        return _backend.read(rich_text.plain, completion=completion)
     with _console.capture() as capture:
         _console.print(rich_text, end="", width=render_width())
     rendered = capture.get()

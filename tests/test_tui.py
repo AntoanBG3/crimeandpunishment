@@ -16,6 +16,7 @@ class FakeBackend:
     def __init__(self):
         self.emitted = []
         self.read_prompts = []
+        self.read_completion_flags = []
         self.read_replies = []
         self.cleared = 0
         self.status_messages = []
@@ -23,8 +24,9 @@ class FakeBackend:
     def emit(self, renderable):
         self.emitted.append(renderable)
 
-    def read(self, prompt_text):
+    def read(self, prompt_text, completion=True):
         self.read_prompts.append(prompt_text)
+        self.read_completion_flags.append(completion)
         return self.read_replies.pop(0) if self.read_replies else ""
 
     def clear(self):
@@ -73,6 +75,12 @@ class TestTerminalBackendSeam(unittest.TestCase):
         mock_input.assert_not_called()
         self.assertEqual(result, "look")
         self.assertEqual(self.backend.read_prompts, ["> "])
+        self.assertEqual(self.backend.read_completion_flags, [True])
+
+    def test_read_line_completion_flag_crosses_the_seam(self):
+        self.backend.read_replies.append("hello")
+        terminal.read_line("You: ", "", completion=False)
+        self.assertEqual(self.backend.read_completion_flags, [False])
 
     def test_clear_screen_routes_to_backend(self):
         terminal.clear_screen()
@@ -165,6 +173,56 @@ class TestTextualApp(unittest.IsolatedAsyncioTestCase):
             await app.action_quit()
         app._game_thread.join(timeout=2)
         self.assertTrue(outcome.get("eof"))
+
+    async def test_tab_completion_cycles_in_input(self):
+        from game_engine.completion import GameCompleter
+        from game_engine.tui_app import CrimeAndPunishmentApp
+
+        terminal.set_completer_provider(
+            lambda: GameCompleter(lambda: {"items": ["apple", "axe"]})
+        )
+        self.addCleanup(terminal.set_completer_provider, None)
+
+        def stub_game():
+            terminal.read_line("> ")  # park; completion stays enabled
+
+        app = CrimeAndPunishmentApp(game_runner=stub_game)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.2)
+            command_input = app.query_one("CommandInput")
+            command_input.value = "take a"
+            command_input.cursor_position = len(command_input.value)
+            await pilot.press("tab")
+            self.assertEqual(command_input.value, "take apple")
+            await pilot.press("tab")
+            self.assertEqual(command_input.value, "take axe")
+            await pilot.press("tab")  # wraps around
+            self.assertEqual(command_input.value, "take apple")
+            # Typing resets the cycle.
+            await pilot.press("x")
+            self.assertIsNone(command_input._cycle_base)
+
+    async def test_tab_does_nothing_when_completion_disabled(self):
+        from game_engine.completion import GameCompleter
+        from game_engine.tui_app import CrimeAndPunishmentApp
+
+        terminal.set_completer_provider(
+            lambda: GameCompleter(lambda: {"items": ["apple"]})
+        )
+        self.addCleanup(terminal.set_completer_provider, None)
+
+        def stub_game():
+            terminal.read_line("You: ", completion=False)  # dialogue mode
+
+        app = CrimeAndPunishmentApp(game_runner=stub_game)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.2)
+            command_input = app.query_one("CommandInput")
+            self.assertFalse(command_input.completion_enabled)
+            command_input.value = "take a"
+            command_input.cursor_position = len(command_input.value)
+            await pilot.press("tab")
+            self.assertEqual(command_input.value, "take a")
 
     async def test_status_message_shows_and_clears(self):
         from game_engine.tui_app import CrimeAndPunishmentApp

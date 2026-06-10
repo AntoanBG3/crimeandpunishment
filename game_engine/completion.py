@@ -6,6 +6,10 @@ context dict that powers NLP interpretation and tutorial hints: the first
 word completes from COMMAND_SYNONYMS (canonical commands and aliases), and
 after a recognized verb the argument completes from what is actually in the
 scene (NPCs, items, inventory, exits).
+
+The core logic is the pure completion_candidates() function, shared by the
+prompt_toolkit GameCompleter (console) and the Textual Input's Tab cycling
+(TUI, via terminal.completion_candidates).
 """
 
 from prompt_toolkit.completion import Completer, Completion
@@ -38,39 +42,59 @@ def _command_words():
     return pairs
 
 
+def _argument_candidates(context, canonical):
+    candidates = []
+    for pool_key in _ARGUMENT_POOLS.get(canonical, ()):
+        values = context.get(pool_key, [])
+        if pool_key == "exits":
+            values = [exit_info.get("name", "") for exit_info in values]
+        candidates.extend(v for v in values if v)
+    return candidates
+
+
+def completion_candidates(text_before_cursor, context):
+    """Completions for the given input as (candidate, start_position) pairs.
+
+    start_position is non-positive, with prompt_toolkit semantics: the
+    candidate replaces the last -start_position characters of the input.
+    """
+    text = text_before_cursor.lstrip().lower()
+    words = _command_words()
+    # Argument position: text starts with a known command word + space.
+    for word, canonical in words:
+        if text.startswith(word + " "):
+            partial = text[len(word) + 1:]
+            return [
+                (candidate, -len(partial))
+                for candidate in _argument_candidates(context, canonical)
+                if candidate.lower().startswith(partial)
+            ]
+    # Verb position: complete the command word itself.
+    if " " in text:
+        return []
+    results = []
+    seen = set()
+    for word, _canonical in sorted(words):
+        if word.startswith(text) and word not in seen:
+            seen.add(word)
+            results.append((word, -len(text)))
+    return results
+
+
 class GameCompleter(Completer):
     def __init__(self, context_provider):
         self._context_provider = context_provider
-        self._words = _command_words()
 
-    def _argument_candidates(self, canonical):
+    def _context(self):
         try:
-            context = self._context_provider()
+            return self._context_provider()
         except Exception:
-            return []
-        candidates = []
-        for pool_key in _ARGUMENT_POOLS.get(canonical, ()):
-            values = context.get(pool_key, [])
-            if pool_key == "exits":
-                values = [exit_info.get("name", "") for exit_info in values]
-            candidates.extend(v for v in values if v)
-        return candidates
+            return {}
+
+    def candidates(self, text_before_cursor):
+        """(candidate, start_position) pairs; the TUI's Tab cycling uses this."""
+        return completion_candidates(text_before_cursor, self._context())
 
     def get_completions(self, document, complete_event):
-        text = document.text_before_cursor.lstrip().lower()
-        # Argument position: text starts with a known command word + space.
-        for word, canonical in self._words:
-            if text.startswith(word + " "):
-                partial = text[len(word) + 1 :]
-                for candidate in self._argument_candidates(canonical):
-                    if candidate.lower().startswith(partial):
-                        yield Completion(candidate, start_position=-len(partial))
-                return
-        # Verb position: complete the command word itself.
-        if " " in text:
-            return
-        seen = set()
-        for word, _canonical in sorted(self._words):
-            if word.startswith(text) and word not in seen:
-                seen.add(word)
-                yield Completion(word, start_position=-len(text))
+        for candidate, start in self.candidates(document.text_before_cursor):
+            yield Completion(candidate, start_position=start)
