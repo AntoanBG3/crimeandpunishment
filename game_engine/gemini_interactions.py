@@ -166,7 +166,12 @@ class GeminiAPI:
                 )
             )
             return True
-        spec = importlib.util.find_spec("google.genai")
+        try:
+            # Raises ModuleNotFoundError (not None) when the "google"
+            # namespace package itself is absent, e.g. in a frozen build.
+            spec = importlib.util.find_spec("google.genai")
+        except ModuleNotFoundError:
+            spec = None
         if spec is None:
             if not self._genai_warning_shown:
                 self._log_message(

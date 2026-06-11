@@ -50,5 +50,22 @@ class TestChooseMode(unittest.TestCase):
         self.assertEqual(_choose(argv=["--no-tui"], default="tui"), "console")
 
 
+class TestVersionFlag(unittest.TestCase):
+    def test_version_prints_and_exits_without_starting_the_game(self):
+        import subprocess
+
+        from game_engine.game_config import GAME_VERSION
+
+        result = subprocess.run(
+            [sys.executable, os.path.join(project_root, "main.py"), "--version"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertIn(f"Crime and Punishment {GAME_VERSION}", result.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()

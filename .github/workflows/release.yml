@@ -1,0 +1,122 @@
+name: Release
+
+# Builds the three platform executables and attaches them to a draft GitHub
+# release. Triggered by pushing a version tag (plain "1.2.0", no "v" prefix,
+# matching the existing release history) or manually via workflow_dispatch
+# to rehearse the matrix without tagging.
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+*"
+  workflow_dispatch:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run test suite
+        run: python -m unittest discover tests
+      - name: Lint
+        if: runner.os == 'Linux'
+        run: |
+          pip install flake8 pylint
+          flake8 .
+          pylint game_engine
+
+  build:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: crimeandpunishment-linux
+            binary: crimeandpunishment-linux
+            data_sep: ":"
+          - os: macos-latest
+            name: crimeandpunishment-macos
+            binary: crimeandpunishment-macos
+            data_sep: ":"
+          - os: windows-latest
+            name: crimeandpunishment-windows
+            binary: crimeandpunishment-windows.exe
+            data_sep: ";"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install dependencies
+        run: pip install -r requirements.txt pyinstaller
+      - name: Check tag matches GAME_VERSION
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          python -c "
+          import os
+          from game_engine.game_config import GAME_VERSION
+          tag = os.environ['GITHUB_REF_NAME']
+          assert tag == GAME_VERSION, f'tag {tag!r} != GAME_VERSION {GAME_VERSION!r}'
+          "
+      - name: Build executable
+        # --collect-all textual is required: Textual ships CSS/data files the
+        # TUI (now the default UI) needs at runtime. google.genai is only ever
+        # imported dynamically (find_spec + import_module), so PyInstaller's
+        # static analysis misses it entirely without the explicit collection.
+        run: >
+          pyinstaller --onefile --name ${{ matrix.name }}
+          --collect-all textual
+          --collect-submodules google.genai
+          --hidden-import google.genai
+          --copy-metadata google-genai
+          --add-data "data${{ matrix.data_sep }}data"
+          main.py
+      - name: Smoke-test the frozen binary
+        # Piped stdin exercises the non-TTY console fallback end to end:
+        # decline load, pick Raskolnikov, look, quit without saving.
+        shell: bash
+        run: |
+          ./dist/${{ matrix.binary }} --version
+          out=$(printf '\n1\nlook\nquit\nn\n' | ./dist/${{ matrix.binary }} 2>&1)
+          for marker in "Choose Your Character" "Raskolnikov's Garret" "Exiting game. Goodbye."; do
+            if ! grep -q "$marker" <<<"$out"; then
+              echo "MISSING MARKER: $marker"
+              echo "--- transcript tail ---"; tail -40 <<<"$out"
+              exit 1
+            fi
+          done
+          echo "SMOKE OK"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: dist/${{ matrix.binary }}
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Create draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          generate_release_notes: true
+          files: dist/*

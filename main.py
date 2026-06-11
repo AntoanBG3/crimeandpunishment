@@ -3,7 +3,18 @@ import importlib.util
 import os
 import sys
 
-if importlib.util.find_spec("google.genai") is None:
+
+def _package_available(name):
+    # find_spec raises ModuleNotFoundError (rather than returning None) when a
+    # dotted name's parent package is absent — e.g. "google.genai" with no
+    # "google" at all, the usual case in a frozen build without the SDK.
+    try:
+        return importlib.util.find_spec(name) is not None
+    except ModuleNotFoundError:
+        return False
+
+
+if not _package_available("google.genai"):
     print("\n[WARNING] 'google-genai' package is not installed.")
     print("[WARNING] The game will run in fallback deterministic mode without AI features.\n")
 
@@ -37,13 +48,18 @@ def choose_mode(argv=None, environ=None):
         if requested:
             print("[WARNING] Not an interactive terminal; starting in classic console mode.")
         return "console"
-    if importlib.util.find_spec("textual") is None:
+    if not _package_available("textual"):
         print("[WARNING] 'textual' is not installed; starting in classic console mode.")
         return "console"
     return "tui"
 
 
 if __name__ == "__main__":
+    if "--version" in sys.argv:
+        from game_engine.game_config import GAME_VERSION
+
+        print(f"Crime and Punishment {GAME_VERSION}")
+        raise SystemExit(0)
     if choose_mode() == "tui":
         from game_engine.tui_app import run_tui
 
