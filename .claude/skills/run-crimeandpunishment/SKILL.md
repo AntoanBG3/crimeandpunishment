@@ -49,8 +49,8 @@ capture shows the scene listing and the status line
 ## Run (human path)
 
 ```bash
-.venv/bin/python main.py        # classic console
-.venv/bin/python main.py --tui  # Textual TUI
+.venv/bin/python main.py           # Textual TUI (the default in a TTY)
+.venv/bin/python main.py --no-tui  # classic console
 ```
 
 Interactive: prompts for a Gemini API key on first run (type `skip` for the

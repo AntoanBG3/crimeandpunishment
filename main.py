@@ -7,9 +7,10 @@ if importlib.util.find_spec("google.genai") is None:
     print("\n[WARNING] 'google-genai' package is not installed.")
     print("[WARNING] The game will run in fallback deterministic mode without AI features.\n")
 
-# The shipped default UI. Flipping this to "tui" is the single-line change
-# gated on docs/TUI_PARITY_PLAN.md's exit criteria.
-DEFAULT_MODE = "console"
+# The shipped default UI. The Textual TUI is the default since the parity
+# work in docs/TUI_PARITY_PLAN.md landed; --no-tui / CRIME_TUI=0 opts out,
+# and any non-TTY stream still gets the classic console automatically.
+DEFAULT_MODE = "tui"
 
 
 def choose_mode(argv=None, environ=None):

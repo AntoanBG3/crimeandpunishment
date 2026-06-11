@@ -44,10 +44,11 @@ case "${1:-smoke}" in
     mode=$1
     out=${2:-/tmp/cp_${mode%-shot}.txt}
     session=cp_drive_$$
+    # TUI is the default in a TTY; the console capture must opt out.
     if [ "$mode" = tui-shot ]; then
       tmux new-session -d -s "$session" -x 100 -y 30 "$PY main.py --tui"
     else
-      tmux new-session -d -s "$session" -x 100 -y 30 "$PY main.py"
+      tmux new-session -d -s "$session" -x 100 -y 30 "$PY main.py --no-tui"
     fi
     sleep 3
     # In a real TTY the API-key prompt is interactive (no auto-skip): decline it.

@@ -65,9 +65,10 @@ Classic console mode remains the default; the TUI is opt-in via
 `App.run_test()` (`tests/test_tui.py`). PyInstaller builds that include the
 TUI need `--collect-all textual`.
 
-Next step: [TUI_PARITY_PLAN.md](TUI_PARITY_PLAN.md) — close the remaining
+Follow-up: [TUI_PARITY_PLAN.md](TUI_PARITY_PLAN.md) closed the remaining
 console/TUI gaps (completion, history, non-TTY fallback, safe shutdown, key
-masking), then flip the TUI to the default mode.
+masking) and **the TUI is now the default mode** — `--no-tui` / `CRIME_TUI=0`
+opt back into the classic console, and non-TTY runs fall back automatically.
 
 ## Tier 3C — Gameplay/design UX — DONE
 

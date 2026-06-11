@@ -29,7 +29,7 @@ Step into 19th-century St. Petersburg and inhabit the minds of Dostoevsky's most
 - **Atmospheric Generation** – The game’s text adapts dynamically based on the time of day, your exact location, and your character’s current mental state, creating unparalleled ambiance.
 - **Robust Save System** – Multiple named save slots, autosave, and a numbered load picker preserve your progress.
 - **Polished Terminal UX** – Tab completion for commands and targets, persistent command history, a live status toolbar, word-wrapped prose, and Rich panels for status, objectives, inventory, map, and journal. Honors `NO_COLOR` and degrades gracefully when piped.
-- **Optional Full-Screen TUI** – Launch with `python main.py --tui` (or `CRIME_TUI=1`) for a Textual interface: a scrollable narrative log, a persistent status bar, and a dedicated input field. The classic console remains the default.
+- **Full-Screen TUI by Default** – Launching in a terminal opens the Textual interface: a scrollable narrative log, a persistent status bar, and a dedicated input field with Tab completion and persistent history. Prefer the classic console? `python main.py --no-tui` (or `CRIME_TUI=0`). Piped/scripted runs fall back to the console automatically.
 
 ---
 
@@ -59,11 +59,11 @@ python -m venv .venv
 
 pip install -r requirements.txt
 
-# Launch the game (classic console)
+# Launch the game (full-screen TUI by default)
 python main.py
 
-# Or the full-screen TUI
-python main.py --tui
+# Or the classic console
+python main.py --no-tui
 ```
 
 ### First-Run API Setup
