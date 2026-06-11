@@ -120,7 +120,7 @@ CrimeAndPunishment/
 ├── game_engine/
 │   ├── game_state.py                # Game hub: main loop, save/load, think/wait
 │   ├── terminal.py                  # Single I/O seam: Rich rendering, wrapping, prompt_toolkit input
-│   ├── tui_app.py                   # Optional Textual TUI backend (--tui / CRIME_TUI=1)
+│   ├── tui_app.py                   # Textual TUI backend (default in a TTY; --no-tui opts out)
 │   ├── completion.py                # Tab completion fed by scene context
 │   ├── display_mixin.py             # Output composition: panels, map, journal, tutorial, verbosity
 │   ├── command_handler.py           # Parsing, target matching, the dispatch table

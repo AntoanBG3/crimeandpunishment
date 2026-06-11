@@ -60,7 +60,7 @@ driver for that.
 ## Test / lint
 
 ```bash
-.venv/bin/python -m unittest discover tests   # canonical; ~280 tests, ~4s
+.venv/bin/python -m unittest discover tests   # canonical; ~325 tests, ~5s
 .venv/bin/flake8 . && .venv/bin/pylint game_engine  # both kept at clean/10.00
 ```
 

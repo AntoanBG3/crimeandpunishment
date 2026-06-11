@@ -183,7 +183,10 @@ synchronous loop.
 
 ## 3B — Full TUI with Textual — DONE
 
-Implemented per the design below. What shipped:
+Implemented per the design below. What shipped (as of 3B; the follow-up in
+[TUI_PARITY_PLAN.md](TUI_PARITY_PLAN.md) later extended the backend protocol
+to `read(prompt_text, completion, secret)`, added Tab completion and shared
+history to the Textual `Input`, and made the TUI the default in a TTY):
 
 - **Backend seam in `terminal.py`**: `set_backend(backend)` / `get_backend()`.
   A backend provides `emit(renderable)`, `read(prompt_text)`, `clear()`, and
@@ -199,18 +202,19 @@ Implemented per the design below. What shipped:
   suppressed) and as the AI "thinking" indicator; `clear_screen()` becomes a
   rule in the log; the pager and the prompt_toolkit `PromptSession` are
   bypassed entirely (the pane scrolls; Textual owns the keyboard).
-- **Entry point**: classic console stays the default; `python main.py --tui`
-  or `CRIME_TUI=1` opts in (with a graceful warning if textual is missing).
+- **Entry point**: the TUI shipped opt-in (`--tui` / `CRIME_TUI=1`, with a
+  graceful warning if textual is missing); the parity plan later flipped the
+  default — `--no-tui` / `CRIME_TUI=0` now opt back into the console.
 - **Tests** (`tests/test_tui.py`): backend-seam delegation tests with a fake
   backend, plus real-app tests via `App.run_test()` (round trip, quit
   sentinel, status message lifecycle).
 - **Packaging**: `textual` added to `requirements.txt`; PyInstaller builds
   including the TUI need `--collect-all textual`.
 
-Deliberately deferred polish: completion inside the Textual `Input`, a
-command palette fed by `COMMAND_SYNONYMS`, and a richer sidebar (objectives /
-inventory snapshot) — the one-line status bar carries the same content as the
-console toolbar.
+Deliberately deferred polish: completion inside the Textual `Input` (since
+delivered by the parity plan), a command palette fed by `COMMAND_SYNONYMS`,
+and a richer sidebar (objectives / inventory snapshot) — the one-line status
+bar carries the same content as the console toolbar.
 
 The original design follows for reference.
 

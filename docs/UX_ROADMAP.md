@@ -60,8 +60,9 @@ widget (a quit sentinel unblocks it at shutdown), the persistent status bar
 replaces the prompt_toolkit toolbar (`toolbar_active()` is True, so the
 per-turn header stays suppressed), the AI spinner becomes a status-bar
 message, and `clearscreen on` inserts a rule in the log instead of clearing.
-Classic console mode remains the default; the TUI is opt-in via
-`python main.py --tui` or `CRIME_TUI=1`. TUI tests drive the real app with
+At this stage the TUI was still opt-in (`--tui` / `CRIME_TUI=1`); the
+parity follow-up below later made it the default. TUI tests drive the real
+app with
 `App.run_test()` (`tests/test_tui.py`). PyInstaller builds that include the
 TUI need `--collect-all textual`.
 
