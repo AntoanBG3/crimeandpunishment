@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(source .venv/bin/activate)",
+      "Bash(source .venv/bin/activate *)",
+      "Bash(python -m unittest *)",
+      "Bash(python3 -m unittest *)",
+      "Bash(python -m coverage run -m unittest *)",
+      "Bash(flake8)",
+      "Bash(flake8 *)",
+      "Bash(pylint *)",
+      "Bash(.venv/bin/flake8)",
+      "Bash(.venv/bin/flake8 *)",
+      "Bash(.venv/bin/pylint *)"
+    ]
+  }
+}
