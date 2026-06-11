@@ -250,7 +250,7 @@ def load_history_lines(limit=200):
     try:
         with open(HISTORY_FILE, "r", encoding="utf-8") as f:
             for raw in f:
-                raw = raw.rstrip("\n")
+                raw = raw.rstrip("\r\n")
                 if raw.startswith("+"):
                     current = raw[1:] if current is None else f"{current}\n{raw[1:]}"
                 elif current is not None:
@@ -270,7 +270,10 @@ def append_history_line(line):
     import datetime
 
     try:
-        with open(HISTORY_FILE, "a", encoding="utf-8") as f:
+        # newline="\n" matches FileHistory's binary writes; Windows text
+        # mode would otherwise write CRLF, which FileHistory reads back
+        # as "command\r".
+        with open(HISTORY_FILE, "a", encoding="utf-8", newline="\n") as f:
             f.write(f"\n# {datetime.datetime.now()}\n")
             for part in str(line).split("\n"):
                 f.write(f"+{part}\n")

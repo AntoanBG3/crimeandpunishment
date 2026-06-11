@@ -32,6 +32,9 @@ class NPCInteractionHandler:
     last_significant_event_summary: str | None = None
     player_notoriety_level: float = 0.0
     current_conversation_log: list[str] = []
+    # One-time "how to leave a conversation" hint; lives here (not on Game)
+    # so pylint sees it defined before _handle_talk_to_command sets it.
+    _conversation_hint_shown: bool = False
 
     def check_conversation_conclusion(self, text):
         for phrase_regex in CONCLUDING_PHRASES:

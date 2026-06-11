@@ -23,7 +23,11 @@ class TestPathResolution(unittest.TestCase):
     def test_get_data_path_missing_everywhere_returns_primary(self):
         with patch("builtins.print"):
             result = game_config.get_data_path("no/such/file.json")
-        self.assertTrue(result.endswith(os.path.join("no", "such", "file.json")))
+        # normpath: on Windows the joined path keeps the forward slashes
+        # from the relative argument while os.path.join produces backslashes.
+        self.assertTrue(
+            os.path.normpath(result).endswith(os.path.join("no", "such", "file.json"))
+        )
 
     def test_get_data_path_falls_back_to_cwd(self):
         with tempfile.TemporaryDirectory() as tmpdir:
