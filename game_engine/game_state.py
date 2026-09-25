@@ -16,7 +16,6 @@ from .game_config import (
     apply_color_theme,
     DEFAULT_COLOR_THEME,
     DEFAULT_VERBOSITY_LEVEL,
-    VERBOSITY_LEVELS,
     DEFAULT_ITEMS,
 )
 from .static_fallbacks import STATIC_PLAYER_REFLECTIONS
@@ -30,6 +29,7 @@ from .item_interaction_handler import ItemInteractionHandler
 from .npc_interaction_handler import NPCInteractionHandler
 from .world_manager import WorldManager
 from .objective_progression import validate_rules as _validate_objective_rules
+from .persistence import prepare_restore
 
 
 class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
@@ -233,92 +233,23 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
         try:
             with open(save_file, "r", encoding="utf-8") as f:
                 game_state_data = json.load(f)
-            self.game_time = game_state_data.get("game_time", 0)
-            self.current_day = game_state_data.get("current_day", 1)
-            self.current_location_name = game_state_data.get("current_location_name")
-            self.dynamic_location_items = game_state_data.get("dynamic_location_items", {})
-            self.event_manager.triggered_events = set(game_state_data.get("triggered_events", []))
-            self.event_manager._last_cooldown_reset_time = game_state_data.get(
-                "event_manager_cooldown_reset_time", self.game_time
-            )
-            self.last_significant_event_summary = game_state_data.get(
-                "last_significant_event_summary"
-            )
-            self.player_notoriety_level = game_state_data.get("player_notoriety_level", 0)
-            self.known_facts_about_crime = game_state_data.get(
-                "known_facts_about_crime",
-                ["An old pawnbroker and her sister were murdered recently."],
-            )
-            self.key_events_occurred = game_state_data.get("key_events_occurred", ["Game loaded."])
-            self.visited_locations = set(game_state_data.get("visited_locations", []))
-            self.current_location_description_shown_this_visit = game_state_data.get(
-                "current_location_description_shown_this_visit", False
-            )
-            self.low_ai_data_mode = game_state_data.get("low_ai_data_mode", False)
-            self.player_action_count = game_state_data.get("player_action_count", 0)
-            loaded_theme = game_state_data.get("color_theme", DEFAULT_COLOR_THEME)
-            applied_theme = apply_color_theme(loaded_theme)
-            if not applied_theme:
-                apply_color_theme(DEFAULT_COLOR_THEME)
-                applied_theme = DEFAULT_COLOR_THEME
-            self.color_theme = applied_theme
-            self.verbosity_level = game_state_data.get("verbosity_level", DEFAULT_VERBOSITY_LEVEL)
-            if self.verbosity_level not in VERBOSITY_LEVELS:
-                self.verbosity_level = DEFAULT_VERBOSITY_LEVEL
-            self.gemini_api.response_length_pref = self.verbosity_level
-            self.turn_headers_enabled = game_state_data.get("turn_headers_enabled", True)
-            self.turn_headers_explicit = game_state_data.get("turn_headers_explicit", False)
-            terminal.set_narrative_pace(game_state_data.get("narrative_pace", False))
-            self.clear_on_move = game_state_data.get("clear_on_move", False)
-            self.tutorial_steps_done = set(game_state_data.get("tutorial_steps_done", []))
-            loaded_history = game_state_data.get("command_history", [])
-            self.command_history = (
-                loaded_history[-self.max_command_history :]
-                if isinstance(loaded_history, list)
-                else []
-            )
-            saved_model_name = game_state_data.get("chosen_gemini_model")
-            if saved_model_name:
-                self.gemini_api.chosen_model_name = saved_model_name
-                self._print_color(f"Loaded preferred Gemini model: {saved_model_name}", Colors.DIM)
-            self.all_character_objects = {}
-            saved_char_states = game_state_data.get("all_character_objects_state", {})
-            for char_name, char_state_data in saved_char_states.items():
-                static_data = CHARACTERS_DATA.get(char_name)
-                if not static_data:
-                    self._print_color(
-                        f"Warning: Character '{char_name}' from save file not found in current CHARACTERS_DATA. Skipping.",
-                        Colors.YELLOW,
-                    )
-                    continue
-                self.all_character_objects[char_name] = Character.from_dict(
-                    char_state_data, static_data
-                )
-            player_name = game_state_data.get("player_character_name")
-            if player_name and player_name in self.all_character_objects:
-                self.player_character = self.all_character_objects[player_name]
-                if self.player_character:
-                    self.player_character.is_player = True
-            else:
-                self._print_color(
-                    f"Error: Saved player character '{player_name}' not found or invalid. Load failed.",
-                    Colors.RED,
-                )
-                self.player_character = None
-                return False
-            if not self.current_location_name and self.player_character:
-                self.current_location_name = self.player_character.current_location
-            if not self.dynamic_location_items:
-                self.world_manager.initialize_dynamic_location_items()
-            self.world_manager.update_npcs_in_current_location()
-            self._print_color("Game loaded successfully.", Colors.GREEN)
-            self._display_load_recap()
-            self.world_manager.update_current_location_details(from_explicit_look_cmd=False)
-            return True
-        except Exception as e:
-            self._print_color(f"Error loading game: {e}", Colors.RED)
-            self.player_character = None
+            restored = prepare_restore(game_state_data, CHARACTERS_DATA, LOCATIONS_DATA, DEFAULT_ITEMS)
+        except (OSError, ValueError, TypeError, KeyError) as exc:
+            self._print_color(f"Error loading game: {exc}", Colors.RED)
             return False
+        restored.apply(self)
+        apply_color_theme(self.color_theme)
+        terminal.set_narrative_pace(restored.narrative_pace)
+        self.gemini_api.response_length_pref = self.verbosity_level
+        if restored.model_name:
+            self.gemini_api.chosen_model_name = restored.model_name
+        for name in restored.skipped_characters:
+            self._print_color(f"Warning: Saved character '{name}' is no longer in game data; skipped.",
+                              Colors.YELLOW)
+        self._print_color("Game loaded successfully.", Colors.GREEN)
+        self._display_load_recap()
+        self.world_manager.update_current_location_details(from_explicit_look_cmd=False)
+        return True
 
     def _list_save_slots(self) -> List[Any]:
         """Existing save files as (slot_name_or_None, path); None = the default slot."""

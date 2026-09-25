@@ -34,7 +34,7 @@ that the isolated harness must control.
 | Criterion | Status |
 |-----------|--------|
 | Baseline tests and linters | Passed locally; see AUDIT_BASELINE.md |
-| Invalid saves preserve current session | Pending |
+| Invalid saves preserve current session | Passed: R001, real-file regressions and 335-test suite |
 | Unexpected worker errors produce diagnostics | Pending |
 | Three protagonist offline paths and all main endings | Pending |
 | Actual SDK with mocked transport | Pending |

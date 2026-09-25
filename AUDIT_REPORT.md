@@ -19,9 +19,23 @@ Inventory, dependencies, acceptance evidence and deferred work are maintained in
 
 ## Critical Issues
 
-Pending reproduction: failed save restoration mutates the running game before
-validation completes; TUI worker exceptions can close the application without a
-recoverable in-app diagnostic. Severity will be assigned after reproduction.
+### R001 — Failed loads destroy the current session
+
+- **Category / severity / confidence:** Robustness / High / Confirmed.
+- **Effort:** Medium. **Status:** Fixed; commit identified by `fix: preserve live state when save validation fails`.
+- **Location:** `game_engine/game_state.py:load_game`, `game_engine/persistence.py:prepare_restore`.
+- **Evidence:** New real-file regressions failed on the baseline: malformed saves
+  set `player_character` to None, mutated time/world state, and retained old numbered
+  selections after a successful load (10 failing subcases).
+- **Recommendation / implementation:** Prepare a validated candidate with detached
+  characters/world inventory, then apply it once. Retain the old state on rejection,
+  validate numeric/container fields and locations, and clear transient scene state.
+  Keep the legacy JSON shape and defaults; unknown removed NPCs remain skippable.
+- **Verification:** `tests.test_persistence_boundary`; full suite 335 tests passes.
+  Existing synthetic fixtures now supply consistent location data, and the old test
+  that expected player destruction now asserts preservation.
+
+TUI worker exception handling remains under investigation.
 
 ## High-Priority Improvements
 

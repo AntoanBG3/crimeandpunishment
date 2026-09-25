@@ -315,7 +315,7 @@ def test_game_state_save_load_and_initialize_edge_paths(tmp_path):
     bad_save.write_text("{bad-json")
     with patch("game_engine.game_state.SAVE_GAME_FILE", str(bad_save)):
         assert game.load_game() is False
-    assert game.player_character is None
+    assert game.player_character is character
 
     game = Game()
     game._print_color = MagicMock()
