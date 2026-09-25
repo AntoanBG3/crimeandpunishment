@@ -88,8 +88,9 @@ def execute(game, text):
         return
     result = game.command_handler._process_command(command, argument)
     if not result.special_flag:
-        game.world_manager._update_world_state_after_action(command, result.action_taken,
-                                                          result.time_to_advance)
+        game.world_manager._update_world_state_after_action(
+            command, result.action_taken, result.time_to_advance
+        )
     assert game.player_character is not None, text
     assert game.player_character.current_location == game.current_location_name, text
     for character in game.all_character_objects.values():

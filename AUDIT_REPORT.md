@@ -79,8 +79,22 @@ Inventory, dependencies, acceptance evidence and deferred work are maintained in
   No live API requests were used. Transport timeouts are not a hard process deadline.
 - **Source:** [Google SDK HTTP options](https://googleapis.github.io/python-genai/genai.html),
   checked against installed 2.8.0 types and actual request extensions.
-- Investigate session lifetime, unbounded input/output retention, and request
-  deadlines with controlled failures and measured long-session scenarios.
+### R006 — Long sessions retain unbounded UI history and recent events
+
+- **Category / severity / confidence:** Performance / Medium / Confirmed.
+- **Effort:** Small. **Status:** Fixed; commit `perf: bound long-session history and serialize TUI input`.
+- **Location:** `game_engine/tui_app.py`, `game_engine/terminal.py:load_history_lines`,
+  `game_engine/world_manager.py:advance_time`.
+- **Evidence:** 1,000 TUI commands retained 1,000 history entries and 2,000 rendered
+  lines; 10,000 engine actions grew the recent-event list to 41. Rapid submissions
+  queued an unwanted second command in a failing real-app test.
+- **Implementation:** Keep 200 in-memory history entries, 1,000 rendered log lines,
+  and 10 recent events. Parse history with a bounded deque. Accept one command per
+  prompt and close a full input queue without blocking shutdown. History remains
+  persisted on disk; this change bounds retained entries, not the history file size.
+- **Verification:** Both full soaks completed before and after; exact observations
+  are in `docs/AUDIT_BENCHMARKS.json`. Regression tests cover recent-event retention,
+  input duplication, bounded history, and existing shutdown behavior.
 
 ### R005 — Persuasion advances time twice and bypasses shared behavior
 

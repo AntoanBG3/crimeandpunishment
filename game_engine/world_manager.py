@@ -52,6 +52,7 @@ class WorldManager:
                 Colors.CYAN + Colors.BOLD,
             )
             self.game_state.key_events_occurred.append(f"Day {self.game_state.current_day} began.")
+            del self.game_state.key_events_occurred[:-10]
             self.game_state.last_significant_event_summary = (
                 f"a new day (Day {self.game_state.current_day}) began."
             )

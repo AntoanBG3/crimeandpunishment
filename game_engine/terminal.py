@@ -13,6 +13,7 @@ default, and always the case under tests), behavior is the classic console
 path described above.
 """
 
+from collections import deque
 import contextlib
 import os
 import re
@@ -245,7 +246,9 @@ def load_history_lines(limit=200):
     consecutive '+' lines) so the TUI's up-arrow history and the console's
     PromptSession share one file.
     """
-    entries = []
+    if limit <= 0:
+        return []
+    entries = deque(maxlen=limit)
     current = None
     try:
         with open(HISTORY_FILE, "r", encoding="utf-8") as f:
@@ -256,11 +259,11 @@ def load_history_lines(limit=200):
                 elif current is not None:
                     entries.append(current)
                     current = None
-    except OSError:
+    except (OSError, UnicodeError):
         return []
     if current is not None:
         entries.append(current)
-    return entries[-limit:]
+    return list(entries)
 
 
 def append_history_line(line):

@@ -29,6 +29,8 @@ from game_engine.diagnostics import failure_message, record_failure
 # Sentinel pushed onto the input queue at shutdown so a game thread blocked
 # in read() wakes up and unwinds via EOFError.
 _QUIT = object()
+MAX_HISTORY_ENTRIES = 200
+MAX_LOG_LINES = 1000
 
 
 class TextualBackend:
@@ -36,11 +38,14 @@ class TextualBackend:
 
     def __init__(self, app):
         self.app = app
-        self.input_queue = queue.Queue()
+        self.input_queue = queue.Queue(maxsize=1)
+        self.closed = threading.Event()
 
     def _post(self, callback, *args):
         # The app may already be shutting down while the game thread is still
         # unwinding; dropped output at that point is acceptable.
+        if self.closed.is_set():
+            return
         try:
             self.app.call_from_thread(callback, *args)
         except RuntimeError:
@@ -51,11 +56,21 @@ class TextualBackend:
         self._post(self.app.write_log, renderable)
 
     def read(self, prompt_text, completion=True, secret=False):
+        if self.closed.is_set():
+            raise EOFError
         self._post(self.app.show_prompt, prompt_text, completion, secret)
         line = self.input_queue.get()
         if line is _QUIT:
             raise EOFError
         return line
+
+    def close(self):
+        self.closed.set()
+        # Replace a queued command so shutdown never waits for queue capacity.
+        with contextlib.suppress(queue.Empty):
+            self.input_queue.get_nowait()
+        with contextlib.suppress(queue.Full):
+            self.input_queue.put_nowait(_QUIT)
 
     def clear(self):
         # A rule in the log stands in for clearing the screen on move.
@@ -122,6 +137,7 @@ class CommandInput(Input):
         self._draft = ""
         if line.strip():
             self.history.append(line)
+            del self.history[:-MAX_HISTORY_ENTRIES]
             terminal.append_history_line(line)
 
     def _history_step(self, direction):
@@ -181,10 +197,12 @@ class CrimeAndPunishmentApp(App):
         self._game_thread = None
         self._shutting_down = False
         self.game_error = None
+        self._accepting_input = False
         self.backend = TextualBackend(self)
 
     def compose(self):
-        yield RichLog(wrap=True, markup=False, highlight=False, min_width=20, id="log")
+        yield RichLog(wrap=True, markup=False, highlight=False, min_width=20,
+                      max_lines=MAX_LOG_LINES, id="log")
         yield Static("", id="statusbar")
         yield CommandInput(placeholder="What do you do?", id="commandline")
 
@@ -225,6 +243,9 @@ class CrimeAndPunishmentApp(App):
         self.refresh_status_bar()
         prompt = str(prompt_text).strip() or ">"
         command_input = self.query_one(CommandInput)
+        self._accepting_input = True
+        command_input.disabled = False
+        command_input.focus()
         command_input.placeholder = prompt
         command_input.completion_enabled = completion
         command_input.password = secret
@@ -241,6 +262,10 @@ class CrimeAndPunishmentApp(App):
             self.query_one("#statusbar", Static).update(terminal.toolbar_text() or "")
 
     def on_input_submitted(self, event):
+        if not self._accepting_input or self.backend.closed.is_set():
+            return
+        self._accepting_input = False
+        event.input.disabled = True
         line = event.value
         event.input.value = ""
         if event.input.password:
@@ -250,12 +275,12 @@ class CrimeAndPunishmentApp(App):
         else:
             event.input.record_submitted(line)
             self.write_log(Text(f"> {line}", style="dim"))
-        self.backend.input_queue.put(line)
+        self.backend.input_queue.put_nowait(line)
 
     def on_unmount(self):
         self._shutting_down = True
         terminal.set_backend(None)
-        self.backend.input_queue.put(_QUIT)
+        self.backend.close()
         # Give the game thread a moment to unwind (it may be mid-turn, e.g.
         # finishing an autosave). With atomic saves the worst case after the
         # timeout is a lost turn, never a corrupted file.

@@ -50,5 +50,56 @@
       "retained_bytes": 14043839,
       "peak_bytes": 14183213
     }
+  },
+  "after_retention_fixes": {
+    "engine": {
+      "scenario": "engine",
+      "seed": 1729,
+      "actions": 10000,
+      "seconds": 4.413800832997367,
+      "p95_command_ms": 2.6910000015050173,
+      "median_command_ms": 0.21504200412891805,
+      "retained_bytes": 485581,
+      "peak_bytes": 676911,
+      "samples": [
+        {
+          "actions": 2000,
+          "retained_bytes": 284916,
+          "events": 10
+        },
+        {
+          "actions": 4000,
+          "retained_bytes": 324297,
+          "events": 10
+        },
+        {
+          "actions": 6000,
+          "retained_bytes": 377742,
+          "events": 10
+        },
+        {
+          "actions": 8000,
+          "retained_bytes": 444507,
+          "events": 10
+        },
+        {
+          "actions": 10000,
+          "retained_bytes": 485557,
+          "events": 10
+        }
+      ],
+      "event_count": 10,
+      "day": 36
+    },
+    "tui": {
+      "scenario": "tui",
+      "seed": 1729,
+      "commands": 1000,
+      "seconds": 17.340064124997298,
+      "retained_history": 200,
+      "retained_log_lines": 1000,
+      "retained_bytes": 12103597,
+      "peak_bytes": 12651352
+    }
   }
 }

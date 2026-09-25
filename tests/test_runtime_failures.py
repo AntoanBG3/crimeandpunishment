@@ -11,6 +11,26 @@ from game_engine.diagnostics import record_failure
 
 
 class TestWorkerFailures(unittest.IsolatedAsyncioTestCase):
+    async def test_busy_input_does_not_queue_extra_commands(self):
+        from textual.widgets import Input
+        from game_engine.tui_app import CommandInput
+
+        def wait():
+            terminal.read_line('> ')
+            terminal.read_line('> ')
+
+        with tempfile.TemporaryDirectory() as directory, patch.object(
+            terminal, 'HISTORY_FILE', str(Path(directory) / 'history')
+        ):
+            app = CrimeAndPunishmentApp(game_runner=wait)
+            async with app.run_test() as pilot:
+                await pilot.pause(0.05)
+                widget = app.query_one(CommandInput)
+                app.on_input_submitted(Input.Submitted(widget, 'look'))
+                app.on_input_submitted(Input.Submitted(widget, 'unwanted second command'))
+                self.assertLessEqual(app.backend.input_queue.qsize(), 1)
+                self.assertNotIn('unwanted second command', widget.history)
+
     async def test_worker_exception_keeps_diagnostic_visible(self):
         def fail():
             raise ValueError('private-key-should-not-be-logged')
