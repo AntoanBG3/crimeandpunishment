@@ -49,6 +49,18 @@ Inventory, dependencies, acceptance evidence and deferred work are maintained in
 - **Verification:** Runtime/TUI/mode suite (39 tests), secret-redaction and unwritable
   diagnostic tests, Flake8 and Pylint. No automatic save of potentially damaged state.
 
+### R003 — New games discard authored character mechanics
+
+- **Category / severity / confidence:** Robustness / High / Confirmed.
+- **Effort:** Small. **Status:** Fixed; commit `fix: initialize authored character skills and relationships`.
+- **Location:** `game_engine/world_manager.py:load_all_characters`.
+- **Evidence:** All ten authored characters had empty skills instead of their JSON
+  modifiers; the new initialization test failed ten subcases before the change.
+- **Implementation:** Pass authored skills, psychology and NPC relationships into
+  Character, using its existing defensive copies. This restores intended mechanics
+  rather than changing authored balance.
+- **Verification:** 339 tests pass, Flake8 clean, Pylint 10.00/10.
+
 ## High-Priority Improvements
 
 - Investigate automatic Gemini substitution under unittest/pytest: production

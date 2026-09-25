@@ -193,6 +193,9 @@ class WorldManager:
                 static_data_copy.get("objectives", []),
                 static_data_copy.get("inventory_items", []),
                 static_data_copy.get("schedule", {}),
+                npc_relationships=static_data_copy.get("npc_relationships", {}),
+                skills_data=static_data_copy.get("skills", {}),
+                psychology=static_data_copy.get("psychology"),
             )
         self.initialize_dynamic_location_items()
 
