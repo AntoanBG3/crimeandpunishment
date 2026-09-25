@@ -28,6 +28,8 @@ def _inventory(value):
                  "Inventory entries need an item name.")
         quantity = item.get("quantity", 1)
         _require(_number(quantity) and quantity > 0, "Item quantity must be positive.")
+        for key in ("content", "generated_content"):
+            _require(key not in item or isinstance(item[key], str), "Invalid readable item content.")
 
 
 def _character(data, name, static, locations):
@@ -43,6 +45,10 @@ def _character(data, name, static, locations):
     memories = data.get("memory_about_player", [])
     _require(isinstance(memories, list) and all(isinstance(m, dict) for m in memories),
              "Invalid character memories.")
+    for memory in memories:
+        _require(_number(memory.get("turn", 0)) and _number(memory.get("sentiment_impact", 0)),
+                 "Invalid memory time or sentiment.")
+        _require(isinstance(memory.get("content", {}), dict), "Invalid memory content.")
     histories = data.get("conversation_histories", {})
     _require(isinstance(histories, dict) and all(_strings(h) for h in histories.values()),
              "Invalid conversation history.")

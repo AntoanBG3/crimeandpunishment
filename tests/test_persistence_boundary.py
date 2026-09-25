@@ -39,6 +39,9 @@ class TestPersistenceBoundary(unittest.TestCase):
         bad_character = copy.deepcopy(self.saved)
         bad_character['all_character_objects_state']['Rodion Raskolnikov']['inventory'] = 42
         variants.append(bad_character)
+        bad_content = copy.deepcopy(self.saved)
+        bad_content['all_character_objects_state']['Rodion Raskolnikov']['inventory'][0]['generated_content'] = 123
+        variants.append(bad_content)
         player = self.game.player_character
         characters = self.game.all_character_objects
         for payload in variants:

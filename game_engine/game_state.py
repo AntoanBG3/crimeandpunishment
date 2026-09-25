@@ -274,11 +274,11 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
         from rich.table import Table
 
         slots = self._list_save_slots()
+        if numbered:
+            self.numbered_actions_context.clear()
         if not slots:
             self._print_color("No saved games found.", Colors.YELLOW)
             return False
-        if numbered:
-            self.numbered_actions_context.clear()
         table = Table(title="Saved Games", border_style="cyan", title_style="bold cyan")
         if numbered:
             table.add_column("#", justify="right", style="white")
@@ -292,14 +292,17 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
             try:
                 with open(path, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                character = data.get("player_character_name", "?")
+                character = str(data.get("player_character_name", "?"))
                 day = str(data.get("current_day", "?"))
-                location = data.get("current_location_name", "?")
-            except Exception:
+                location = str(data.get("current_location_name", "?"))
+            except (OSError, ValueError, AttributeError):
                 pass
-            saved_at = datetime.datetime.fromtimestamp(os.path.getmtime(path)).strftime(
-                "%Y-%m-%d %H:%M"
-            )
+            try:
+                saved_at = datetime.datetime.fromtimestamp(os.path.getmtime(path)).strftime(
+                    "%Y-%m-%d %H:%M"
+                )
+            except (OSError, ValueError, OverflowError):
+                saved_at = "Unavailable"
             slot_label = slot if slot else "(default)"
             row = [slot_label, character, day, location, saved_at]
             if numbered:

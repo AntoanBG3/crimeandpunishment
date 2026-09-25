@@ -110,6 +110,18 @@ Inventory, dependencies, acceptance evidence and deferred work are maintained in
 
 ## Quality of Life Improvements
 
+### R007 — Save selection crashes on invalid metadata or disappearing files
+
+- **Category / severity / confidence:** Robustness / Medium / Confirmed.
+- **Effort:** Small. **Status:** Fixed; commit `fix: tolerate invalid save-menu metadata`.
+- **Location:** `game_engine/game_state.py:_handle_saves_command`.
+- **Evidence:** Three regressions initially produced a Rich type error, a missing-file
+  error, and stale numbered actions after an empty save picker.
+- **Implementation:** Render metadata as text, tolerate unavailable timestamps, clear
+  picker state before listing. Candidate loading also rejects non-text readable-item
+  content and invalid memory fields before they can enter the active session (R001).
+- **Verification:** 360 tests pass, Flake8 clean, Pylint 10.00/10.
+
 - Audit stale UI-default documentation, misleading multi-action NLP examples,
   malformed save-slot metadata and stale numbered scene actions.
 
