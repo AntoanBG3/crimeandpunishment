@@ -35,7 +35,19 @@ Inventory, dependencies, acceptance evidence and deferred work are maintained in
   Existing synthetic fixtures now supply consistent location data, and the old test
   that expected player destruction now asserts preservation.
 
-TUI worker exception handling remains under investigation.
+### R002 — Unexpected worker exceptions close the TUI
+
+- **Category / severity / confidence:** Robustness / High / Confirmed.
+- **Effort:** Small. **Status:** Fixed; commit `fix: retain safe diagnostics for unexpected runtime failures`.
+- **Location:** `game_engine/tui_app.py:_run_game`, `main.py`, `game_engine/diagnostics.py`.
+- **Evidence:** A runner raising ValueError made the real Textual app stop; the new
+  headless regression failed its `app.is_running` assertion before the fix.
+- **Implementation:** Keep the diagnostic visible, disable further input, allow
+  Ctrl+Q, and return failure status. Console failures also write a sanitized report;
+  broken pipes terminate quietly. Reports retain exception type and stack locations,
+  never exception messages, source lines, locals, API keys or conversation text.
+- **Verification:** Runtime/TUI/mode suite (39 tests), secret-redaction and unwritable
+  diagnostic tests, Flake8 and Pylint. No automatic save of potentially damaged state.
 
 ## High-Priority Improvements
 

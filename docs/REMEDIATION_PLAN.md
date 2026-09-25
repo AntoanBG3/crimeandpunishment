@@ -35,7 +35,7 @@ that the isolated harness must control.
 |-----------|--------|
 | Baseline tests and linters | Passed locally; see AUDIT_BASELINE.md |
 | Invalid saves preserve current session | Passed: R001, real-file regressions and 335-test suite |
-| Unexpected worker errors produce diagnostics | Pending |
+| Unexpected worker errors produce diagnostics | Passed: R002, headless real-app regression |
 | Three protagonist offline paths and all main endings | Pending |
 | Actual SDK with mocked transport | Pending |
 | 10,000-action engine / 1,000-command TUI soak | Pending |

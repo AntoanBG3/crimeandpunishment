@@ -9,8 +9,8 @@ widget, and the persistent status bar replaces the prompt_toolkit bottom
 toolbar (terminal.toolbar_active() reports True, which also suppresses the
 per-turn header).
 
-Classic console mode remains the default; this module is only imported when
-the player opts in (``python main.py --tui`` or ``CRIME_TUI=1``).
+The TUI is the default in a terminal; console mode remains available through
+``--no-tui`` and is used for non-TTY streams or when Textual is unavailable.
 """
 
 import contextlib
@@ -24,6 +24,7 @@ from textual.binding import Binding
 from textual.widgets import Input, RichLog, Static
 
 from game_engine import terminal
+from game_engine.diagnostics import failure_message, record_failure
 
 # Sentinel pushed onto the input queue at shutdown so a game thread blocked
 # in read() wakes up and unwinds via EOFError.
@@ -40,8 +41,11 @@ class TextualBackend:
     def _post(self, callback, *args):
         # The app may already be shutting down while the game thread is still
         # unwinding; dropped output at that point is acceptable.
-        with contextlib.suppress(Exception):
+        try:
             self.app.call_from_thread(callback, *args)
+        except RuntimeError:
+            if not self.app._shutting_down:
+                raise
 
     def emit(self, renderable):
         self._post(self.app.write_log, renderable)
@@ -176,6 +180,7 @@ class CrimeAndPunishmentApp(App):
         self._game_runner = game_runner or _default_runner
         self._game_thread = None
         self._shutting_down = False
+        self.game_error = None
         self.backend = TextualBackend(self)
 
     def compose(self):
@@ -194,14 +199,24 @@ class CrimeAndPunishmentApp(App):
             self._game_runner()
         except (KeyboardInterrupt, EOFError):
             pass
+        except Exception as error:
+            self.game_error = type(error).__name__
+            message = failure_message(error, record_failure(error))
+            if not self._shutting_down:
+                self.backend._post(self.show_game_error, message)
         finally:
             terminal.set_backend(None)
             # When the app initiated the shutdown it is blocked joining this
             # thread; calling back into its event loop would deadlock until
             # the join times out.
-            if not self._shutting_down:
+            if not self._shutting_down and self.game_error is None:
                 with contextlib.suppress(Exception):
                     self.call_from_thread(self.exit)
+
+    def show_game_error(self, message):
+        self.write_log(Text(message, style="bold red"))
+        self.set_status_message("Game stopped. Press Ctrl+Q to close.")
+        self.query_one(CommandInput).disabled = True
 
     def write_log(self, renderable):
         self.query_one("#log", RichLog).write(renderable)
@@ -249,4 +264,6 @@ class CrimeAndPunishmentApp(App):
 
 
 def run_tui():
-    CrimeAndPunishmentApp().run()
+    app = CrimeAndPunishmentApp()
+    app.run()
+    return 1 if app.game_error else 0

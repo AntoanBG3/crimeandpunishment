@@ -18,8 +18,7 @@ if not _package_available("google.genai"):
     print("\n[WARNING] 'google-genai' package is not installed.")
     print("[WARNING] The game will run in fallback deterministic mode without AI features.\n")
 
-# The shipped default UI. The Textual TUI is the default since the parity
-# work in docs/TUI_PARITY_PLAN.md landed; --no-tui / CRIME_TUI=0 opts out,
+# The shipped default UI. --no-tui / CRIME_TUI=0 opts out,
 # and any non-TTY stream still gets the classic console automatically.
 DEFAULT_MODE = "tui"
 
@@ -54,21 +53,35 @@ def choose_mode(argv=None, environ=None):
     return "tui"
 
 
-if __name__ == "__main__":
+def main():
+    """Run either interface with a process-level diagnostic boundary."""
     if "--version" in sys.argv:
         from game_engine.game_config import GAME_VERSION
 
         print(f"Crime and Punishment {GAME_VERSION}")
-        raise SystemExit(0)
+        return 0
     if choose_mode() == "tui":
         from game_engine.tui_app import run_tui
 
-        run_tui()
-        raise SystemExit(0)
+        return run_tui()
     from game_engine.game_state import Game
 
-    game_instance = Game()
+    Game().run()
+    return 0
+
+
+if __name__ == "__main__":
     try:
-        game_instance.run()
+        raise SystemExit(main())
     except (KeyboardInterrupt, EOFError):
         print("\nFarewell. St. Petersburg will wait.")
+    except BrokenPipeError:
+        # Redirect final interpreter flush too: the reader may have closed stdout.
+        with open(os.devnull, "w", encoding="utf-8") as sink:
+            os.dup2(sink.fileno(), sys.stdout.fileno())
+        raise SystemExit(0) from None
+    except Exception as error:
+        from game_engine.diagnostics import failure_message, record_failure
+
+        print(failure_message(error, record_failure(error)), file=sys.stderr)
+        raise SystemExit(1) from None
