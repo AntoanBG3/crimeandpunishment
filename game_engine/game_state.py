@@ -193,7 +193,7 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
             "verbosity_level": self.verbosity_level,
             "turn_headers_enabled": self.turn_headers_enabled,
             "turn_headers_explicit": self.turn_headers_explicit,
-            "narrative_pace": self.terminal.narrative_pace_enabled,
+            "narrative_pace": self.terminal.get_narrative_pace(),
             "clear_on_move": self.clear_on_move,
             "tutorial_steps_done": sorted(self.tutorial_steps_done),
             "command_history": self.command_history[-self.max_command_history :],

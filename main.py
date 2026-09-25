@@ -65,8 +65,10 @@ def main():
 
         return run_tui()
     from game_engine.game_state import Game
+    from game_engine.terminal import TerminalSession
 
-    Game().run()
+    with TerminalSession().activate():
+        Game().run()
     return 0
 
 

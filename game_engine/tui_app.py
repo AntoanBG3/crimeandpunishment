@@ -105,13 +105,14 @@ class CommandInput(Input):
     walk, prompt_toolkit-style.
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, terminal_io=terminal, **kwargs):
         super().__init__(**kwargs)
+        self.terminal = terminal_io
         self.completion_enabled = True
         self._cycle_base = None
         self._cycle_candidates = []
         self._cycle_index = -1
-        self.history = terminal.load_history_lines()
+        self.history = self.terminal.load_history_lines()
         self._history_index = None
         self._draft = ""
 
@@ -138,7 +139,7 @@ class CommandInput(Input):
         if line.strip():
             self.history.append(line)
             del self.history[:-MAX_HISTORY_ENTRIES]
-            terminal.append_history_line(line)
+            self.terminal.append_history_line(line)
 
     def _history_step(self, direction):
         if not self.history:
@@ -160,7 +161,7 @@ class CommandInput(Input):
 
     def _cycle_completion(self):
         if self._cycle_base is None:
-            candidates = terminal.completion_candidates(self.value)
+            candidates = self.terminal.completion_candidates(self.value)
             if not candidates:
                 return
             self._cycle_base = self.value
@@ -199,20 +200,25 @@ class CrimeAndPunishmentApp(App):
         self.game_error = None
         self._accepting_input = False
         self.backend = TextualBackend(self)
+        self.terminal = terminal.TerminalSession()
 
     def compose(self):
         yield RichLog(wrap=True, markup=False, highlight=False, min_width=20,
                       max_lines=MAX_LOG_LINES, id="log")
         yield Static("", id="statusbar")
-        yield CommandInput(placeholder="What do you do?", id="commandline")
+        yield CommandInput(terminal_io=self.terminal, placeholder="What do you do?", id="commandline")
 
     def on_mount(self):
-        terminal.set_backend(self.backend)
+        self.terminal.set_backend(self.backend)
         self.query_one(Input).focus()
         self._game_thread = threading.Thread(target=self._run_game, daemon=True)
         self._game_thread.start()
 
     def _run_game(self):
+        with self.terminal.activate():
+            self._run_game_session()
+
+    def _run_game_session(self):
         try:
             self._game_runner()
         except (KeyboardInterrupt, EOFError):
@@ -223,7 +229,7 @@ class CrimeAndPunishmentApp(App):
             if not self._shutting_down:
                 self.backend._post(self.show_game_error, message)
         finally:
-            terminal.set_backend(None)
+            self.terminal.set_backend(None)
             # When the app initiated the shutdown it is blocked joining this
             # thread; calling back into its event loop would deadlock until
             # the join times out.
@@ -251,7 +257,7 @@ class CrimeAndPunishmentApp(App):
         command_input.password = secret
 
     def refresh_status_bar(self):
-        status_text = terminal.toolbar_text()
+        status_text = self.terminal.toolbar_text()
         if status_text:
             self.query_one("#statusbar", Static).update(status_text)
 
@@ -259,7 +265,7 @@ class CrimeAndPunishmentApp(App):
         if message:
             self.query_one("#statusbar", Static).update(str(message))
         else:
-            self.query_one("#statusbar", Static).update(terminal.toolbar_text() or "")
+            self.query_one("#statusbar", Static).update(self.terminal.toolbar_text() or "")
 
     def on_input_submitted(self, event):
         if not self._accepting_input or self.backend.closed.is_set():
@@ -279,7 +285,6 @@ class CrimeAndPunishmentApp(App):
 
     def on_unmount(self):
         self._shutting_down = True
-        terminal.set_backend(None)
         self.backend.close()
         # Give the game thread a moment to unwind (it may be mid-turn, e.g.
         # finishing an autosave). With atomic saves the worst case after the

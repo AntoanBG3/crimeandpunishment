@@ -23,8 +23,9 @@ hold the Game instance. JSON content is lazily loaded into module caches.
 
 Terminal functions bridge console rendering/input or a Textual backend. Textual
 owns the event loop and a blocking game worker; the backend posts UI callbacks and
-waits on an input queue. Terminal backend/providers/pacing and color profiles are
-currently module globals. Save/load writes relative to the working directory;
+waits on an input queue. TerminalSession owns each UI's backend, providers, pacing
+and history settings; context activation adapts legacy module calls. Color profiles
+still use module globals. Save/load writes relative to the working directory;
 history writes to the user's home. Gemini configuration is a relative JSON file,
 and Gemini client calls are synchronous. These are the external-state boundaries
 that the isolated harness must control.
@@ -38,7 +39,7 @@ that the isolated harness must control.
 | Unexpected worker errors produce diagnostics | Passed: R002, headless real-app regression |
 | Three protagonist offline paths and all main endings | Three command-level paths passed; existing progression tests cover alternate endings |
 | Actual SDK with mocked transport | Passed: R004, six real-SDK contract tests |
-| 10,000-action engine / 1,000-command TUI soak | Both completed; retention findings remain to fix; see AUDIT_BENCHMARKS.json |
+| 10,000-action engine / 1,000-command TUI soak | Both completed before/after retention fixes; see AUDIT_BENCHMARKS.json |
 | Routine Python 3.10/3.13 OS matrix | Pending |
 | Frozen Windows/Linux/macOS smoke checks | Pending |
 | Live Gemini compatibility | Unverified; requires optional credentials/service check |
@@ -66,6 +67,12 @@ platform checks as passed on the strength of local macOS tests.
   random sequences and injected output are regression tested.
 
 ## Reproducible scenarios
+
+TerminalSession now isolates worker and UI callback settings. Tests cover concurrent
+workers, nested context restoration after an exception, independent history paths,
+and per-game pacing. The legacy terminal module remains a compatibility adapter.
+Shutdown retains a closed backend until the worker exits, preventing a late read
+from unexpectedly falling through to console input.
 
 Run `.venv/bin/python scripts/audit_scenarios.py --scenario NAME`, where NAME is
 `endings`, `console`, `engine`, or `tui`. Use `--actions 10000` for the engine and

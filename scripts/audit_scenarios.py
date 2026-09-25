@@ -49,6 +49,9 @@ class QuietTerminal:
     def set_narrative_pace(self, enabled):
         self.narrative_pace_enabled = enabled
 
+    def get_narrative_pace(self):
+        return self.narrative_pace_enabled
+
     def toolbar_active(self):
         return False
 

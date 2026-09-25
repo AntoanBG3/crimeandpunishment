@@ -264,15 +264,15 @@ class TestTextualApp(unittest.IsolatedAsyncioTestCase):
         from game_engine.completion import GameCompleter
         from game_engine.tui_app import CrimeAndPunishmentApp
 
-        terminal.set_completer_provider(
+        provider = (
             lambda: GameCompleter(lambda: {"items": ["apple", "axe"]})
         )
-        self.addCleanup(terminal.set_completer_provider, None)
 
         def stub_game():
             terminal.read_line("> ")  # park; completion stays enabled
 
         app = CrimeAndPunishmentApp(game_runner=stub_game)
+        app.terminal.set_completer_provider(provider)
         async with app.run_test() as pilot:
             await pilot.pause(0.2)
             command_input = app.query_one("CommandInput")
@@ -292,15 +292,15 @@ class TestTextualApp(unittest.IsolatedAsyncioTestCase):
         from game_engine.completion import GameCompleter
         from game_engine.tui_app import CrimeAndPunishmentApp
 
-        terminal.set_completer_provider(
+        provider = (
             lambda: GameCompleter(lambda: {"items": ["apple"]})
         )
-        self.addCleanup(terminal.set_completer_provider, None)
 
         def stub_game():
             terminal.read_line("You: ", completion=False)  # dialogue mode
 
         app = CrimeAndPunishmentApp(game_runner=stub_game)
+        app.terminal.set_completer_provider(provider)
         async with app.run_test() as pilot:
             await pilot.pause(0.2)
             command_input = app.query_one("CommandInput")

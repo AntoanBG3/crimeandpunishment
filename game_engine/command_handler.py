@@ -16,7 +16,6 @@ from .game_config import (
     apply_color_theme,
 )
 from .location_module import LOCATIONS_DATA
-from . import terminal
 
 
 class CommandHandler:
@@ -379,7 +378,7 @@ class CommandHandler:
 
     def _handle_pace_command(self, argument):
         if not argument:
-            current = "on" if terminal.narrative_pace_enabled else "off"
+            current = "on" if self.game_state.terminal.get_narrative_pace() else "off"
             self.game_state._print_color(
                 f"Narrative pacing is {current}. Use 'pace on' or 'pace off'.", Colors.CYAN
             )
@@ -388,7 +387,7 @@ class CommandHandler:
         if value not in ("on", "off"):
             self.game_state._print_color("Invalid value. Use 'pace on' or 'pace off'.", Colors.YELLOW)
             return
-        terminal.set_narrative_pace(value == "on")
+        self.game_state.terminal.set_narrative_pace(value == "on")
         self.game_state._print_color(f"Narrative pacing turned {value}.", Colors.GREEN)
 
     def _handle_clearscreen_command(self, argument):
