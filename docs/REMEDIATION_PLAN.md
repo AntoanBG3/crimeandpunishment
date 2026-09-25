@@ -37,7 +37,7 @@ that the isolated harness must control.
 | Invalid saves preserve current session | Passed: R001, real-file regressions and 335-test suite |
 | Unexpected worker errors produce diagnostics | Passed: R002, headless real-app regression |
 | Three protagonist offline paths and all main endings | Pending |
-| Actual SDK with mocked transport | Pending |
+| Actual SDK with mocked transport | Passed: R004, six real-SDK contract tests |
 | 10,000-action engine / 1,000-command TUI soak | Pending |
 | Routine Python 3.10/3.13 OS matrix | Pending |
 | Frozen Windows/Linux/macOS smoke checks | Pending |

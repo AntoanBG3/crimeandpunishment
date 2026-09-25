@@ -5,7 +5,6 @@ import importlib
 import importlib.util
 import re
 import sys
-from types import SimpleNamespace
 
 from . import terminal
 from .game_config import Colors
@@ -23,7 +22,7 @@ def is_usable_ai_text(text):
     sites otherwise open-code. Note it does NOT consider ``low_ai_data_mode``, which is
     a caller-side state decision.
     """
-    return bool(text) and not (isinstance(text, str) and text.startswith("(OOC:"))
+    return isinstance(text, str) and bool(text.strip()) and not text.lstrip().startswith("(OOC:")
 
 
 class NaturalLanguageParser:
@@ -137,34 +136,32 @@ class NaturalLanguageParser:
 
 
 class GeminiAPI:
-    def __init__(self):
+    def __init__(self, *, sdk=None, client_factory=None, terminal_io=terminal):
+        self.client_factory = client_factory
+        self.terminal = terminal_io
         self.model = None
         self.client = None
-        self.genai = None
+        self.genai = sdk
         self._genai_warning_shown = False
         self.chosen_model_name = DEFAULT_GEMINI_MODEL_NAME  # Initialize with default
         # Kept in sync with the game's verbosity level so content is asked for
         # at the right length instead of generated long and trimmed after.
         self.response_length_pref = "brief"
-        self._print_color_func = lambda text, color, end="\n": print(
-            f"{color}{text}{Colors.RESET}", end=end
-        )
-        self._input_color_func = lambda prompt, color, completion=True, secret=False: input(
-            f"{color}{prompt}{Colors.RESET}"
-        )
+        self._print_color_func = self.terminal.write_line
+        self._input_color_func = self.terminal.read_line
+
+    def close(self):
+        """Release the current client; safe when setup failed or no SDK is installed."""
+        client, self.client, self.model = self.client, None, None
+        close = getattr(client, "close", None)
+        if callable(close):
+            try:
+                close()  # pylint: disable=not-callable
+            except Exception:
+                self._log_message("Could not close the AI client cleanly.", Colors.YELLOW)
 
     def _load_genai(self):
         if self.genai:
-            return True
-        os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
-        if "unittest" in sys.modules or "pytest" in sys.modules:
-            self.genai = SimpleNamespace(
-                Client=lambda **kwargs: SimpleNamespace(
-                    models=SimpleNamespace(
-                        generate_content=lambda *args, **kwargs: SimpleNamespace(text="test")
-                    )
-                )
-            )
             return True
         try:
             # Raises ModuleNotFoundError (not None) when the "google"
@@ -257,38 +254,42 @@ class GeminiAPI:
                 f"Internal: _attempt_api_setup called with no API key from {source}.",
                 Colors.RED,
             )
-            self.model = None
+            self.close()
             return False
         if not self._load_genai():
-            self.model = None
+            self.close()
             return False
         genai_module = self.genai
         if genai_module is None:
-            self.model = None
+            self.close()
             return False
 
         try:
-            self.client = genai_module.Client(api_key=api_key)
+            self.close()
+            factory = self.client_factory or genai_module.Client
+            self.client = factory(api_key=api_key, http_options={
+                "timeout": 10_000, "retry_options": {"attempts": 1},
+            })
         except Exception as e_config:
             self._print_color_func(
-                f"Error configuring Gemini API (Client init using key from {source}): {e_config}",
+                f"Error configuring Gemini API (Client init using key from {source}): {type(e_config).__name__}",
                 Colors.RED,
             )
-            self.model = None
+            self.close()
             return False
 
         try:
             model_instance = self._GeminiModelAdapter(self.client, model_to_use)
         except Exception as model_e:
             self._print_color_func(
-                f"Error instantiating Gemini model '{model_to_use}' (key from {source}): {model_e}",
+                f"Error instantiating Gemini model '{model_to_use}' (key from {source}): {type(model_e).__name__}",
                 Colors.RED,
             )
             self._print_color_func(
                 f"The API key might be valid, but there's an issue with model '{model_to_use}' (e.g., name, access permissions).",
                 Colors.YELLOW,
             )
-            self.model = None
+            self.close()
             return False
 
         self._print_color_func(
@@ -314,7 +315,7 @@ class GeminiAPI:
                 safety_settings=safety_settings,
             )
 
-            if hasattr(test_response, "text") and "test" in test_response.text.lower():
+            if isinstance(getattr(test_response, "text", None), str) and "test" in test_response.text.lower():
                 self._print_color_func(
                     f"API key from {source} verified successfully for model '{model_to_use}'.",
                     Colors.GREEN,
@@ -346,11 +347,11 @@ class GeminiAPI:
                 f"API key verification with model '{model_to_use}' (key from {source}) failed: {feedback_text}",
                 Colors.RED,
             )
-            self.model = None
+            self.close()
             return False
         except Exception as e_test:
             self._print_color_func(
-                f"Error during API key verification call (from {source}, model '{model_to_use}'): {e_test}",
+                f"Error during API key verification call (from {source}, model '{model_to_use}'): {type(e_test).__name__}",
                 Colors.RED,
             )
             error_str = str(e_test).lower()
@@ -378,7 +379,7 @@ class GeminiAPI:
                     f"Unexpected error during verification with model '{model_to_use}'.",
                     Colors.YELLOW,
                 )
-            self.model = None
+            self.close()
             return False
 
     def _ask_for_model_selection(self):
@@ -694,7 +695,7 @@ class GeminiAPI:
             return response.text.strip()
         except Exception as e:
             self._log_message(
-                f"Error calling Gemini API for {error_message_context} using model {self.chosen_model_name}: {e}",
+                f"Error calling Gemini API for {error_message_context} using model {self.chosen_model_name}: {type(e).__name__}",
                 Colors.RED,
             )
             block_reason = None
@@ -709,7 +710,7 @@ class GeminiAPI:
 
             if getattr(e, "grpc_status_code", None) == 7:
                 return "(OOC: API key error - Permission Denied. My thoughts are muddled.)"
-            return f"(OOC: My thoughts are... muddled due to an error: {str(e)[:100]}...)"
+            return f"(OOC: My thoughts are... muddled due to an error: {type(e).__name__}...)"
 
     def _extract_json_payload(self, text):
         if not text:

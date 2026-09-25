@@ -33,7 +33,7 @@ from .persistence import prepare_restore
 
 
 class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
-    def __init__(self) -> None:
+    def __init__(self, *, gemini_api=None) -> None:
         self.world_manager = WorldManager(self)
         self.command_handler = CommandHandler(self)
         self.player_character: Optional[Any] = None
@@ -42,7 +42,7 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
         self.current_location_name = None
         self.dynamic_location_items: Dict[str, Any] = {}
 
-        self.gemini_api = GeminiAPI()
+        self.gemini_api = gemini_api if gemini_api is not None else GeminiAPI()
         self.gemini_api.response_length_pref = DEFAULT_VERBOSITY_LEVEL
         self.nl_parser = NaturalLanguageParser(self.gemini_api)
         self.event_manager = EventManager(self)
@@ -385,6 +385,12 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
         return True
 
     def run(self) -> None:
+        try:
+            self._run_session()
+        finally:
+            self.gemini_api.close()
+
+    def _run_session(self) -> None:
         if not self._initialize_game():
             return
         while True:

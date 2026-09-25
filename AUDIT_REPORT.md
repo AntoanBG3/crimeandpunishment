@@ -63,9 +63,22 @@ Inventory, dependencies, acceptance evidence and deferred work are maintained in
 
 ## High-Priority Improvements
 
-- Investigate automatic Gemini substitution under unittest/pytest: production
-  behavior depends on imported test modules and ordinary tests cannot exercise SDK
-  compatibility through that path.
+### R004 — Production AI behavior changes under test runners
+
+- **Category / severity / confidence:** Robustness / Medium / Confirmed.
+- **Effort:** Medium. **Status:** Fixed; commit `refactor: inject AI clients and verify the real SDK offline`.
+- **Location:** `game_engine/gemini_interactions.py:GeminiAPI`, `game_engine/game_state.py:run`.
+- **Evidence:** A regression importing the actual installed SDK found a SimpleNamespace
+  substitute instead. Whitespace and non-string responses were also accepted as text.
+- **Implementation:** Remove test-runner detection, allow explicit SDK/client/UI injection,
+  validate usable text, close clients on failed setup and session exit, configure a
+  10-second transport timeout and one attempt instead of implicit SDK retries.
+- **Verification:** 344-test full suite passed, then six SDK contract tests passed,
+  covering real serialization, timeout settings, HTTP 401/403/404/429/500/503,
+  transport exceptions and empty/blocked responses using httpx.MockTransport.
+  No live API requests were used. Transport timeouts are not a hard process deadline.
+- **Source:** [Google SDK HTTP options](https://googleapis.github.io/python-genai/genai.html),
+  checked against installed 2.8.0 types and actual request extensions.
 - Investigate session lifetime, unbounded input/output retention, and request
   deadlines with controlled failures and measured long-session scenarios.
 
