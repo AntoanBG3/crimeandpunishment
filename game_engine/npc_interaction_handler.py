@@ -316,14 +316,9 @@ class NPCInteractionHandler:
         if not self.player_character:
             self._print_color("Cannot persuade: Player character not available.", Colors.RED)
             return False, False
-        target_npc = next(
-            (
-                npc
-                for npc in self.npcs_in_current_location
-                if npc.name.lower().startswith(target_npc_name.lower())
-            ),
-            None,
-        )
+        target_npc, ambiguous = self.command_handler._get_matching_npc(target_npc_name)
+        if ambiguous:
+            return False, False
         if not target_npc:
             self._print_color(
                 f"You don't see anyone named '{target_npc_name}' here to persuade.",
@@ -344,7 +339,7 @@ class NPCInteractionHandler:
             f"(Skill: {persuasion_skill_check_result_text})"
         )
         used_ai_dialogue = False
-        if self.gemini_api.model:
+        if self.gemini_api.model and not getattr(self, "low_ai_data_mode", False):
             ai_response = self.gemini_api.get_npc_dialogue_persuasion_attempt(
                 target_npc,
                 self.player_character,
@@ -402,7 +397,6 @@ class NPCInteractionHandler:
         )
         self._record_npc_post_interaction_memories(target_npc, "during persuasion attempt")
         evaluate_player_progression(self, "persuade", target_npc.name)
-        self.world_manager.advance_time(TIME_UNITS_PER_PLAYER_ACTION)
         return True, True
 
     def _handle_confess_command(self, argument=None):

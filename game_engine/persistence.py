@@ -83,7 +83,7 @@ class RestoredState:
         game.time_since_last_npc_interaction = 0
         game.time_since_last_npc_schedule_update = 0
         game._full_desc_shown_at = {}
-        game._atmospheric_shown_at = {}
+        game._atmospherics_shown_at = {}
         game.last_ai_generated_text = None
         game.last_ai_generation_source = None
         game._last_full_text = None

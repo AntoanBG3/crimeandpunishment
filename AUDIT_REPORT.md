@@ -82,6 +82,18 @@ Inventory, dependencies, acceptance evidence and deferred work are maintained in
 - Investigate session lifetime, unbounded input/output retention, and request
   deadlines with controlled failures and measured long-session scenarios.
 
+### R005 — Persuasion advances time twice and bypasses shared behavior
+
+- **Category / severity / confidence:** Robustness / Medium / Confirmed.
+- **Effort:** Small. **Status:** Fixed; commit `fix: make persuasion use shared matching and turn timing`.
+- **Location:** `game_engine/npc_interaction_handler.py:_handle_persuade_command`.
+- **Evidence:** A command plus world-update regression recorded two `advance_time(1)`
+  calls; an article/surname target failed despite the shared matcher supporting it.
+  The handler also called a configured model while LOW-AI was enabled.
+- **Implementation:** Let the main turn own time, use the shared NPC matcher, respect
+  LOW-AI, and correct the restored atmospheric-cache attribute name.
+- **Verification:** Two focused regressions plus the full suite and linters.
+
 ## Quality of Life Improvements
 
 - Audit stale UI-default documentation, misleading multi-action NLP examples,
