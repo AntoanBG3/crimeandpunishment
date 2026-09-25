@@ -126,6 +126,19 @@ Inventory, dependencies, acceptance evidence and deferred work are maintained in
 
 ## Quality of Life Improvements
 
+### R009 — Empty AI text bypasses item and event fallbacks
+
+- **Category / severity / confidence:** Robustness / Medium / Confirmed.
+- **Effort:** Small. **Status:** Fixed; commit `fix: reject unusable AI narration consistently`.
+- **Location:** `gemini_interactions.py:_generate_content_with_fallback`, item/event handlers.
+- **Evidence:** Whitespace newspaper responses produced empty narration; non-text and
+  indented OOC responses were recorded as AI news. Empty-response diagnostics included
+  the first 200 characters of the prompt, potentially containing conversation text.
+- **Implementation:** Use the shared text validator across item/event fallbacks and
+  the generation boundary. Keep prompt content out of generation diagnostics.
+- **Regression:** `tests/test_ai_fallback_boundary.py` initially failed six subcases
+  and errored twice; it now verifies static news and content-free failure logs.
+
 ### R007 — Save selection crashes on invalid metadata or disappearing files
 
 - **Category / severity / confidence:** Robustness / Medium / Confirmed.

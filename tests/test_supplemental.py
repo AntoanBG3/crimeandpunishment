@@ -694,7 +694,8 @@ def test_event_manager_fallback_edge_paths():
     )
     manager = EventManager(game)
     manager.action_find_anonymous_note()
-    assert "found an anonymous warning note." not in str(game.last_significant_event_summary)
+    assert "found an anonymous warning note." in str(game.last_significant_event_summary)
+    assert game.dynamic_location_items[game.current_location_name][-1]["generated_content"].strip()
 
     game.current_location_name = "Haymarket Square"
     with patch("game_engine.event_manager.STATIC_STREET_LIFE_EVENTS", []):

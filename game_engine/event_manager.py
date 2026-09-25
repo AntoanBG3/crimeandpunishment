@@ -1,5 +1,6 @@
 # event_manager.py
 import random
+from .gemini_interactions import is_usable_ai_text
 from .game_config import (
     Colors,
     DEFAULT_ITEMS,
@@ -199,8 +200,7 @@ class EventManager:
                 )
 
             if (
-                reflection_text is None
-                or (isinstance(reflection_text, str) and reflection_text.startswith("(OOC:"))
+                not is_usable_ai_text(reflection_text)
                 or self.game.low_ai_data_mode
             ):
                 if STATIC_PLAYER_REFLECTIONS:
@@ -260,8 +260,7 @@ class EventManager:
             )
 
         if (
-            note_text is None
-            or (isinstance(note_text, str) and note_text.startswith("(OOC:"))
+            not is_usable_ai_text(note_text)
             or self.game.low_ai_data_mode
         ):
             note_text = STATIC_ANONYMOUS_NOTE_CONTENT  # Direct use of the static string
@@ -337,8 +336,7 @@ class EventManager:
             )
 
         if (
-            description is None
-            or (isinstance(description, str) and description.startswith("(OOC:"))
+            not is_usable_ai_text(description)
             or self.game.low_ai_data_mode
         ):
             if STATIC_STREET_LIFE_EVENTS:
@@ -437,8 +435,7 @@ class EventManager:
                 )
 
             if (
-                interaction_text is None
-                or (isinstance(interaction_text, str) and interaction_text.startswith("(OOC:"))
+                not is_usable_ai_text(interaction_text)
                 or self.game.low_ai_data_mode
             ):
                 if STATIC_NPC_NPC_INTERACTIONS:

@@ -1,6 +1,7 @@
 # pylint: disable=no-member
 import random
 from typing import Any
+from .gemini_interactions import is_usable_ai_text
 from .game_config import Colors, DEFAULT_ITEMS, GENERIC_SCENERY_KEYWORDS, HIGHLY_NOTABLE_ITEMS_FOR_MEMORY
 from .static_fallbacks import (
     STATIC_ENHANCED_OBSERVATIONS,
@@ -94,8 +95,7 @@ class ItemInteractionHandler:
             )
 
         if (
-            gen_desc is not None
-            and not (isinstance(gen_desc, str) and gen_desc.startswith("(OOC:"))
+            is_usable_ai_text(gen_desc)
             and not self.low_ai_data_mode
         ):
             gen_desc = self._apply_verbosity(gen_desc)
@@ -105,8 +105,7 @@ class ItemInteractionHandler:
         else:
             if (
                 self.low_ai_data_mode
-                or gen_desc is None
-                or (isinstance(gen_desc, str) and gen_desc.startswith("(OOC:"))
+                or not is_usable_ai_text(gen_desc)
             ):
                 gen_desc = generate_static_item_interaction_description(item_name, "examine", rng=getattr(self, "rng", random))
                 self._print_color(f'"{self._apply_verbosity(gen_desc)}"', Colors.CYAN)
@@ -130,11 +129,7 @@ class ItemInteractionHandler:
                 )
 
             if (
-                detailed_observation is None
-                or (
-                    isinstance(detailed_observation, str)
-                    and detailed_observation.startswith("(OOC:")
-                )
+                not is_usable_ai_text(detailed_observation)
                 or self.low_ai_data_mode
             ):
                 if STATIC_ENHANCED_OBSERVATIONS:
@@ -255,8 +250,7 @@ class ItemInteractionHandler:
                 )
 
             if (
-                observation is not None
-                and not (isinstance(observation, str) and observation.startswith("(OOC:"))
+                is_usable_ai_text(observation)
                 and not self.low_ai_data_mode
             ):
                 final_observation = self._apply_verbosity(observation)
@@ -266,8 +260,7 @@ class ItemInteractionHandler:
             else:
                 if (
                     self.low_ai_data_mode
-                    or observation is None
-                    or (isinstance(observation, str) and observation.startswith("(OOC:"))
+                    or not is_usable_ai_text(observation)
                 ):
                     if STATIC_PLAYER_REFLECTIONS:
                         observation = (
@@ -303,11 +296,7 @@ class ItemInteractionHandler:
                     )
 
                 if (
-                    detailed_observation is None
-                    or (
-                        isinstance(detailed_observation, str)
-                        and detailed_observation.startswith("(OOC:")
-                    )
+                    not is_usable_ai_text(detailed_observation)
                     or self.low_ai_data_mode
                 ):
                     if STATIC_ENHANCED_OBSERVATIONS:
@@ -355,8 +344,7 @@ class ItemInteractionHandler:
                 )
 
             if (
-                observation is not None
-                and not (isinstance(observation, str) and observation.startswith("(OOC:"))
+                is_usable_ai_text(observation)
                 and not self.low_ai_data_mode
             ):
                 # AI success
@@ -368,8 +356,7 @@ class ItemInteractionHandler:
                 # Fallback or AI failed/OOC or low_ai_mode
                 if (
                     self.low_ai_data_mode
-                    or observation is None
-                    or (isinstance(observation, str) and observation.startswith("(OOC:"))
+                    or not is_usable_ai_text(observation)
                 ):
                     observation = generate_static_scenery_observation(target_to_look_at, rng=getattr(self, "rng", random))
                     # base_desc_for_skill_check remains the initial general one
@@ -393,11 +380,7 @@ class ItemInteractionHandler:
                     )
 
                 if (
-                    detailed_observation is None
-                    or (
-                        isinstance(detailed_observation, str)
-                        and detailed_observation.startswith("(OOC:")
-                    )
+                    not is_usable_ai_text(detailed_observation)
                     or self.low_ai_data_mode
                 ):
                     if STATIC_ENHANCED_OBSERVATIONS:
@@ -770,8 +753,7 @@ class ItemInteractionHandler:
                 )
 
             if (
-                article_snippet is None
-                or (isinstance(article_snippet, str) and article_snippet.startswith("(OOC:"))
+                not is_usable_ai_text(article_snippet)
                 or self.low_ai_data_mode
             ):
                 if STATIC_NEWSPAPER_SNIPPETS:
@@ -845,8 +827,7 @@ class ItemInteractionHandler:
                 )
 
             if (
-                reflection is None
-                or (isinstance(reflection, str) and reflection.startswith("(OOC:"))
+                not is_usable_ai_text(reflection)
                 or self.low_ai_data_mode
             ):
                 if STATIC_PLAYER_REFLECTIONS:
@@ -891,8 +872,7 @@ class ItemInteractionHandler:
                 )
 
             if (
-                reflection is None
-                or (isinstance(reflection, str) and reflection.startswith("(OOC:"))
+                not is_usable_ai_text(reflection)
                 or self.low_ai_data_mode
             ):
                 if STATIC_PLAYER_REFLECTIONS:
@@ -970,8 +950,7 @@ class ItemInteractionHandler:
                 )
 
             if (
-                book_reflection is None
-                or (isinstance(book_reflection, str) and book_reflection.startswith("(OOC:"))
+                not is_usable_ai_text(book_reflection)
                 or self.low_ai_data_mode
             ):
                 book_reflection = generate_static_item_interaction_description(
@@ -1000,8 +979,7 @@ class ItemInteractionHandler:
             )
 
         if (
-            read_reflection is None
-            or (isinstance(read_reflection, str) and read_reflection.startswith("(OOC:"))
+            not is_usable_ai_text(read_reflection)
             or self.low_ai_data_mode
         ):
             read_reflection = generate_static_item_interaction_description(item_to_use_name, "read", rng=getattr(self, "rng", random))
@@ -1098,8 +1076,7 @@ class ItemInteractionHandler:
                         "Holding Sonya's cross, new thoughts about suffering and sacrifice surface.",
                     )
                 if (
-                    reflection is None
-                    or (isinstance(reflection, str) and reflection.startswith("(OOC:"))
+                    not is_usable_ai_text(reflection)
                     or self.low_ai_data_mode
                 ):
                     if STATIC_PLAYER_REFLECTIONS:
@@ -1211,8 +1188,7 @@ class ItemInteractionHandler:
                 )
 
             if (
-                icon_reflection is None
-                or (isinstance(icon_reflection, str) and icon_reflection.startswith("(OOC:"))
+                not is_usable_ai_text(icon_reflection)
                 or self.low_ai_data_mode
             ):
                 icon_reflection = generate_static_item_interaction_description(
@@ -1323,8 +1299,7 @@ class ItemInteractionHandler:
                 )
 
             if (
-                reaction is None
-                or (isinstance(reaction, str) and reaction.startswith("(OOC:"))
+                not is_usable_ai_text(reaction)
                 or self.low_ai_data_mode
             ):
                 # Fallback static reaction if AI fails or low_ai_mode

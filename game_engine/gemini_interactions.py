@@ -649,49 +649,23 @@ class GeminiAPI:
             with terminal.status("The city holds its breath…"):
                 response = self.model.generate_content(prompt, safety_settings=safety_settings)
 
-            if not hasattr(response, "text") or not response.text:
-                block_reason_str = ""
-                # Check for block reason in prompt_feedback
-                if (
-                    hasattr(response, "prompt_feedback")
-                    and hasattr(response.prompt_feedback, "block_reason")
-                    and response.prompt_feedback.block_reason
-                ):
-                    block_reason_str = f" (Reason: {response.prompt_feedback.block_reason})"
-                # Check for finish reason in candidates if text is empty
-                elif (
-                    hasattr(response, "candidates")
-                    and len(response.candidates) > 0
-                    and hasattr(response.candidates[0], "finish_reason")
-                ):
-                    finish_reason = response.candidates[0].finish_reason
-                    # FINISH_REASON_STOP (1) is normal. Other reasons (SAFETY, RECITATION, OTHER, etc.) are issues.
-                    if finish_reason != 1:  # Assuming 1 is FINISH_REASON_STOP
-                        block_reason_str = f" (Finish Reason: {finish_reason})"
-
-                refusal_phrases = [
-                    "cannot fulfill",
-                    "unable to provide",
-                    "cannot generate",
-                    "not able to create",
-                    "i am unable to",
-                ]
-                if (
-                    hasattr(response, "text")
-                    and response.text
-                    and any(phrase in response.text.lower() for phrase in refusal_phrases)
-                ):
-                    self._log_message(
-                        f"Warning: Gemini returned a refusal-like response for {error_message_context}.{block_reason_str} Prompt: {prompt[:200]}...",
-                        Colors.YELLOW,
-                    )
-                    return f"(OOC: My thoughts on this are restricted at the moment.{block_reason_str})"
-
+            if not is_usable_ai_text(getattr(response, "text", None)):
+                reason = ""
+                feedback = getattr(response, "prompt_feedback", None)
+                blocked = getattr(feedback, "block_reason", None)
+                candidates = getattr(response, "candidates", None) or []
+                if blocked:
+                    reason = f" (Reason: {blocked})"
+                elif candidates:
+                    finish = getattr(candidates[0], "finish_reason", None)
+                    if finish and finish not in (1, "STOP"):
+                        reason = f" (Finish Reason: {finish})"
                 self._log_message(
-                    f"Warning: Gemini returned an empty or non-text response for {error_message_context}.{block_reason_str} Model: {self.chosen_model_name}. Prompt: {prompt[:200]}...",
+                    f"Warning: Gemini returned unusable text for {error_message_context}. "
+                    f"Model: {self.chosen_model_name}.{reason}",
                     Colors.YELLOW,
                 )
-                return f"(OOC: My thoughts on this are unclear or restricted at the moment.{block_reason_str})"
+                return f"(OOC: My thoughts on this are unclear or restricted at the moment.{reason})"
             return response.text.strip()
         except Exception as e:
             self._log_message(
