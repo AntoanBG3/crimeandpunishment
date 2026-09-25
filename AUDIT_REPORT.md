@@ -63,6 +63,22 @@ Inventory, dependencies, acceptance evidence and deferred work are maintained in
 
 ## High-Priority Improvements
 
+### R008 — Advertised Python 3.10 support was not routinely exercised
+
+- **Category / severity / confidence:** Robustness / Medium / Confirmed.
+- **Effort:** Medium. **Status:** Validation added; remote matrix pending.
+- **Location:** `.github/workflows/ci.yml`, `constraints.txt`, `scripts/build_release.py`.
+- **Evidence:** Only tag/manual validation on Python 3.13 existed, with unpinned
+  dependencies. A clean Python 3.10 run caught newer f-string quoting introduced
+  during this campaign; it was corrected before publication of the validation batch.
+- **Implementation:** Pin the universal dependency graph, share release/build logic,
+  run six interpreter/OS test combinations and three frozen console smokes on
+  ordinary development pushes and PRs. Keep publication restricted to release tags.
+- **Verification:** Clean macOS Python 3.10/3.13 environments pass all 363 tests and
+  dependency checks; its frozen binary passes startup/look/quit/EOF from an isolated
+  Unicode directory. The sandbox semaphore restriction required an unsandboxed
+  frozen smoke. Cross-platform results will be recorded separately.
+
 ### R004 — Production AI behavior changes under test runners
 
 - **Category / severity / confidence:** Robustness / Medium / Confirmed.

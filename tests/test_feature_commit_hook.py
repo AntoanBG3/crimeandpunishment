@@ -16,13 +16,15 @@ class TestFeatureCommitHook(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
+        self.empty_hooks = self.root / 'empty-hooks'
+        self.empty_hooks.mkdir()
         self.git("init", "--quiet")
         self.git("config", "user.name", "Hook Test")
         self.git("config", "user.email", "hook@example.invalid")
         (self.root / "feature.txt").write_text("original\n", encoding="utf-8")
         (self.root / ".gitignore").write_text("ignored.txt\n", encoding="utf-8")
         self.git("add", "feature.txt", ".gitignore")
-        self.git("-c", "core.hooksPath=/dev/null", "commit", "--quiet", "-m", "Initial")
+        self.git("-c", f"core.hooksPath={self.empty_hooks}", "commit", "--quiet", "-m", "Initial")
 
     def git(self, *args):
         return subprocess.run(
@@ -50,7 +52,7 @@ class TestFeatureCommitHook(unittest.TestCase):
                 elif state == "staged":
                     self.git("add", "feature.txt")
                 else:
-                    self.git("-c", "core.hooksPath=/dev/null", "commit", "--quiet", "-m", "Feature")
+                    self.git("-c", f"core.hooksPath={self.empty_hooks}", "commit", "--quiet", "-m", "Feature")
                     (self.root / "new file.txt").write_text("new\n", encoding="utf-8")
                 before = (self.git("status", "--porcelain"), self.git("rev-parse", "HEAD"))
                 self.assertEqual(self.invoke()["decision"], "block")

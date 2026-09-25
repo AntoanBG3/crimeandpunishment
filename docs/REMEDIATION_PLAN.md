@@ -40,8 +40,8 @@ that the isolated harness must control.
 | Three protagonist offline paths and all main endings | Three command-level paths passed; existing progression tests cover alternate endings |
 | Actual SDK with mocked transport | Passed: R004, six real-SDK contract tests |
 | 10,000-action engine / 1,000-command TUI soak | Both completed before/after retention fixes; see AUDIT_BENCHMARKS.json |
-| Routine Python 3.10/3.13 OS matrix | Pending |
-| Frozen Windows/Linux/macOS smoke checks | Pending |
+| Routine Python 3.10/3.13 OS matrix | Configured; clean macOS 3.10/3.13 pass 363 tests; remote runs pending |
+| Frozen Windows/Linux/macOS smoke checks | macOS clean build and console smoke passed; Windows/Linux pending |
 | Live Gemini compatibility | Unverified; requires optional credentials/service check |
 
 ## Backlog policy

@@ -222,12 +222,15 @@ def console(binary=None):
     command = [str(binary)] if binary else [sys.executable, str(ROOT / 'main.py')]
     result = subprocess.run(command + ['--no-tui'], input='\n1\nlook\nquit\nn\n',
                             text=True, capture_output=True, timeout=30, check=False)
+    assert result.returncode == 0, f'exit={result.returncode}; stderr={result.stderr}'
     for marker in ('Choose Your Character', "Raskolnikov's Garret", 'Exiting game. Goodbye.'):
         assert marker in result.stdout, marker
-    assert result.returncode == 0, result.stderr
     eof = subprocess.run(command + ['--no-tui'], input='', text=True, capture_output=True,
                          timeout=30, check=False)
     assert eof.returncode == 0, eof.stderr
+    version = subprocess.run(command + ['--version'], text=True, capture_output=True,
+                             timeout=30, check=True)
+    assert 'Crime and Punishment ' in version.stdout
     return {'exit_code': result.returncode, 'eof_exit_code': eof.returncode}
 
 
@@ -243,12 +246,15 @@ def main():
     if args.actions < 1:
         parser.error('--actions must be positive')
     if not args.child:
+        child_arguments = [*sys.argv[1:], '--child']
+        if args.binary:
+            child_arguments += ['--binary', str(args.binary.resolve())]
         with tempfile.TemporaryDirectory(prefix='crime audit ü ') as directory:
             env = {key: value for key, value in os.environ.items()
                    if key not in ('GEMINI_API_KEY', 'GOOGLE_API_KEY')}
-            env.update(HOME=directory, USERPROFILE=directory, NO_COLOR='1')
-            result = subprocess.run([sys.executable, str(Path(__file__).resolve()), *sys.argv[1:],
-                                     '--child'], cwd=directory, env=env, text=True,
+            env.update(HOME=directory, USERPROFILE=directory, NO_COLOR='1', PYTHONUTF8='1')
+            result = subprocess.run([sys.executable, str(Path(__file__).resolve()), *child_arguments],
+                                    cwd=directory, env=env, text=True, encoding='utf-8',
                                     capture_output=True, timeout=args.timeout, check=False)
             if result.returncode:
                 sys.stderr.write(result.stderr)

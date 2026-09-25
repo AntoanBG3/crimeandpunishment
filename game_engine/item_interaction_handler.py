@@ -271,7 +271,7 @@ class ItemInteractionHandler:
                 ):
                     if STATIC_PLAYER_REFLECTIONS:
                         observation = (
-                            f"{npc.name} is here. {getattr(self, "rng", random).choice(STATIC_PLAYER_REFLECTIONS)}"
+                            f"{npc.name} is here. {getattr(self, 'rng', random).choice(STATIC_PLAYER_REFLECTIONS)}"
                         )
                     else:
                         observation = (
