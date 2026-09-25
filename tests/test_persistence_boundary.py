@@ -67,6 +67,28 @@ class TestPersistenceBoundary(unittest.TestCase):
             self.game.save_game()
         self.assertEqual(self.path.read_bytes(), original)
 
+    def test_legacy_text_memories_load_and_remain_readable(self):
+        player = self.saved['all_character_objects_state']['Rodion Raskolnikov']
+        player['memory_about_player'] = ['An old recollection.']
+        self.path.write_text(json.dumps(self.saved))
+        self.assertTrue(self.game.load_game())
+        self.assertIn('An old recollection.', self.game.player_character.get_player_memory_summary(1))
+
+    def test_malformed_nested_memory_and_overflow_numbers_are_rejected(self):
+        variants = [{**self.saved, 'player_notoriety_level': 10 ** 400}]
+        for content in ({'summary': 42}, {'player_statement': []}, {'quantity': 'two'},
+                        {'change': {}}, {'topic_hint': ['crime']}):
+            payload = copy.deepcopy(self.saved)
+            player = payload['all_character_objects_state']['Rodion Raskolnikov']
+            player['memory_about_player'] = [{'content': content, 'type': 'dialogue_exchange'}]
+            variants.append(payload)
+        active = self.game.player_character
+        for payload in variants:
+            with self.subTest(payload=payload['player_notoriety_level']):
+                self.path.write_text(json.dumps(payload))
+                self.assertFalse(self.game.load_game())
+                self.assertIs(self.game.player_character, active)
+
 
 if __name__ == '__main__':
     unittest.main()

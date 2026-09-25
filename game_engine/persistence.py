@@ -14,7 +14,10 @@ def _require(condition, message):
 
 
 def _number(value):
-    return type(value) in (int, float) and math.isfinite(value)
+    try:
+        return type(value) in (int, float) and math.isfinite(value)
+    except OverflowError:
+        return False
 
 
 def _strings(value):
@@ -34,6 +37,7 @@ def _inventory(value):
 
 def _character(data, name, static, locations):
     _require(isinstance(data, dict) and data.get("name") == name, "Invalid character identity.")
+    data = copy.deepcopy(data)
     _inventory(data.get("inventory", []))
     for key in ("skills", "psychology", "npc_relationships"):
         values = data.get(key, {})
@@ -43,12 +47,25 @@ def _character(data, name, static, locations):
     _require(isinstance(data.get("apparent_state", "normal"), str), "Invalid apparent state.")
     _require(_strings(data.get("journal_entries", [])), "Invalid journal.")
     memories = data.get("memory_about_player", [])
-    _require(isinstance(memories, list) and all(isinstance(m, dict) for m in memories),
-             "Invalid character memories.")
-    for memory in memories:
+    _require(isinstance(memories, list), "Invalid character memories.")
+    for index, memory in enumerate(memories):
+        if isinstance(memory, str):
+            memory = {"type": "legacy", "turn": 0, "content": {"summary": memory}}
+            memories[index] = memory
+        _require(isinstance(memory, dict), "Invalid character memory.")
         _require(_number(memory.get("turn", 0)) and _number(memory.get("sentiment_impact", 0)),
                  "Invalid memory time or sentiment.")
-        _require(isinstance(memory.get("content", {}), dict), "Invalid memory content.")
+        content = memory.get("content", {})
+        if isinstance(content, str):
+            content = {"summary": content}
+            memory["content"] = content
+        _require(isinstance(content, dict), "Invalid memory content.")
+        for field in ("summary", "player_statement", "topic_hint", "item_name", "action",
+                      "location", "target_item", "reason"):
+            _require(field not in content or isinstance(content[field], str),
+                     f"Invalid memory {field}.")
+        for field in ("quantity", "change"):
+            _require(field not in content or _number(content[field]), f"Invalid memory {field}.")
     histories = data.get("conversation_histories", {})
     _require(isinstance(histories, dict) and all(_strings(h) for h in histories.values()),
              "Invalid conversation history.")
@@ -62,7 +79,7 @@ def _character(data, name, static, locations):
         stages = objective.get("stages", [])
         _require(isinstance(stages, list) and all(isinstance(s, dict) for s in stages),
                  "Invalid objective stages.")
-    character = Character.from_dict(copy.deepcopy(data), static)
+    character = Character.from_dict(data, static)
     _require(character.current_location in locations, f"Unknown location for {name}.")
     return character
 

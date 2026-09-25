@@ -151,6 +151,12 @@ Inventory, dependencies, acceptance evidence and deferred work are maintained in
   content and invalid memory fields before they can enter the active session (R001).
 - **Verification:** 360 tests pass, Flake8 clean, Pylint 10.00/10.
 
+R001 follow-up (`fix: preserve legacy memories and reject malformed nested saves`):
+legacy text memories migrate to readable structured entries. Nested text/numeric
+memory fields and overflowing numbers are rejected before state replacement.
+The new legacy/invalid-type regressions initially failed six cases and raised an
+overflow once; all 367 tests now pass with clean lint and Pylint 10.00/10.
+
 - Audit stale UI-default documentation, misleading multi-action NLP examples,
   malformed save-slot metadata and stale numbered scene actions.
 
