@@ -1,0 +1,54 @@
+{
+  "environment": "macOS arm64, Python 3.13.5, tracemalloc enabled",
+  "before_retention_fixes": {
+    "engine": {
+      "scenario": "engine",
+      "seed": 1729,
+      "actions": 10000,
+      "seconds": 3.803572166005324,
+      "p95_command_ms": 0.6904580004629679,
+      "median_command_ms": 0.1992920006159693,
+      "retained_bytes": 491368,
+      "peak_bytes": 686895,
+      "samples": [
+        {
+          "actions": 2000,
+          "retained_bytes": 236065,
+          "events": 13
+        },
+        {
+          "actions": 4000,
+          "retained_bytes": 296952,
+          "events": 19
+        },
+        {
+          "actions": 6000,
+          "retained_bytes": 470080,
+          "events": 27
+        },
+        {
+          "actions": 8000,
+          "retained_bytes": 475862,
+          "events": 33
+        },
+        {
+          "actions": 10000,
+          "retained_bytes": 491344,
+          "events": 41
+        }
+      ],
+      "event_count": 41,
+      "day": 36
+    },
+    "tui": {
+      "scenario": "tui",
+      "seed": 1729,
+      "commands": 1000,
+      "seconds": 6.4456536669968045,
+      "retained_history": 1000,
+      "retained_log_lines": 2000,
+      "retained_bytes": 14043839,
+      "peak_bytes": 14183213
+    }
+  }
+}

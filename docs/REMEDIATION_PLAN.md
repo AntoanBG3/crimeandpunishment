@@ -36,9 +36,9 @@ that the isolated harness must control.
 | Baseline tests and linters | Passed locally; see AUDIT_BASELINE.md |
 | Invalid saves preserve current session | Passed: R001, real-file regressions and 335-test suite |
 | Unexpected worker errors produce diagnostics | Passed: R002, headless real-app regression |
-| Three protagonist offline paths and all main endings | Pending |
+| Three protagonist offline paths and all main endings | Three command-level paths passed; existing progression tests cover alternate endings |
 | Actual SDK with mocked transport | Passed: R004, six real-SDK contract tests |
-| 10,000-action engine / 1,000-command TUI soak | Pending |
+| 10,000-action engine / 1,000-command TUI soak | Both completed; retention findings remain to fix; see AUDIT_BENCHMARKS.json |
 | Routine Python 3.10/3.13 OS matrix | Pending |
 | Frozen Windows/Linux/macOS smoke checks | Pending |
 | Live Gemini compatibility | Unverified; requires optional credentials/service check |
@@ -64,3 +64,17 @@ platform checks as passed on the strength of local macOS tests.
   dependencies. Character skill checks, world events and narrative choices share
   the injected RNG; defaults preserve existing callers. State isolation, deterministic
   random sequences and injected output are regression tested.
+
+## Reproducible scenarios
+
+Run `.venv/bin/python scripts/audit_scenarios.py --scenario NAME`, where NAME is
+`endings`, `console`, `engine`, or `tui`. Use `--actions 10000` for the engine and
+`--actions 1000` for TUI. Each invocation starts a child process in a temporary
+Unicode/spaced working directory with isolated history/config/saves, no inherited
+Gemini credentials, seeded randomness, and a 180-second process deadline.
+
+Endings use authored starting locations with stationary NPC schedules to make
+command sequences reproducible; engine soaks exercise the real moving schedules.
+TUI soak exercises the real thread/input/rendering bridge with controlled narrative,
+not 1,000 story actions. Engine memory measurements include the benchmark's latency
+list. Wall-clock results are observations, not portable performance promises.
