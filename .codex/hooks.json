@@ -1,0 +1,27 @@
+{
+  "description": "Review and commit each completed feature before moving on.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/scripts/feature_commit_hook.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/scripts/feature_commit_hook.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

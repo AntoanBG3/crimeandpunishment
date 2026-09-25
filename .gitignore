@@ -50,5 +50,6 @@ logs/
 crash_report.txt
 
 # Local tooling and legacy scripts
-.codex/
+.codex/*
+!.codex/hooks.json
 test_game_flow.sh

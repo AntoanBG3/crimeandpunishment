@@ -13,6 +13,26 @@ use `CLAUDE.md` for additional background, and verify its details against curren
 - After changes, run relevant checks. Report changed files, behavior, checks actually
   run, and remaining risks. If a check was skipped, explain why.
 
+## Feature commits
+
+- Commit each completed feature, bug fix, or independent documentation change after
+  its relevant checks pass, before starting the next feature. Do not wait until the
+  end of a multi-feature task to make one large commit.
+- Inspect the diff and stage only the files or hunks belonging to that change.
+  Preserve pre-existing user edits; never sweep them into a commit with `git add .`.
+- Use a concise, descriptive commit message. Keep the implementation and its tests
+  together. Do not commit unfinished or failing work just to satisfy a checkpoint.
+- When pushing is authorized, push completed features in small batches. Do not
+  accumulate unrelated features into a massive update or push automatically merely
+  because a local commit was made.
+- A user's explicit instruction not to commit takes precedence. If a commit is
+  blocked, explain why and leave the changes intact.
+- `.codex/hooks.json` runs `scripts/feature_commit_hook.py` at session start and
+  stop. It reminds the agent of this workflow and requests one commit-review pass
+  when the tree is dirty. It does not infer feature boundaries, stage files, commit,
+  or push by itself; the agent performs the reviewed commit. See
+  `docs/FEATURE_COMMITS.md` for activation and limitations.
+
 ## Project and development commands
 
 This is a Python terminal adventure based on *Crime and Punishment*, with Raskolnikov,
