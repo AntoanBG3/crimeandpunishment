@@ -108,7 +108,7 @@ class ItemInteractionHandler:
                 or gen_desc is None
                 or (isinstance(gen_desc, str) and gen_desc.startswith("(OOC:"))
             ):
-                gen_desc = generate_static_item_interaction_description(item_name, "examine")
+                gen_desc = generate_static_item_interaction_description(item_name, "examine", rng=getattr(self, "rng", random))
                 self._print_color(f'"{self._apply_verbosity(gen_desc)}"', Colors.CYAN)
             else:
                 self._print_color(f"({base_desc_for_skill_check})", Colors.DIM)
@@ -138,7 +138,7 @@ class ItemInteractionHandler:
                 or self.low_ai_data_mode
             ):
                 if STATIC_ENHANCED_OBSERVATIONS:
-                    detailed_observation = random.choice(STATIC_ENHANCED_OBSERVATIONS)
+                    detailed_observation = getattr(self, "rng", random).choice(STATIC_ENHANCED_OBSERVATIONS)
                 else:
                     detailed_observation = (
                         "You notice a few more mundane details, but nothing striking."
@@ -271,7 +271,7 @@ class ItemInteractionHandler:
                 ):
                     if STATIC_PLAYER_REFLECTIONS:
                         observation = (
-                            f"{npc.name} is here. {random.choice(STATIC_PLAYER_REFLECTIONS)}"
+                            f"{npc.name} is here. {getattr(self, "rng", random).choice(STATIC_PLAYER_REFLECTIONS)}"
                         )
                     else:
                         observation = (
@@ -311,7 +311,7 @@ class ItemInteractionHandler:
                     or self.low_ai_data_mode
                 ):
                     if STATIC_ENHANCED_OBSERVATIONS:
-                        detailed_observation = random.choice(STATIC_ENHANCED_OBSERVATIONS)
+                        detailed_observation = getattr(self, "rng", random).choice(STATIC_ENHANCED_OBSERVATIONS)
                     else:
                         detailed_observation = (
                             "You notice some subtle cues, but their full meaning eludes you."
@@ -371,7 +371,7 @@ class ItemInteractionHandler:
                     or observation is None
                     or (isinstance(observation, str) and observation.startswith("(OOC:"))
                 ):
-                    observation = generate_static_scenery_observation(target_to_look_at)
+                    observation = generate_static_scenery_observation(target_to_look_at, rng=getattr(self, "rng", random))
                     # base_desc_for_skill_check remains the initial general one
                     self._print_color(
                         f'"{self._apply_verbosity(observation)}"', Colors.DIM
@@ -401,7 +401,7 @@ class ItemInteractionHandler:
                     or self.low_ai_data_mode
                 ):
                     if STATIC_ENHANCED_OBSERVATIONS:
-                        detailed_observation = random.choice(STATIC_ENHANCED_OBSERVATIONS)
+                        detailed_observation = getattr(self, "rng", random).choice(STATIC_ENHANCED_OBSERVATIONS)
                     else:
                         detailed_observation = (
                             "The scene offers no further secrets to your gaze."  # Ultimate fallback
@@ -596,7 +596,7 @@ class ItemInteractionHandler:
                     )
                     self.last_significant_event_summary = f"took the {item_found_in_loc['name']}."
                     if item_default_props.get("is_notable"):
-                        self.player_character.apparent_state = random.choice(
+                        self.player_character.apparent_state = getattr(self, "rng", random).choice(
                             ["thoughtful", "burdened"]
                         )
                     if (
@@ -775,7 +775,7 @@ class ItemInteractionHandler:
                 or self.low_ai_data_mode
             ):
                 if STATIC_NEWSPAPER_SNIPPETS:
-                    article_snippet = random.choice(STATIC_NEWSPAPER_SNIPPETS)
+                    article_snippet = getattr(self, "rng", random).choice(STATIC_NEWSPAPER_SNIPPETS)
                 else:
                     article_snippet = (
                         "The newsprint is smudged and uninteresting."  # Ultimate fallback
@@ -850,7 +850,7 @@ class ItemInteractionHandler:
                 or self.low_ai_data_mode
             ):
                 if STATIC_PLAYER_REFLECTIONS:
-                    reflection = random.choice(STATIC_PLAYER_REFLECTIONS)
+                    reflection = getattr(self, "rng", random).choice(STATIC_PLAYER_REFLECTIONS)
                 else:
                     reflection = "The letter stirs a whirlwind of emotions and responsibilities."  # Ultimate fallback
                 self._print_color(
@@ -861,7 +861,7 @@ class ItemInteractionHandler:
                 self._print_color(f'"{reflection}"', Colors.CYAN)
                 self._remember_ai_output(reflection, "read_letter")
 
-            player_character.apparent_state = random.choice(["burdened", "agitated", "resolved"])
+            player_character.apparent_state = getattr(self, "rng", random).choice(["burdened", "agitated", "resolved"])
             if player_character.name == "Rodion Raskolnikov":
                 player_character.add_player_memory(
                     memory_type="reread_mother_letter",
@@ -896,7 +896,7 @@ class ItemInteractionHandler:
                 or self.low_ai_data_mode
             ):
                 if STATIC_PLAYER_REFLECTIONS:
-                    reflection = random.choice(STATIC_PLAYER_REFLECTIONS)
+                    reflection = getattr(self, "rng", random).choice(STATIC_PLAYER_REFLECTIONS)
                 else:
                     reflection = (
                         "The words offer a strange mix of judgment and hope."  # Ultimate fallback
@@ -910,7 +910,7 @@ class ItemInteractionHandler:
                 self._remember_ai_output(reflection, "read_testament")
 
             if player_character.name == "Rodion Raskolnikov":
-                player_character.apparent_state = random.choice(
+                player_character.apparent_state = getattr(self, "rng", random).choice(
                     ["contemplative", "remorseful", "thoughtful", "hopeful"]
                 )
                 player_character.add_player_memory(
@@ -975,7 +975,7 @@ class ItemInteractionHandler:
                 or self.low_ai_data_mode
             ):
                 book_reflection = generate_static_item_interaction_description(
-                    item_to_use_name, "read"
+                    item_to_use_name, "read", rng=getattr(self, "rng", random)
                 )
                 self._print_color(
                     f"You open the {item_to_use_name}. {book_reflection}", Colors.CYAN
@@ -1004,7 +1004,7 @@ class ItemInteractionHandler:
             or (isinstance(read_reflection, str) and read_reflection.startswith("(OOC:"))
             or self.low_ai_data_mode
         ):
-            read_reflection = generate_static_item_interaction_description(item_to_use_name, "read")
+            read_reflection = generate_static_item_interaction_description(item_to_use_name, "read", rng=getattr(self, "rng", random))
             self._print_color(
                 f"You read the {item_to_use_name}. {read_reflection}", Colors.CYAN
             )  # Static in Cyan
@@ -1032,7 +1032,7 @@ class ItemInteractionHandler:
                     f"You press the {item_to_use_name} to your brow. It offers little physical comfort, but it's something to cling to.",
                     Colors.YELLOW,
                 )
-                if player_character.apparent_state == "feverish" and random.random() < 0.2:
+                if player_character.apparent_state == "feverish" and getattr(self, "rng", random).random() < 0.2:
                     player_character.apparent_state = "less feverish"
                     self._print_color(
                         "The coolness, imagined or real, seems to lessen the fever's grip for a moment.",
@@ -1063,7 +1063,7 @@ class ItemInteractionHandler:
                     f"You grip the {item_to_use_name}. Its cold weight is a familiar dread. The memories, sharp and bloody, flood your mind. You feel a wave of nausea, then a chilling resolve, then utter despair.",
                     Colors.RED + Colors.BOLD,
                 )
-                player_character.apparent_state = random.choice(
+                player_character.apparent_state = getattr(self, "rng", random).choice(
                     ["dangerously agitated", "remorseful", "paranoid"]
                 )
                 self.last_significant_event_summary = "held the axe, tormented by memories."
@@ -1083,7 +1083,7 @@ class ItemInteractionHandler:
                     "You clutch the small cypress cross. It feels strangely significant in your hand, a stark contrast to the turmoil within you.",
                     Colors.GREEN,
                 )
-                player_character.apparent_state = random.choice(
+                player_character.apparent_state = getattr(self, "rng", random).choice(
                     ["remorseful", "contemplative", "hopeful"]
                 )
                 self.last_significant_event_summary = (
@@ -1103,7 +1103,7 @@ class ItemInteractionHandler:
                     or self.low_ai_data_mode
                 ):
                     if STATIC_PLAYER_REFLECTIONS:
-                        reflection = random.choice(STATIC_PLAYER_REFLECTIONS)
+                        reflection = getattr(self, "rng", random).choice(STATIC_PLAYER_REFLECTIONS)
                     else:
                         reflection = "The cross feels warm in your hand, a quiet comfort."
                 self._print_color(f'"{reflection}"', Colors.CYAN)
@@ -1216,7 +1216,7 @@ class ItemInteractionHandler:
                 or self.low_ai_data_mode
             ):
                 icon_reflection = generate_static_item_interaction_description(
-                    item_to_use_name, "contemplate"
+                    item_to_use_name, "contemplate", rng=getattr(self, "rng", random)
                 )
                 self._print_color(
                     f"You gaze at the {item_to_use_name}. {icon_reflection}",
@@ -1334,7 +1334,7 @@ class ItemInteractionHandler:
                     f"I appreciate you giving me this {item_to_use_name}.",
                     f"Thank you, this {item_to_use_name} is noted.",
                 ]
-                reaction = random.choice(static_reactions)
+                reaction = getattr(self, "rng", random).choice(static_reactions)
                 self._print_color(
                     f'{target_npc.name}: "{reaction}" {Colors.DIM}(Static reaction){Colors.RESET}',
                     Colors.YELLOW,

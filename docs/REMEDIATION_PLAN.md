@@ -57,3 +57,10 @@ platform checks as passed on the strength of local macOS tests.
   A tuple-compatible adapter preserves existing handler consumers. The selected
   item interaction is now a separate method; command wiring remains AST-checked.
   Full pre-addition suite: 347 passing; four outcome/wiring tests pass afterward.
+
+- `refactor: separate gameplay state and inject session dependencies`: GameState
+  owns mutable gameplay fields; explicit compatibility descriptors keep existing
+  handlers working while services remain on Game. Game accepts AI, terminal and RNG
+  dependencies. Character skill checks, world events and narrative choices share
+  the injected RNG; defaults preserve existing callers. State isolation, deterministic
+  random sequences and injected output are regression tested.

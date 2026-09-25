@@ -3,7 +3,7 @@ import json
 import os
 import re
 import random
-from typing import Set, Optional, List, Dict, Any
+from typing import Optional, List, Any
 
 from rich.rule import Rule
 
@@ -14,7 +14,6 @@ from .game_config import (
     SAVE_GAME_FILE,  # API_CONFIG_FILE, GEMINI_MODEL_NAME removed
     TIME_UNITS_PER_PLAYER_ACTION,
     apply_color_theme,
-    DEFAULT_COLOR_THEME,
     DEFAULT_VERBOSITY_LEVEL,
     DEFAULT_ITEMS,
 )
@@ -31,58 +30,61 @@ from .world_manager import WorldManager
 from .objective_progression import validate_rules as _validate_objective_rules
 from .persistence import prepare_restore
 from .command_result import CommandResult, TurnOutcome
+from .session_state import GameState, StateAttribute
 
 
 class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
-    def __init__(self, *, gemini_api=None) -> None:
+    player_character = StateAttribute()
+    all_character_objects = StateAttribute()
+    current_location_name = StateAttribute()
+    dynamic_location_items = StateAttribute()
+    game_time = StateAttribute()
+    current_day = StateAttribute()
+    last_significant_event_summary = StateAttribute()
+    current_location_description_shown_this_visit = StateAttribute()
+    visited_locations = StateAttribute()
+    player_notoriety_level = StateAttribute()
+    known_facts_about_crime = StateAttribute()
+    key_events_occurred = StateAttribute()
+    low_ai_data_mode = StateAttribute()
+    player_action_count = StateAttribute()
+    tutorial_steps_done = StateAttribute()
+    command_history = StateAttribute()
+    turn_headers_enabled = StateAttribute()
+    turn_headers_explicit = StateAttribute()
+    clear_on_move = StateAttribute()
+    verbosity_level = StateAttribute()
+    color_theme = StateAttribute()
+
+    def __init__(self, *, gemini_api=None, rng=None, terminal_io=terminal) -> None:
+        self.state = GameState()
+        self.rng = rng if rng is not None else random
+        self.terminal = terminal_io
         self.world_manager = WorldManager(self)
         self.command_handler = CommandHandler(self)
-        self.player_character: Optional[Any] = None
-        self.all_character_objects: Dict[str, Any] = {}
         self.npcs_in_current_location: List[Any] = []
-        self.current_location_name = None
-        self.dynamic_location_items: Dict[str, Any] = {}
 
-        self.gemini_api = gemini_api if gemini_api is not None else GeminiAPI()
+        self.gemini_api = gemini_api if gemini_api is not None else GeminiAPI(terminal_io=self.terminal)
         self.gemini_api.response_length_pref = DEFAULT_VERBOSITY_LEVEL
         self.nl_parser = NaturalLanguageParser(self.gemini_api)
         self.event_manager = EventManager(self)
-        # self.game_config = __import__('game_config') # Removed
 
-        self.game_time = 0
-        self.current_day = 1
         self.time_since_last_npc_interaction = 0
         self.time_since_last_npc_schedule_update = 0
-        self.last_significant_event_summary = None
 
-        self.current_location_description_shown_this_visit = False
-        self.visited_locations: Set[str] = set()
-
-        self.player_notoriety_level = 0
-        self.known_facts_about_crime = ["An old pawnbroker and her sister were murdered recently."]
-        self.key_events_occurred = ["Game started."]
         self.numbered_actions_context: List[Any] = []
         self.current_conversation_log = []
         self.overheard_rumors: List[str] = []
-        self.low_ai_data_mode = False
         self.autosave_interval_actions = 10
         self.actions_since_last_autosave = 0
-        self.player_action_count = 0
         self.tutorial_turn_limit = 5
-        self.tutorial_steps_done: Set[str] = set()
-        self.command_history: List[str] = []
         self.max_command_history = 25
-        self.turn_headers_enabled = True
-        self.turn_headers_explicit = False
-        self.clear_on_move = False
         self.last_turn_result_icon = "..."
-        self.verbosity_level = DEFAULT_VERBOSITY_LEVEL
-        self.color_theme = DEFAULT_COLOR_THEME
         self.last_ai_generated_text: Optional[str] = None
         self.last_ai_generation_source: Optional[str] = None
         apply_color_theme(self.color_theme)
-        terminal.set_completer_provider(self._make_completer)
-        terminal.set_toolbar_provider(self._toolbar_text)
+        self.terminal.set_completer_provider(self._make_completer)
+        self.terminal.set_toolbar_provider(self._toolbar_text)
 
     def _make_completer(self):
         from .completion import GameCompleter
@@ -191,7 +193,7 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
             "verbosity_level": self.verbosity_level,
             "turn_headers_enabled": self.turn_headers_enabled,
             "turn_headers_explicit": self.turn_headers_explicit,
-            "narrative_pace": terminal.narrative_pace_enabled,
+            "narrative_pace": self.terminal.narrative_pace_enabled,
             "clear_on_move": self.clear_on_move,
             "tutorial_steps_done": sorted(self.tutorial_steps_done),
             "command_history": self.command_history[-self.max_command_history :],
@@ -240,7 +242,7 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
             return False
         restored.apply(self)
         apply_color_theme(self.color_theme)
-        terminal.set_narrative_pace(restored.narrative_pace)
+        self.terminal.set_narrative_pace(restored.narrative_pace)
         self.gemini_api.response_length_pref = self.verbosity_level
         if restored.model_name:
             self.gemini_api.chosen_model_name = restored.model_name
@@ -484,7 +486,7 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
 
         if not is_usable_ai_text(reflection) or self.low_ai_data_mode:
             if STATIC_PLAYER_REFLECTIONS:
-                reflection = random.choice(STATIC_PLAYER_REFLECTIONS)
+                reflection = self.rng.choice(STATIC_PLAYER_REFLECTIONS)
             else:
                 reflection = "Your mind is a whirl of thoughts."  # Ultimate fallback
         else:
@@ -501,4 +503,4 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
     def _handle_wait_command(self) -> int:
         self._print_color("You wait for a while...", Colors.MAGENTA)
         self.last_significant_event_summary = "waited, letting time and thoughts drift."
-        return TIME_UNITS_PER_PLAYER_ACTION * random.randint(3, 6)
+        return TIME_UNITS_PER_PLAYER_ACTION * self.rng.randint(3, 6)

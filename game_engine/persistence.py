@@ -75,6 +75,8 @@ class RestoredState:
     def apply(self, game):
         for name, value in self.attributes.items():
             setattr(game, name, value)
+        for character in game.all_character_objects.values():
+            character.rng = game.rng
         game.event_manager.triggered_events = self.triggered_events
         game.event_manager._last_cooldown_reset_time = self.cooldown_reset_time
         game.numbered_actions_context = []

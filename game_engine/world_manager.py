@@ -72,7 +72,7 @@ class WorldManager:
                     if self.game_state.player_character.apparent_state in troubled_states
                     else DREAM_CHANCE_NORMAL_STATE
                 )
-                if random.random() < dream_chance:
+                if getattr(self.game_state, "rng", random).random() < dream_chance:
                     self.game_state._print_color(
                         f"\n{Colors.MAGENTA}As morning struggles to break, unsettling images from the night still cling to your mind...{Colors.RESET}",
                         Colors.MAGENTA,
@@ -95,7 +95,7 @@ class WorldManager:
 
                     if not is_usable_ai_text(dream_text) or self.game_state.low_ai_data_mode:
                         if STATIC_DREAM_SEQUENCES:
-                            dream_text = random.choice(STATIC_DREAM_SEQUENCES)
+                            dream_text = getattr(self.game_state, "rng", random).choice(STATIC_DREAM_SEQUENCES)
                         else:
                             dream_text = "You had a restless night filled with strange, fleeting images."  # Ultimate fallback
 
@@ -118,7 +118,7 @@ class WorldManager:
                         or "blood" in dream_text.lower()
                         or "axe" in dream_text.lower()
                     ):
-                        self.game_state.player_character.apparent_state = random.choice(
+                        self.game_state.player_character.apparent_state = getattr(self.game_state, "rng", random).choice(
                             ["paranoid", "agitated", "haunted by dreams"]
                         )
                     elif (
@@ -126,7 +126,7 @@ class WorldManager:
                         or "hope" in dream_text.lower()
                         or "cross" in dream_text.lower()
                     ):
-                        self.game_state.player_character.apparent_state = random.choice(
+                        self.game_state.player_character.apparent_state = getattr(self.game_state, "rng", random).choice(
                             ["thoughtful", "remorseful", "hopeful"]
                         )
                     else:
@@ -197,6 +197,8 @@ class WorldManager:
                 skills_data=static_data_copy.get("skills", {}),
                 psychology=static_data_copy.get("psychology"),
             )
+        for character in self.game_state.all_character_objects.values():
+            character.rng = getattr(self.game_state, "rng", random)
         self.initialize_dynamic_location_items()
 
     def select_player_character(self, non_interactive=False):
@@ -288,7 +290,7 @@ class WorldManager:
                     scheduled_location in LOCATIONS_DATA
                     and scheduled_location in npc_obj.accessible_locations
                 ):
-                    if random.random() < NPC_MOVE_CHANCE:
+                    if getattr(self.game_state, "rng", random).random() < NPC_MOVE_CHANCE:
                         old_location = npc_obj.current_location
                         npc_obj.current_location = scheduled_location
                         if (
@@ -428,10 +430,10 @@ class WorldManager:
         if (
             self.game_state.current_location_name
             in ["Haymarket Square", "Tavern", "Squalid St. Petersburg Street"]
-            and random.random() < AMBIENT_RUMOR_CHANCE_PUBLIC_PLACE
+            and getattr(self.game_state, "rng", random).random() < AMBIENT_RUMOR_CHANCE_PUBLIC_PLACE
         ):
             source_npc = (
-                random.choice(self.game_state.npcs_in_current_location)
+                getattr(self.game_state, "rng", random).choice(self.game_state.npcs_in_current_location)
                 if self.game_state.npcs_in_current_location
                 else Character(
                     "A Passerby",
@@ -459,7 +461,7 @@ class WorldManager:
 
             if not is_usable_ai_text(rumor_text) or self.game_state.low_ai_data_mode:
                 if STATIC_RUMORS:
-                    rumor_text = random.choice(STATIC_RUMORS)
+                    rumor_text = getattr(self.game_state, "rng", random).choice(STATIC_RUMORS)
                 else:
                     rumor_text = "The air buzzes with indistinct chatter."  # Ultimate fallback
                 rumor_text = self.game_state._apply_verbosity(rumor_text)
@@ -535,7 +537,7 @@ class WorldManager:
             ):
                 if (
                     len(self.game_state.npcs_in_current_location) >= 2
-                    and random.random() < NPC_INTERACTION_CHANCE
+                    and getattr(self.game_state, "rng", random).random() < NPC_INTERACTION_CHANCE
                 ):
                     if self.game_state.event_manager.attempt_npc_npc_interaction():
                         self.game_state.last_significant_event_summary = (

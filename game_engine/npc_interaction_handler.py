@@ -43,7 +43,7 @@ class NPCInteractionHandler:
         return False
 
     def _print_parting_beat(self, target_npc):
-        beat = random.choice(STATIC_NPC_PARTING_BEATS).format(name=target_npc.name)
+        beat = getattr(self, "rng", random).choice(STATIC_NPC_PARTING_BEATS).format(name=target_npc.name)
         self._print_color(beat, Colors.DIM)
 
     def _record_npc_post_interaction_memories(self, target_npc, context_str):
@@ -240,7 +240,7 @@ class NPCInteractionHandler:
                     )
                     used_ai_dialogue = True
                 else:
-                    ai_response = random.choice(
+                    ai_response = getattr(self, "rng", random).choice(
                         _NPC_FALLBACK_LINES[:-1]
                         + [getattr(target_npc, "greeting", "...")]
                     )
@@ -251,7 +251,7 @@ class NPCInteractionHandler:
                 if used_ai_dialogue and not is_usable_ai_text(ai_response):
                     # AI returned nothing usable or an OOC marker; substitute a neutral
                     # static line so the NPC never speaks OOC text verbatim.
-                    ai_response = random.choice(_NPC_FALLBACK_LINES)
+                    ai_response = getattr(self, "rng", random).choice(_NPC_FALLBACK_LINES)
                     used_ai_dialogue = False
                 # NPC dialogue is never hard-trimmed: verbosity steers the AI's
                 # length instruction instead (response_length_pref), so a long

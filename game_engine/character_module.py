@@ -875,7 +875,7 @@ class Character:
         Rolls a d6, adds skill value, compares to (difficulty_threshold + 3).
         """
         skill_value = self.skills.get(skill_name, 0)
-        d6_roll = random.randint(1, 6)
+        d6_roll = getattr(self, "rng", random).randint(1, 6)
 
         # Formula from prompt: (skill + roll) >= (threshold + 3)
         target_number = difficulty_threshold + 3
