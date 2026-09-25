@@ -30,6 +30,7 @@ from .npc_interaction_handler import NPCInteractionHandler
 from .world_manager import WorldManager
 from .objective_progression import validate_rules as _validate_objective_rules
 from .persistence import prepare_restore
+from .command_result import CommandResult, TurnOutcome
 
 
 class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
@@ -407,13 +408,14 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
             if command is None and argument is None:
                 continue
             self.command_handler._record_command_history(command, argument)
-            action_taken, show_atmospherics, time_units, special_flag = (
-                self.command_handler._process_command(command, argument)
-            )
-            if special_flag == "load_triggered":
+            result = CommandResult(*self.command_handler._process_command(command, argument))
+            action_taken = result.action_taken
+            show_atmospherics = result.show_atmospherics
+            time_units = result.time_to_advance
+            if result.outcome is TurnOutcome.LOADED:
                 self.last_turn_result_icon = "LOAD"
                 continue
-            if special_flag:
+            if result.outcome is TurnOutcome.QUIT:
                 self.last_turn_result_icon = "QUIT"
                 break
             self._mark_tutorial_progress(command, argument)

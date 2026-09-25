@@ -49,3 +49,11 @@ Each confirmed finding receives an ID, severity, confidence, reproduction, locat
 proposed fix, regression and resolving commit in AUDIT_REPORT.md. Update this ledger
 after verification, not after merely writing a test or a CI job. Do not mark remote
 platform checks as passed on the strength of local macOS tests.
+
+## Completed structural boundaries
+
+- `refactor: name command outcomes and isolate selected-item dispatch`: dispatch
+  returns immutable named results, and the main loop branches on TurnOutcome.
+  A tuple-compatible adapter preserves existing handler consumers. The selected
+  item interaction is now a separate method; command wiring remains AST-checked.
+  Full pre-addition suite: 347 passing; four outcome/wiring tests pass afterward.
