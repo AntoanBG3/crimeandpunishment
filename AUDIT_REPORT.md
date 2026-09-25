@@ -126,6 +126,19 @@ Inventory, dependencies, acceptance evidence and deferred work are maintained in
 
 ## Quality of Life Improvements
 
+### R010 — Item transfers discard generated documents
+
+- **Category / severity / confidence:** Robustness / High / Confirmed.
+- **Effort:** Small. **Status:** Fixed; commit `fix: preserve item contents across inventory transfers`.
+- **Location:** `item_interaction_handler.py` take/drop/give handlers.
+- **Evidence:** Taking a generated anonymous note removed its text, making it
+  unreadable. Giving and rejected transfers similarly lost instance details.
+  A legacy stack with omitted quantity also raised KeyError on take.
+- **Implementation:** Copy instance details on accepted transfers, restore the exact
+  inventory on rejection, and consistently treat omitted quantity as one.
+- **Regression:** Three real-world transfer regressions initially raised errors;
+  tests now cover take/read/drop/retake, give/rejection, and legacy stack quantities.
+
 ### R009 — Empty AI text bypasses item and event fallbacks
 
 - **Category / severity / confidence:** Robustness / Medium / Confirmed.

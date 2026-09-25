@@ -1,4 +1,5 @@
 # pylint: disable=no-member
+import copy
 import random
 from typing import Any
 from .gemini_interactions import is_usable_ai_text
@@ -51,6 +52,14 @@ _REFLECTIVE_USE_EFFECTS = {
         "burdened",
     ),
 }
+
+
+def _preserve_item_details(source, recipient):
+    """Transfer instance metadata after the recipient accepts an item by name."""
+    entry = next((item for item in recipient.inventory if item["name"] == source["name"]), None)
+    if entry is not None:
+        entry.update(copy.deepcopy({key: value for key, value in source.items()
+                                    if key not in ("name", "quantity")}))
 
 
 class ItemInteractionHandler:
@@ -557,8 +566,9 @@ class ItemInteractionHandler:
                 if self.player_character.add_to_inventory(
                     item_found_in_loc["name"], actual_taken_qty
                 ):
+                    _preserve_item_details(item_found_in_loc, self.player_character)
                     if is_stackable_item:
-                        item_found_in_loc["quantity"] -= actual_taken_qty
+                        item_found_in_loc["quantity"] = current_qty_in_loc - actual_taken_qty
                         if item_found_in_loc["quantity"] <= 0:
                             location_items.pop(item_idx_in_loc)
                     else:
@@ -688,10 +698,12 @@ class ItemInteractionHandler:
                     # non-stackable take path (which pops a whole entry regardless of
                     # quantity) stays count-preserving rather than losing one.
                     existing_loc_item["quantity"] = (
-                        existing_loc_item.get("quantity", 0) + drop_quantity
+                        existing_loc_item.get("quantity", 1) + drop_quantity
                     )
                 else:
-                    location_items.append({"name": item_name_to_drop, "quantity": drop_quantity})
+                    dropped = copy.deepcopy(item_in_inventory_obj)
+                    dropped["quantity"] = drop_quantity
+                    location_items.append(dropped)
                 self._print_color(f"You drop the {item_name_to_drop}.", Colors.GREEN)
                 self.last_significant_event_summary = f"dropped the {item_name_to_drop}."
                 for npc in self.npcs_in_current_location:
@@ -1250,8 +1262,8 @@ class ItemInteractionHandler:
             self._print_color(f"You don't have {item_to_use_name} to give.", Colors.RED)
             return False
 
-        # Capture the player's inventory entry so the item can be restored if the
-        # give fails (otherwise it would be destroyed).
+        # Snapshot before removal: a rejected transfer must preserve contents too.
+        inventory_before = copy.deepcopy(player_character.inventory)
         giver_entry = next(
             (dict(it) for it in player_character.inventory if it["name"] == item_to_use_name),
             None,
@@ -1262,14 +1274,15 @@ class ItemInteractionHandler:
             # this non-stackable item, or it isn't a known item), restore it to the
             # player rather than destroying it.
             if not target_npc.add_to_inventory(item_to_use_name, 1):
-                if not player_character.add_to_inventory(item_to_use_name, 1) and giver_entry:
-                    # Unknown item the add guard rejects: restore the original entry.
-                    player_character.inventory.append(giver_entry)
+                player_character.inventory[:] = inventory_before
                 self._print_color(
                     f"{target_npc.name} cannot take the {item_to_use_name}.",
                     Colors.YELLOW,
                 )
                 return False
+
+            if giver_entry:
+                _preserve_item_details(giver_entry, target_npc)
 
             self._print_color(
                 f"You give the {item_to_use_name} to {target_npc.name}.", Colors.WHITE
