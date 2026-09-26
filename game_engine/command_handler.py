@@ -523,7 +523,7 @@ class CommandHandler:
             if self.game_state.player_character:
                 try:
                     answer = self.game_state._input_color(
-                        "Save before quitting? (y/N): ", Colors.MAGENTA
+                        "Save before quitting? (y/N): ", Colors.MAGENTA, history=False
                     )
                 except (EOFError, KeyboardInterrupt):
                     answer = ""

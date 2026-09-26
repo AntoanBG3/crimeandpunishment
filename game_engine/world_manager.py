@@ -231,7 +231,7 @@ class WorldManager:
             while True:
                 try:
                     choice_str = self.game_state._input_color(
-                        "Enter the number of your choice: ", Colors.MAGENTA
+                        "Enter the number of your choice: ", Colors.MAGENTA, history=False
                     )
                     if not choice_str:
                         continue

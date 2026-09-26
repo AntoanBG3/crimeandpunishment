@@ -284,6 +284,20 @@ def test_world_manager_select_player_character_non_interactive():
         assert wm.select_player_character(non_interactive=True) is True
 
 
+def test_world_manager_character_pick_stays_out_of_history():
+    player = SimpleNamespace(name="Rodya", apparent_state="calm", default_location="A")
+    state = SimpleNamespace(
+        _print_color=MagicMock(),
+        _input_color=MagicMock(return_value="1"),
+        _print_renderable=MagicMock(),
+        all_character_objects={"Rodya": player},
+    )
+    with patch("game_engine.world_manager.CHARACTERS_DATA", {"Rodya": {}}):
+        assert WorldManager(state).select_player_character() is True
+    assert state.player_character is player
+    assert state._input_color.call_args.kwargs.get("history") is False
+
+
 def test_quit_offers_save_prompt():
     state = _make_state()
     state.save_game = MagicMock()
@@ -292,6 +306,8 @@ def test_quit_offers_save_prompt():
     state._input_color.return_value = "y"
     assert handler._process_command("quit", None) == (False, False, 0, True)
     state.save_game.assert_called_once_with()
+    # A y/N answer is not a command worth recalling from history.
+    assert state._input_color.call_args.kwargs.get("history") is False
 
     state.save_game.reset_mock()
     state._input_color.return_value = ""

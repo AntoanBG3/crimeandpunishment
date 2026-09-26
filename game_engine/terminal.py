@@ -32,7 +32,8 @@ _console = Console(highlight=False, soft_wrap=False)
 
 # Active UI backend; None means the classic console path. A backend must
 # provide: emit(renderable), read(prompt_text, completion=True,
-# secret=False) -> str, clear(), status(message) -> context manager.
+# secret=False, history=True) -> str, clear(), status(message) -> context
+# manager.
 _backend = None
 
 # Tracks whether the last emitted line was blank, so blocks can guarantee a
@@ -168,6 +169,7 @@ def write_dialogue(text, color=""):
 HISTORY_FILE = os.path.expanduser("~/.crimeandpunishment_history")
 
 _session = None
+_unrecorded_session = None
 _completer_provider = None
 _toolbar_provider = None
 
@@ -232,6 +234,17 @@ def _get_session():
     return _current()._session
 
 
+def _get_unrecorded_session():
+    """Twin of _get_session() whose history keeps nothing: prompt_toolkit
+    appends every accepted line to history, even with is_password."""
+    if _current()._unrecorded_session is None:
+        from prompt_toolkit import PromptSession
+        from prompt_toolkit.history import DummyHistory
+
+        _current()._unrecorded_session = PromptSession(history=DummyHistory())
+    return _current()._unrecorded_session
+
+
 def load_history_lines(limit=200):
     """Entries from the shared history file, oldest first.
 
@@ -278,11 +291,16 @@ def append_history_line(line):
         pass
 
 
-def read_line(prompt_text, color="", completion=True, secret=False):
+def read_line(prompt_text, color="", completion=True, secret=False, history=True):
+    """Read one line. history=False neither recalls nor records history, for
+    answers that are not commands (menu numbers, y/n); secrets imply it."""
+    history = history and not secret
     rich_text = _render(str(prompt_text), color)
     if _current()._backend is not None:
         _current()._last_line_blank = False
-        return _current()._backend.read(rich_text.plain, completion=completion, secret=secret)
+        return _current()._backend.read(
+            rich_text.plain, completion=completion, secret=secret, history=history
+        )
     with _current()._console.capture() as capture:
         _current()._console.print(rich_text, end="", width=render_width())
     rendered = capture.get()
@@ -302,7 +320,8 @@ def read_line(prompt_text, color="", completion=True, secret=False):
 
     completer = _current()._completer_provider() if (completion and _current()._completer_provider) else None
     toolbar = _current()._toolbar_provider() if _current()._toolbar_provider else None
-    return _get_session().prompt(
+    session = _get_session() if history else _get_unrecorded_session()
+    return session.prompt(
         ANSI(rendered),
         completer=completer,
         bottom_toolbar=toolbar,
@@ -362,7 +381,7 @@ class TerminalSession:
         self._state = SimpleNamespace(
             _console=Console(highlight=False, soft_wrap=False),
             _backend=None, _last_line_blank=True, _session=None,
-            _completer_provider=None, _toolbar_provider=None,
+            _unrecorded_session=None, _completer_provider=None, _toolbar_provider=None,
             narrative_pace_enabled=False,
             HISTORY_FILE=HISTORY_FILE if history_file is None else history_file,
         )

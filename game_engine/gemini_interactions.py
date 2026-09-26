@@ -421,10 +421,10 @@ class GeminiAPI:
 
         while True:
             # Adjust prompt for new number of choices
-            choice = self._input_color_func(
+            choice = self._read_answer(
                 f"Enter your choice (1-{len(display_map_for_prompt)}), or press Enter for default): ",
                 Colors.MAGENTA,
-            ).strip()
+            )
             if not choice:
                 self._print_color_func(
                     f"Using default model: {default_model_display_name}", Colors.YELLOW
@@ -441,6 +441,10 @@ class GeminiAPI:
                 Colors.RED,
             )
 
+    def _read_answer(self, prompt_text, color):
+        """A one-off answer (menu number, y/n), kept out of command history."""
+        return self._input_color_func(prompt_text, color, history=False).strip().lower()
+
     def _prompt_for_low_ai_mode(self):
         low_ai_choice_prompt = (
             "\nEnable Low AI Data Mode? \n"
@@ -448,8 +452,7 @@ class GeminiAPI:
             "Recommended if you have limited API quota or prefer less AI processing.)\n"
             "Enter 'y' for yes, or 'n' for no (default is 'n'): "
         )
-        low_ai_input = self._input_color_func(low_ai_choice_prompt, Colors.YELLOW).strip().lower()
-        low_ai_preference = low_ai_input == "y"
+        low_ai_preference = self._read_answer(low_ai_choice_prompt, Colors.YELLOW) == "y"
 
         if low_ai_preference:
             self._print_color_func("Low AI Data Mode will be ENABLED.", Colors.GREEN)
@@ -572,13 +575,9 @@ class GeminiAPI:
                 manual_api_key_input, "user input", selected_model_id_manual
             ):
                 low_ai_pref = self._prompt_for_low_ai_mode()
-                save_choice = (
-                    self._input_color_func(
-                        f"Save this valid key and model ('{self.chosen_model_name}') to {API_CONFIG_FILE}? (y/n) (Not recommended if sharing project): ",
-                        Colors.YELLOW,
-                    )
-                    .strip()
-                    .lower()
+                save_choice = self._read_answer(
+                    f"Save this valid key and model ('{self.chosen_model_name}') to {API_CONFIG_FILE}? (y/n) (Not recommended if sharing project): ",
+                    Colors.YELLOW,
                 )
                 if save_choice == "y":
                     self.save_api_key_to_file(manual_api_key_input)
@@ -593,10 +592,8 @@ class GeminiAPI:
                 f"The manually entered API key with model '{selected_model_id_manual}' failed validation.",
                 Colors.RED,
             )
-            retry_choice = (
-                self._input_color_func("Try entering a different API key? (y/n): ", Colors.YELLOW)
-                .strip()
-                .lower()
+            retry_choice = self._read_answer(
+                "Try entering a different API key? (y/n): ", Colors.YELLOW
             )
             if retry_choice != "y":
                 self._print_color_func("\nProceeding with placeholder responses.", Colors.RED)
