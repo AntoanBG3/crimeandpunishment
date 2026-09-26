@@ -14,7 +14,7 @@ if project_root not in sys.path:
 
 from game_engine.game_state import Game
 from game_engine.character_module import Character, CHARACTERS_DATA
-from game_engine.objective_progression import evaluate_player_progression
+from game_engine.objective_progression import _RULES, evaluate_player_progression
 
 
 def build_player(name):
@@ -190,6 +190,38 @@ class TestObjectiveReachability(unittest.TestCase):
                 self.game._handle_persuade_command(("Rodion", "confession will help"))
         self.assertEqual(self._stage("solve_murders"), "closing_the_net")
         self.assertIn("The net draws tighter", narrative.call_args.args[0])
+
+
+class TestStageTextMatchesRules(unittest.TestCase):
+    """The objectives panel shows the current stage's text as the player's guide."""
+
+    @staticmethod
+    def _person_needed(rule):
+        # The one character an exit rule needs; None for confess/use_item exits.
+        if rule["event"] == "give_item":
+            return rule.get("secondary")
+        if rule["event"] in ("talk_to", "persuade"):
+            return rule.get("target")
+        return None
+
+    def test_single_path_stage_names_its_person_and_interaction(self):
+        # e.g. help_family's confront_luzhin advances by talking to Svidrigailov, not
+        # Luzhin, and Porfiry's psychological_probes by persuasion, not conversation.
+        for character, rules in _RULES.items():
+            for obj in CHARACTERS_DATA[character]["objectives"]:
+                for stage in obj.get("stages", []):
+                    exits = [rule for rule in rules
+                             if rule["obj"] == obj["id"] and rule["from"] == stage["stage_id"]]
+                    people = {self._person_needed(rule) for rule in exits}
+                    if len(people) != 1 or None in people:
+                        continue  # ending, branching, or capstone stage
+                    person = people.pop()
+                    text = stage["description"]
+                    with self.subTest(character=character, stage=stage["stage_id"]):
+                        first, last = person.split()[0], person.split()[-1]
+                        self.assertRegex(text, rf"\b({first}|{last})\b", f"should name {person}")
+                        if any(rule["event"] == "persuade" for rule in exits):
+                            self.assertIn("persuad", text.lower())
 
 
 class TestSonyaCrossBeat(unittest.TestCase):
