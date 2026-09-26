@@ -7,7 +7,7 @@ import os
 
 # Single source of truth for the release version. GitHub release tags use the
 # same string (no "v" prefix); the release workflow asserts they match.
-GAME_VERSION = "1.2.0"
+GAME_VERSION = "1.2.1"
 
 
 def get_base_path():
