@@ -59,10 +59,15 @@ class TestObjectiveReachability(unittest.TestCase):
         st = pc.get_current_stage_for_objective(obj_id)
         self.assertTrue(st.get("is_ending_stage"), f"{obj_id} should be at an ending stage")
         self.assertEqual(self._stage(obj_id), expected_stage)
-        self.assertTrue(
-            self.game.world_manager._check_game_ending_conditions(),
-            "game ending condition should fire",
-        )
+        with patch.object(self.game, "_print_narrative") as narrative:
+            self.assertTrue(
+                self.game.world_manager._check_game_ending_conditions(),
+                "game ending condition should fire",
+            )
+        conclusion = narrative.call_args.args[0]
+        self.assertIn(st["description"], conclusion)
+        self.assertFalse(conclusion.endswith(".."), conclusion)
+        return conclusion
 
     # --- Raskolnikov: three distinct endings ---
     def test_rodion_siberia_path(self):
@@ -78,7 +83,9 @@ class TestObjectiveReachability(unittest.TestCase):
         self.game.npcs_in_current_location = []
         self.game.current_location_name = "Police Station (General Area)"
         evaluate_player_progression(self.game, "confess")
-        self._assert_ending_reached("grapple_with_crime", "siberia")
+        conclusion = self._assert_ending_reached("grapple_with_crime", "siberia")
+        self.assertIn("police station", conclusion)
+        self.assertNotIn("Haymarket", conclusion)
 
     def test_rodion_public_confession_path(self):
         self._set("Rodion Raskolnikov")
@@ -89,7 +96,11 @@ class TestObjectiveReachability(unittest.TestCase):
         self.game.npcs_in_current_location = []
         self.game.current_location_name = "Haymarket Square"
         evaluate_player_progression(self.game, "confess")
-        self._assert_ending_reached("grapple_with_crime", "public_confession")
+        # Confessing at the police station leads to Siberia, so this ending names only
+        # the place that reaches it.
+        conclusion = self._assert_ending_reached("grapple_with_crime", "public_confession")
+        self.assertIn("Haymarket", conclusion)
+        self.assertNotIn("police", conclusion.lower())
 
     def test_rodion_unrepentant_path(self):
         self._set("Rodion Raskolnikov")
@@ -127,6 +138,26 @@ class TestObjectiveReachability(unittest.TestCase):
         self.game.npcs_in_current_location = [self._npc("Rodion Raskolnikov")]
         evaluate_player_progression(self.game, "confess")
         self._assert_ending_reached("solve_murders", "case_solved")
+
+    def test_conclusion_adds_a_missing_full_stop(self):
+        for description, conclusion in (
+            ("Raskolnikov walks away", "Raskolnikov walks away."),
+            ("Is it over?", "Is it over?"),
+            ("", "an end."),
+        ):
+            with self.subTest(description=description):
+                self._set("Rodion Raskolnikov")
+                pc = self.game.player_character
+                stage = next(s for s in pc.get_objective_by_id("grapple_with_crime")["stages"]
+                             if s["stage_id"] == "siberia")
+                stage["description"] = description
+                pc.advance_objective_stage("grapple_with_crime", "siberia")
+                with patch.object(self.game, "_print_narrative") as narrative:
+                    self.assertTrue(self.game.world_manager._check_game_ending_conditions())
+                self.assertEqual(
+                    narrative.call_args.args[0],
+                    f"The story of Rodion Raskolnikov has reached a conclusion: {conclusion}",
+                )
 
     # --- Guards ---
     def test_secondary_objective_does_not_end_game(self):

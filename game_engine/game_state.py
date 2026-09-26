@@ -83,7 +83,6 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
         self.actions_since_last_autosave = 0
         self.tutorial_turn_limit = 5
         self.max_command_history = 25
-        self.last_turn_result_icon = "..."
         self.last_ai_generated_text: Optional[str] = None
         self.last_ai_generation_source: Optional[str] = None
         apply_color_theme(self.color_theme)
@@ -413,38 +412,12 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
             show_atmospherics = result.show_atmospherics
             time_units = result.time_to_advance
             if result.outcome is TurnOutcome.LOADED:
-                self.last_turn_result_icon = "LOAD"
                 continue
             if result.outcome is TurnOutcome.QUIT:
-                self.last_turn_result_icon = "QUIT"
                 break
             self._mark_tutorial_progress(command, argument)
             self.world_manager._update_world_state_after_action(command, action_taken, time_units)
             self._display_turn_feedback(show_atmospherics, command)
-            if action_taken:
-                self.last_turn_result_icon = "OK"
-            elif command in [
-                "help",
-                "status",
-                "history",
-                "theme",
-                "verbosity",
-                "turnheaders",
-                "retry",
-                "rephrase",
-                "more",
-                "saves",
-                "pace",
-                "clearscreen",
-                "actions",
-                "map",
-                "save",
-                "load",
-                "toggle_lowai",
-            ]:
-                self.last_turn_result_icon = "INFO"
-            else:
-                self.last_turn_result_icon = "NOOP"
             if self.world_manager._check_game_ending_conditions():
                 break
 

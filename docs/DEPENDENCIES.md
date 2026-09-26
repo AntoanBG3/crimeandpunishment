@@ -28,8 +28,9 @@ run the matrix before shipping them.
 coverage, scripted endings and engine/TUI soaks on Python 3.10 and 3.13 across the
 three operating systems. Python 3.13 frozen builds then run from a temporary path
 containing spaces and Unicode. Coverage and soak metrics are retained as artifacts.
-These checks run on pull requests and development pushes independently of the
-tag-triggered `Release` workflow; they do not publish a release.
+These checks run on pull requests and pushes to `main`, and can be started manually
+(`workflow_dispatch`) for a branch without a pull request. They run independently of
+the tag-triggered `Release` workflow and do not publish a release.
 
 Builds and release rehearsals use the same Python build script. Frozen console
 smokes exercise startup, character selection, look, quit, and EOF with a deadline.
