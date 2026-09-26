@@ -69,19 +69,19 @@
                     },
                     {
                         "stage_id": "public_confession",
-                        "description": "Confess publicly at the Haymarket or police station.",
+                        "description": "Raskolnikov confesses his crime publicly, before the crowd in the Haymarket.",
                         "is_current_stage": false,
                         "is_ending_stage": true
                     },
                     {
                         "stage_id": "siberia",
-                        "description": "Face the consequences in Siberia, seeking spiritual rebirth.",
+                        "description": "Raskolnikov gives himself up at the police station and is sentenced to Siberia, where he seeks spiritual rebirth.",
                         "is_current_stage": false,
                         "is_ending_stage": true
                     },
                     {
                         "stage_id": "unrepentant_end",
-                        "description": "Remain unrepentant, your theory leading to a bleak end (capture or suicide).",
+                        "description": "Raskolnikov confesses but remains unrepentant, his theory intact and his future bleak.",
                         "is_current_stage": false,
                         "is_ending_stage": true
                     }
@@ -261,7 +261,7 @@
                     },
                     {
                         "stage_id": "follow_to_siberia",
-                        "description": "Decide to follow Raskolnikov to Siberia.",
+                        "description": "Sonya chooses to follow Raskolnikov to Siberia and share his suffering.",
                         "is_ending_stage": true
                     }
                 ]
@@ -339,7 +339,7 @@
                     },
                     {
                         "stage_id": "case_solved",
-                        "description": "Raskolnikov confesses or is irrefutably proven guilty.",
+                        "description": "Raskolnikov confesses to the murders of Alyona Ivanovna and Lizaveta.",
                         "is_ending_stage": true
                     }
                 ]

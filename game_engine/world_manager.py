@@ -559,9 +559,12 @@ class WorldManager:
         if main_obj and main_obj.get("completed", False):
             current_stage = player.get_current_stage_for_objective(main_objective_id)
             if current_stage and current_stage.get("is_ending_stage"):
+                conclusion = current_stage.get("description") or "an end"
+                # Stage descriptions are sentences that bring their own full stop.
+                if not conclusion.endswith((".", "!", "?")):
+                    conclusion += "."
                 self.game_state._print_narrative(
-                    f"The story of {player.name} has reached a conclusion: "
-                    f"{current_stage.get('description', 'an end')}.",
+                    f"The story of {player.name} has reached a conclusion: {conclusion}",
                     Colors.CYAN + Colors.BOLD,
                 )
                 return True
