@@ -78,7 +78,7 @@ The game also reads `gemini_config.json` from the directory where you launch it 
 
 ## Commands at a Glance
 
-With AI configured, the **Natural Language Parser (NLP)** can translate a free-form sentence into one supported action, such as *"I would like to examine the desk"*. Enter one action at a time. The explicit commands below also work offline.
+With AI configured, the **Natural Language Parser (NLP)** can translate a free-form sentence into one supported action, such as *"I would like to examine the desk"*. Enter one action at a time. The parser uses Gemini 3.5 Flash-Lite, a small fast model, whichever model you chose; if a request to it fails, the parser uses your chosen model for the rest of the session. The explicit commands below also work offline.
 
 Below are the core, deterministic commands:
 

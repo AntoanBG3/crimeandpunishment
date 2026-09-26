@@ -1089,14 +1089,11 @@ def test_gemini_parser_config_and_generation_edge_paths(tmp_path):
     out = parser.parse_player_intent("dance", {"exits": [], "items": [], "npcs": [], "inventory": []})
     assert out == {"intent": "unknown", "target": "", "confidence": 1.0}
 
-    class BadAdapter:
-        def __init__(self, *_args, **_kwargs):
-            raise RuntimeError("adapter")
-
+    # A client the intent model cannot use falls back to the verified model, once.
     api.client = object()
-    api._load_genai = MagicMock(return_value=True)
-    with patch.object(api, "_GeminiModelAdapter", BadAdapter):
-        assert parser._select_intent_model() is api.model
+    assert parser.parse_player_intent("dance", {}) == out
+    assert parser._intent_model_failed
+    assert api.model.generate_content.call_count == 2
 
     cfg = tmp_path / "gemini_config.json"
     cfg.write_text('{"gemini_api_key":"abc"}')
