@@ -388,12 +388,40 @@ class TestSecretInput(unittest.TestCase):
     def test_prompt_toolkit_path_uses_is_password(self):
         with patch.object(
             terminal, "_interactive_input_supported", return_value=True
-        ), patch.object(terminal, "_get_session") as mock_session:
-            mock_session.return_value.prompt.return_value = "key-1"
+        ), patch.object(terminal, "_get_session") as mock_session, patch.object(
+            terminal, "_unrecorded_session"
+        ) as mock_unrecorded:
+            mock_unrecorded.return_value.prompt.return_value = "key-1"
             result = terminal.read_line("API key: ", secret=True)
         self.assertEqual(result, "key-1")
-        kwargs = mock_session.return_value.prompt.call_args.kwargs
+        mock_session.assert_not_called()
+        kwargs = mock_unrecorded.return_value.prompt.call_args.kwargs
         self.assertTrue(kwargs["is_password"])
+
+    def test_secret_prompt_never_reaches_history_file(self):
+        # is_password only masks the echo; a real prompt shows whether the
+        # accepted text is appended to the FileHistory-backed session.
+        from prompt_toolkit.application import create_app_session
+        from prompt_toolkit.input import create_pipe_input
+        from prompt_toolkit.output import DummyOutput
+
+        with tempfile.TemporaryDirectory() as directory:
+            history_path = os.path.join(directory, "history")
+            session = terminal.TerminalSession(history_file=history_path)
+            with create_pipe_input() as pipe_input, create_app_session(
+                input=pipe_input, output=DummyOutput()
+            ), session.activate(), patch.object(
+                terminal, "_interactive_input_supported", return_value=True
+            ):
+                pipe_input.send_text("key-secret-123\r")
+                self.assertEqual(
+                    terminal.read_line("API key: ", secret=True), "key-secret-123"
+                )
+                pipe_input.send_text("look\r")
+                self.assertEqual(terminal.read_line("> "), "look")
+            with open(history_path, encoding="utf-8") as history_file:
+                self.assertNotIn("key-secret-123", history_file.read())
+            self.assertEqual(session.load_history_lines(), ["look"])
 
     def test_non_secret_prompt_is_not_password(self):
         with patch.object(

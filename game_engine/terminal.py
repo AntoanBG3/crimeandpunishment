@@ -232,6 +232,19 @@ def _get_session():
     return _current()._session
 
 
+def _unrecorded_session():
+    """A throwaway session whose history keeps nothing.
+
+    prompt_toolkit appends every accepted line to the session's history, and
+    is_password only masks the echo, so secrets must never reach the
+    FileHistory-backed session from _get_session().
+    """
+    from prompt_toolkit import PromptSession
+    from prompt_toolkit.history import DummyHistory
+
+    return PromptSession(history=DummyHistory())
+
+
 def load_history_lines(limit=200):
     """Entries from the shared history file, oldest first.
 
@@ -302,7 +315,8 @@ def read_line(prompt_text, color="", completion=True, secret=False):
 
     completer = _current()._completer_provider() if (completion and _current()._completer_provider) else None
     toolbar = _current()._toolbar_provider() if _current()._toolbar_provider else None
-    return _get_session().prompt(
+    session = _unrecorded_session() if secret else _get_session()
+    return session.prompt(
         ANSI(rendered),
         completer=completer,
         bottom_toolbar=toolbar,
