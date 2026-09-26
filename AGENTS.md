@@ -153,7 +153,8 @@ Textual fall back to the console; preserve the mode-selection behavior in `main.
   review rather than gameplay tests unless they change executable examples.
 - `.github/workflows/release.yml` runs tests across Windows, Linux, and macOS and
   builds PyInstaller executables. Preserve bundled `data`, Textual resources
-  (`--collect-all textual`), and dynamic Gemini import collection.
+  (`--collect-all textual`), dynamic Gemini import collection, and the generated
+  third-party notices that release assets ship beside each executable.
   `.github/workflows/ci.yml` also validates pushes to main and PRs on Python 3.10
   and 3.13. Use `scripts/build_release.py` and the pinned requirements for builds;
   `scripts/audit_scenarios.py` isolates saves, configuration and credentials for smokes.

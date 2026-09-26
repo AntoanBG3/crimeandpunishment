@@ -3,6 +3,12 @@
 Install runtime dependencies with `python -m pip install -r requirements.txt`.
 For development, also install `-r requirements-dev.txt`; for standalone executables,
 install `-r requirements-build.txt` and run `python scripts/build_release.py`.
+The build also writes `dist/<name>-THIRD_PARTY_NOTICES.txt` from the executable's
+own archive: every bundled Python distribution with its license files, CPython's
+license, and each native library's license from `licenses/`. An unrecognised
+native library fails the build; add its license text to `licenses/` and
+`NATIVE_LIBRARIES` in `scripts/third_party_notices.py`. `readline` and `curses`
+are excluded from builds so GPL readline and ncurses are not bundled.
 
 All three files use `constraints.txt`, which pins the complete resolved dependency
 graph, including Python 3.10 and OS-specific packages. The direct version choices
