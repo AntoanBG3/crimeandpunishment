@@ -162,7 +162,7 @@ coverage report
 python scripts/audit_scenarios.py --scenario endings
 ```
 
-See the [audit report](AUDIT_REPORT.md), [verification and remaining work](docs/REMEDIATION_PLAN.md), and [dependency/build instructions](docs/DEPENDENCIES.md). Routine CI checks Python 3.10 and 3.13 on Windows, Linux, and macOS independently of release publication.
+See the [dependency/build instructions](docs/DEPENDENCIES.md). Routine CI checks Python 3.10 and 3.13 on Windows, Linux, and macOS independently of release publication.
 
 ---
 
