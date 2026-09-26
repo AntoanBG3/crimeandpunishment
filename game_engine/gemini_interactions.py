@@ -14,7 +14,7 @@ from .game_config import Colors
 # --- Self-contained API Configuration Constants ---
 API_CONFIG_FILE = "gemini_config.json"
 GEMINI_API_KEY_ENV_VAR = "GEMINI_API_KEY"
-DEFAULT_GEMINI_MODEL_NAME = "gemini-3.5-flash"
+DEFAULT_GEMINI_MODEL_NAME = "gemini-3.8-flash"
 
 
 def is_usable_ai_text(text):
@@ -410,8 +410,8 @@ class GeminiAPI:
         self._print_color_func("\nPlease select which Gemini model to use:", Colors.CYAN)
         models_map = {
             "1": {"name": "Gemini 3.1 Pro Preview", "id": "gemini-3.1-pro-preview"},
-            "2": {"name": "Gemini 3.5 Flash", "id": "gemini-3.5-flash"},
-            "3": {"name": "Gemini 3.1 Flash Lite", "id": "gemini-3.1-flash-lite"},
+            "2": {"name": "Gemini 3.8 Flash", "id": "gemini-3.8-flash"},
+            "3": {"name": "Gemini 3.5 Flash Lite", "id": "gemini-3.5-flash-lite"},
         }
 
         # Dynamically create the display map to ensure the default model from DEFAULT_GEMINI_MODEL_NAME is marked

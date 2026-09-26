@@ -1702,13 +1702,13 @@ class TestGeminiAPIConfiguration(unittest.TestCase):
         )
         self.assertTrue(
             any(
-                "Gemini 3.5 Flash (Default) (ID: gemini-3.5-flash)" in call
+                "Gemini 3.8 Flash (Default) (ID: gemini-3.8-flash)" in call
                 for call in model_prompt_calls
             )
         )
         self.assertTrue(
             any(
-                "Gemini 3.1 Flash Lite (ID: gemini-3.1-flash-lite)" in call
+                "Gemini 3.5 Flash Lite (ID: gemini-3.5-flash-lite)" in call
                 for call in model_prompt_calls
             )
         )
