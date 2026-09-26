@@ -242,6 +242,24 @@ class TestTextualApp(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(transcript, ["look"])
         self.assertIsNone(terminal.get_backend())
 
+    async def test_section_heading_uses_available_terminal_width(self):
+        from rich.rule import Rule
+        from game_engine.tui_app import CrimeAndPunishmentApp
+
+        def stub_game():
+            terminal.write_renderable(Rule("Choose Your Character"))
+            terminal.read_line("> ")
+
+        app = CrimeAndPunishmentApp(game_runner=stub_game)
+        async with app.run_test(size=(100, 30)) as pilot:
+            await pilot.pause(0.2)
+            rendered = "\n".join(str(line) for line in app.query_one("RichLog").lines)
+            self.assertIn("Choose Your Character", rendered)
+            await pilot.resize_terminal(40, 15)
+            app.write_log(Rule("Crime and Punishment"))
+            rendered = "\n".join(str(line) for line in app.query_one("RichLog").lines)
+            self.assertIn("Crime and Punishment", rendered)
+
     async def test_quit_sentinel_unblocks_game_thread(self):
         from game_engine.tui_app import CrimeAndPunishmentApp
 

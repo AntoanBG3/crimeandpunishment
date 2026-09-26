@@ -243,7 +243,7 @@ class CrimeAndPunishmentApp(App):
         self.query_one(CommandInput).disabled = True
 
     def write_log(self, renderable):
-        self.query_one("#log", RichLog).write(renderable)
+        self.query_one("#log", RichLog).write(renderable, expand=isinstance(renderable, Rule))
 
     def show_prompt(self, prompt_text, completion=True, secret=False):
         self.refresh_status_bar()

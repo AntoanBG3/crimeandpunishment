@@ -6,7 +6,7 @@
 
 ## Executive Summary
 
-The campaign identified 14 confirmed findings: four high, eight medium and two
+The campaign identified 15 confirmed findings: four high, eight medium and three
 low severity. Fixes preserve failed-load state, retain crash diagnostics, restore
 authored mechanics and item contents, and correct command, AI and UI edge cases.
 Each implementation was verified and committed separately. No confirmed high or
@@ -240,6 +240,21 @@ have zero confidence. AI progress indicators also use the injected terminal serv
 
 ## Quality of Life Improvements
 
+### R015 — TUI headings truncate in wide terminals
+
+- **Category / severity / confidence:** QoL / Low / Confirmed.
+- **Effort:** Small. **Status:** Fixed in the heading-width change; 385 tests pass locally.
+- **Location:** `game_engine/tui_app.py:245`.
+- **Evidence:** The actual macOS CI executable showed `Choose Your Cha…` in a
+  100-column terminal. A real-app regression reproduced a 20-column Rich rule;
+  RichLog measured the rule at its minimum width despite available space.
+- **Expected behavior / implementation:** Expand section rules to the log's
+  available width, while preserving other renderables' existing sizing.
+- **Verification:** The failing regression now passes at widths 100 and 40;
+  74 focused UI tests, all 385 tests, Flake8 and Pylint pass. Coverage after this
+  change is 91.93% statements, 82.26% branches and 88.94% combined.
+- **Dependencies:** Real Textual/Rich rendering; no gameplay or save changes.
+
 ### R012 — Completion suggests unowned reading targets and omits carried inspection
 
 - **Category / severity / confidence:** QoL / Low / Confirmed.
@@ -281,17 +296,18 @@ All entries below are implemented; their IDs link the evidence above to the comm
 | R011 | Prefer exact targets and clear departed actions | UX | command_handler.py:65 |
 | R012 | Complete targets the command can act on | QoL | completion.py:17 |
 | R014 | Correct setup, licensing and command claims | QoL | README.md:8 |
+| R015 | Use available width for section headings | QoL | tui_app.py:245 |
 
 ## Summary Statistics
 
 Counts describe confirmed findings, including resolved ones. Zero entries mean no
 confirmed finding in that category, not a comprehensive accessibility/security certification.
-Historical per-fix test counts above are checkpoints; the latest full suite has 384 tests.
+Historical per-fix test counts above are checkpoints; the latest full suite has 385 tests.
 
 | Category | Critical | High | Medium | Low |
 |----------|----------|------|--------|-----|
 | UX | 0 | 0 | 1 | 0 |
-| QoL | 0 | 0 | 0 | 2 |
+| QoL | 0 | 0 | 0 | 3 |
 | Robustness | 0 | 4 | 6 | 0 |
 | Performance | 0 | 0 | 1 | 0 |
 | Accessibility | 0 | 0 | 0 | 0 |
