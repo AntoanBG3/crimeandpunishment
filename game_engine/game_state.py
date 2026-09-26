@@ -56,10 +56,14 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
     verbosity_level = StateAttribute()
     color_theme = StateAttribute()
 
-    def __init__(self, *, gemini_api=None, rng=None, terminal_io=terminal) -> None:
+    def __init__(
+        self, *, gemini_api=None, rng=None, terminal_io=terminal, auto_start=False
+    ) -> None:
         self.state = GameState()
         self.rng = rng if rng is not None else random
         self.terminal = terminal_io
+        # Launch option (main.py --auto-start): skip the load prompt and character picker.
+        self.auto_start = auto_start
         self.world_manager = WorldManager(self)
         self.command_handler = CommandHandler(self)
         self.npcs_in_current_location: List[Any] = []
@@ -337,17 +341,8 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
         _validate_objective_rules(CHARACTERS_DATA, LOCATIONS_DATA, DEFAULT_ITEMS)
 
         game_loaded_successfully = False
-        # Non-interactive mode: Automatically start a new game if GEMINI_API_KEY is set
-        if os.getenv("GEMINI_API_KEY"):
+        if self.auto_start:
             self._print_color("Starting a new game...", Colors.MAGENTA)
-            self.low_ai_data_mode = config_results.get("low_ai_preference", False)
-            self.world_manager.load_all_characters()
-            if not self.world_manager.select_player_character(non_interactive=True):
-                self._print_color(
-                    "Critical Error: Could not initialize player character. Exiting.",
-                    Colors.RED,
-                )
-                return False
         else:
             self._print_color(
                 "Type 'load' to load a saved game, or press Enter to start a new game.",
@@ -365,15 +360,15 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
                         Colors.YELLOW,
                     )
 
-            if not game_loaded_successfully:
-                self.low_ai_data_mode = config_results.get("low_ai_preference", False)
-                self.world_manager.load_all_characters()
-                if not self.world_manager.select_player_character():
-                    self._print_color(
-                        "Critical Error: Could not initialize player character. Exiting.",
-                        Colors.RED,
-                    )
-                    return False
+        if not game_loaded_successfully:
+            self.low_ai_data_mode = config_results.get("low_ai_preference", False)
+            self.world_manager.load_all_characters()
+            if not self.world_manager.select_player_character(non_interactive=self.auto_start):
+                self._print_color(
+                    "Critical Error: Could not initialize player character. Exiting.",
+                    Colors.RED,
+                )
+                return False
         if not self.player_character or not self.current_location_name:
             self._print_color("Game initialization failed critically. Exiting.", Colors.RED)
             return False

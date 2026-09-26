@@ -76,15 +76,16 @@ def main():
 
         print(f"Crime and Punishment {GAME_VERSION}")
         return 0
+    auto_start = "--auto-start" in sys.argv
     if choose_mode() == "tui":
         from game_engine.tui_app import run_tui
 
-        return run_tui()
+        return run_tui(auto_start=auto_start)
     from game_engine.game_state import Game
     from game_engine.terminal import TerminalSession
 
     with TerminalSession().activate():
-        Game().run()
+        Game(auto_start=auto_start).run()
     return 0
 
 

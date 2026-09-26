@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import httpx
 from google import genai
 
-from game_engine.gemini_interactions import GeminiAPI, is_usable_ai_text
+from game_engine.gemini_interactions import GeminiAPI, SetupResult, is_usable_ai_text
 
 
 class TestSDKContract(unittest.TestCase):
@@ -56,9 +56,35 @@ class TestSDKContract(unittest.TestCase):
                 self.assertEqual(handler.call_count, 1)
                 self.assertIsNone(api.client)
 
+    def test_only_rejected_keys_are_auth_failures(self):
+        def error(code, status, message, **extra):
+            return httpx.Response(code, json={'error': {
+                'code': code, 'status': status, 'message': message, **extra}})
+
+        invalid_key = error(400, 'INVALID_ARGUMENT', 'API key not valid. Please pass a valid API key.',
+                            details=[{'@type': 'type.googleapis.com/google.rpc.ErrorInfo',
+                                      'reason': 'API_KEY_INVALID'}])
+        cases = {
+            'invalid key': (invalid_key, SetupResult.AUTH_FAILED),
+            'permission denied': (error(403, 'PERMISSION_DENIED', 'Permission denied.'),
+                                  SetupResult.AUTH_FAILED),
+            'offline': (httpx.ConnectError('offline'), SetupResult.FAILED),
+            'quota': (error(429, 'RESOURCE_EXHAUSTED', 'Quota exceeded.'), SetupResult.FAILED),
+            'outage': (error(503, 'UNAVAILABLE', 'The model is overloaded.'), SetupResult.FAILED),
+        }
+        for name, (outcome, expected) in cases.items():
+            with self.subTest(name):
+                # A mock raises exception items and returns the rest.
+                handler = MagicMock(side_effect=[outcome])
+                api = self.make_api(handler)
+                self.assertIs(api._attempt_api_setup('offline-key', 'test', 'test-model'), expected)
+                self.assertEqual(handler.call_count, 1)
+                self.assertIsNone(api.client)
+
     def test_transport_timeout_falls_back(self):
         api = self.make_api(MagicMock(side_effect=httpx.ReadTimeout('private-response')))
-        self.assertFalse(api._attempt_api_setup('offline-key', 'test', 'test-model'))
+        result = api._attempt_api_setup('offline-key', 'test', 'test-model')
+        self.assertIs(result, SetupResult.FAILED)
         self.assertIsNone(api.client)
 
     def test_empty_blocked_and_invalid_generation_results(self):

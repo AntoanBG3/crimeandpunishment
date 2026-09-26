@@ -6,7 +6,7 @@ from game_engine.command_handler import CommandHandler
 from game_engine.event_manager import EventManager
 from game_engine.game_config import Colors
 from game_engine.game_state import Game
-from game_engine.gemini_interactions import GeminiAPI, NaturalLanguageParser
+from game_engine.gemini_interactions import GeminiAPI, NaturalLanguageParser, SetupResult
 from game_engine.location_module import load_locations_data
 from game_engine.static_fallbacks import (
     generate_static_item_interaction_description,
@@ -317,7 +317,7 @@ def test_game_state_save_load_and_initialize_edge_paths(tmp_path):
         assert game.load_game() is False
     assert game.player_character is character
 
-    game = Game()
+    game = Game(auto_start=True)
     game._print_color = MagicMock()
     game._input_color = MagicMock(return_value="")
     game.display_atmospheric_details = MagicMock()
@@ -329,8 +329,7 @@ def test_game_state_save_load_and_initialize_edge_paths(tmp_path):
     game.world_manager.update_current_location_details = MagicMock()
     game.player_character = Character("P", "p", "g", "Room", ["Room"], is_player=True)
     game.current_location_name = "Room"
-    with patch("game_engine.game_state.os.getenv", return_value="key"):
-        assert game._initialize_game() is True
+    assert game._initialize_game() is True
     assert game.low_ai_data_mode is True
 
     game = Game()
@@ -343,8 +342,7 @@ def test_game_state_save_load_and_initialize_edge_paths(tmp_path):
     game.world_manager._validate_item_data = MagicMock()
     game.world_manager.load_all_characters = MagicMock()
     game.world_manager.select_player_character = MagicMock(return_value=False)
-    with patch("game_engine.game_state.os.getenv", return_value=None):
-        assert game._initialize_game() is False
+    assert game._initialize_game() is False
 
 
 def test_game_state_run_loop_and_think_paths():
@@ -1116,14 +1114,14 @@ def test_gemini_parser_config_and_generation_edge_paths(tmp_path):
         api._rename_invalid_config_file("bad_config.json")
         assert rename.called
 
-    assert api._attempt_api_setup("", "test", "model") is False
+    assert api._attempt_api_setup("", "test", "model") is SetupResult.FAILED
     api._load_genai = MagicMock(return_value=False)
-    assert api._attempt_api_setup("key", "test", "model") is False
+    assert api._attempt_api_setup("key", "test", "model") is SetupResult.FAILED
     api._load_genai = MagicMock(return_value=True)
     api.genai = None
-    assert api._attempt_api_setup("key", "test", "model") is False
+    assert api._attempt_api_setup("key", "test", "model") is SetupResult.FAILED
     api.genai = SimpleNamespace(Client=MagicMock(side_effect=RuntimeError("client bad")))
-    assert api._attempt_api_setup("key", "test", "model") is False
+    assert api._attempt_api_setup("key", "test", "model") is SetupResult.FAILED
 
     class EmptyModel:
         def generate_content(self, *_args, **_kwargs):
@@ -1131,14 +1129,14 @@ def test_gemini_parser_config_and_generation_edge_paths(tmp_path):
 
     api.genai = SimpleNamespace(Client=lambda **_kwargs: SimpleNamespace())
     with patch.object(api, "_GeminiModelAdapter", return_value=EmptyModel()):
-        assert api._attempt_api_setup("key", "test", "model") is False
+        assert api._attempt_api_setup("key", "test", "model") is SetupResult.FAILED
 
     class CandidateModel:
         def generate_content(self, *_args, **_kwargs):
             return SimpleNamespace(candidates=[SimpleNamespace(finish_reason=2)])
 
     with patch.object(api, "_GeminiModelAdapter", return_value=CandidateModel()):
-        assert api._attempt_api_setup("key", "test", "model") is False
+        assert api._attempt_api_setup("key", "test", "model") is SetupResult.FAILED
 
     api.model = SimpleNamespace(generate_content=MagicMock(return_value=SimpleNamespace(text=None)))
     assert "unclear or restricted" in api._generate_content_with_fallback("prompt")
