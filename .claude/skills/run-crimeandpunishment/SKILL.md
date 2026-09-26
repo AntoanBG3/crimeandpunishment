@@ -56,13 +56,14 @@ capture shows the scene listing and the status line
 ## Run (human path)
 
 ```bash
-.venv/bin/python main.py           # Textual TUI (the default in a TTY)
-.venv/bin/python main.py --no-tui  # classic console
+.venv/bin/python main.py               # Textual TUI (the default in a TTY)
+.venv/bin/python main.py --no-tui      # classic console
+.venv/bin/python main.py --auto-start  # either UI: new game as Raskolnikov, no load prompt or picker
 ```
 
 Interactive: prompts for a Gemini API key on first run (type `skip` for the
-static-fallback mode), then character selection. For piped verification, use the
-isolated harness.
+static-fallback mode), then the load prompt and character selection, which
+`--auto-start` skips. For piped verification, use the isolated harness.
 
 ## Test / lint
 
@@ -87,7 +88,9 @@ isolated harness.
   answer it (the driver sends `n`).
 - **Character picker accepts only 1–3** (Raskolnikov / Sonya / Porfiry).
   Invalid lines just re-prompt; a script that mis-counts its input lines
-  burns the rest of stdin in that loop and the game exits on EOF.
+  burns the rest of stdin in that loop and the game exits on EOF. When
+  Raskolnikov will do, launch with `--auto-start`: it skips the load prompt
+  and the picker, so piped input starts with the first game command.
 - Runs write `savegame_autosave.json` (and `savegame.json` if you save) into
   the repo root; both are gitignored.
 
@@ -97,7 +100,8 @@ isolated harness.
   tmux — you sent an empty line to the interactive key prompt. Send `skip`.
 - **"Invalid input. Please enter a number." repeating** in a piped run — your
   scripted lines are misaligned with the prompts; the picker is eating game
-  commands. Recount: first line blank (skip load), then `1`, then commands.
+  commands. Recount: first line blank (skip load), then `1`, then commands;
+  or launch with `--auto-start` and drop both lines.
 - **tmux capture is blank or mid-boot** — the fixed `sleep`s in the driver
   (3s boot, ~1–2s per step) are tuned for this machine; bump them on slower
   ones.

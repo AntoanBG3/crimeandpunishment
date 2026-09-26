@@ -22,7 +22,7 @@ Step into 19th-century St. Petersburg as one of three protagonists from Dostoevs
 ## Features
 
 - **Three Playable Protagonists** – Play as **Raskolnikov**, **Sonya**, or **Porfiry**. Each character has unique objectives, inventories, skills, and distinct psychological profiles.
-- **AI-Driven NPCs** – The inhabitants of St. Petersburg remember past interactions, hold grudges, pursue their own goals, and dynamically adjust their tone based on your relationship and psychological state.
+- **AI-Driven NPCs** – The inhabitants of St. Petersburg remember past interactions, hold grudges, let their own goals color what they say, and dynamically adjust their tone based on your relationship and psychological state.
 - **A Living City** – Actions advance world time. NPCs follow daily schedules, move between locations, and participate in world events as turns pass.
 - **Branching Objectives** – Experience multi-stage quest lines mirroring the novel. Help Raskolnikov *Grapple with Crime*, guide him as Sonya, or pursue the truth as Porfiry.
 - **RPG Mechanics & Skill Checks** – Utilize a D6 + Modifier system. Skills like *Persuasion*, *Observation*, and others actively determine the outcomes of key interactions.
@@ -104,7 +104,7 @@ Below are the core, deterministic commands:
 | **More** | `more` | | Reveal the rest of the last trimmed narrative text. |
 | **Repeat** | `!!` | | Repeat your previous command. |
 | **Style** | `theme <name>` | | Switch between `default`, `high-contrast`, and `mono`. |
-| **Density** | `verbosity <level>` | `brief`, `standard`, `rich` | Adjust narrative text length (also steers the AI). |
+| **Density** | `verbosity <level>` | `density`, `text density` | Set narrative text length to `brief`, `standard`, or `rich` (also steers the AI). |
 | **Pacing** | `pace [on\|off]` | | Reveal dreams and major beats paragraph by paragraph. |
 | **Screen** | `clearscreen [on\|off]` | | Clear the terminal when moving to a new place. |
 | **Help** | `help [category]` | | Show commands. Filter by `movement`, `social`, `items`, or `meta`. |

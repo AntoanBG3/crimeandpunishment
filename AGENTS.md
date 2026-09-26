@@ -1,7 +1,7 @@
 # AGENTS.md
 
-Repository guidance for coding agents. Read the relevant implementation before editing;
-use `CLAUDE.md` for additional background, and verify its details against current code.
+Repository guidance for coding agents. Read the relevant implementation before editing,
+and verify documentation against current code.
 
 ## Working style
 
@@ -47,6 +47,7 @@ source .venv/bin/activate
 python -m pip install -r requirements.txt -r requirements-dev.txt
 python main.py                     # TUI in an interactive terminal
 python main.py --no-tui            # Classic console
+python main.py --auto-start        # New game as Raskolnikov: no load prompt or picker
 python -m unittest discover tests  # Canonical full test suite
 python -m unittest tests.test_game_logic
 flake8 .
@@ -58,6 +59,9 @@ coverage report
 Install dependencies only when needed. The canonical test runner is `unittest`, even
 though the development requirements include pytest. Non-TTY streams and missing
 Textual fall back to the console; preserve the mode-selection behavior in `main.py`.
+`--auto-start` works with either UI and is the only way to skip the start menu. Keep
+it an explicit launch option: a `GEMINI_API_KEY` must not imply it, and piped runs
+answer the start menu from stdin.
 
 ## Architecture and ownership
 
@@ -93,6 +97,10 @@ Textual fall back to the console; preserve the mode-selection behavior in `main.
 - Route game input/output through `terminal.py`, preferably using the existing
   `DisplayMixin` wrappers such as `_print_color`, `_print_block`, `_print_renderable`,
   `_print_dialogue`, `_print_narrative`, and `_input_color`.
+- Read one-off answers such as menu numbers and y/n with `history=False`, via
+  `terminal.read_line(..., history=False)` or `_input_color(..., history=False)`.
+  Those answers are neither recorded to nor recalled from command history.
+  `secret=True` implies `history=False`.
 - Do not introduce direct `print()` or `input()` in gameplay code. Existing debug
   and validation output is an exception, not a pattern for player-facing output.
 - Keep console, non-TTY, and TUI behavior working. Interactive features must degrade
