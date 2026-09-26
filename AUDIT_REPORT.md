@@ -173,6 +173,11 @@ and checks ASCII markers directly. Windows revalidation is pending.
 - **Regression:** `tests/test_ai_fallback_boundary.py` initially failed six subcases
   and errored twice; it now verifies static news and content-free failure logs.
 
+R009 parser follow-up (`fix: reject malformed AI intent confidence`): non-text intent
+responses raised AttributeError and overflowing confidence raised OverflowError;
+NaN/Infinity confidence became 1.0. A failing regression now ensures these responses
+have zero confidence. AI progress indicators also use the injected terminal service.
+
 ### R007 — Save selection crashes on invalid metadata or disappearing files
 
 - **Category / severity / confidence:** Robustness / Medium / Confirmed.

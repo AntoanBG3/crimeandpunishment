@@ -1,14 +1,28 @@
 """Malformed generated text must never become blank narration or diagnostic content."""
 
+import json
 import unittest
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from game_engine.game_state import Game
-from game_engine.gemini_interactions import GeminiAPI
+from game_engine.gemini_interactions import GeminiAPI, NaturalLanguageParser
 
 
 class TestAIFallbackBoundary(unittest.TestCase):
+    def test_malformed_intent_text_and_confidence_fail_closed(self):
+        responses = [42, [], None]
+        for confidence in (float('nan'), float('inf'), 10 ** 400):
+            responses.append(json.dumps({'intent': 'take', 'target': 'coin',
+                                         'confidence': confidence}))
+        for response in responses:
+            with self.subTest(response=str(response)[:60]):
+                api = GeminiAPI()
+                api.model = SimpleNamespace(generate_content=lambda *a, **k: SimpleNamespace(text=response))
+                api._load_genai = MagicMock(return_value=False)
+                parsed = NaturalLanguageParser(api).parse_player_intent('pick it up', {'items': ['coin']})
+                self.assertEqual(parsed['confidence'], 0)
+
     def test_empty_text_returns_failure_marker_without_logging_the_prompt(self):
         for text in ('', '  \n', None, 42):
             with self.subTest(text=text):

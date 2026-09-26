@@ -3,6 +3,7 @@ import os
 import json
 import importlib
 import importlib.util
+import math
 import re
 import sys
 
@@ -103,7 +104,7 @@ class NaturalLanguageParser:
 
         model = self._select_intent_model()
         try:
-            with terminal.status("The city holds its breath…"):
+            with self.gemini_api.terminal.status("The city holds its breath…"):
                 response = model.generate_content(
                     prompt,
                     generation_config={
@@ -115,7 +116,9 @@ class NaturalLanguageParser:
         except Exception:
             return default_response
 
-        raw_text = response.text.strip() if hasattr(response, "text") and response.text else ""
+        raw_text = getattr(response, "text", None)
+        if not is_usable_ai_text(raw_text):
+            return default_response
         payload = self.gemini_api._extract_json_payload(raw_text)
         if not isinstance(payload, dict):
             return default_response
@@ -129,8 +132,10 @@ class NaturalLanguageParser:
             target = ""
         try:
             confidence = float(confidence)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
             confidence = 0.0
+        if not math.isfinite(confidence):
+            return default_response
         confidence = max(0.0, min(1.0, confidence))
         return {"intent": intent, "target": target.strip(), "confidence": confidence}
 
@@ -646,7 +651,7 @@ class GeminiAPI:
                     "threshold": "BLOCK_MEDIUM_AND_ABOVE",
                 },
             ]
-            with terminal.status("The city holds its breath…"):
+            with self.terminal.status("The city holds its breath…"):
                 response = self.model.generate_content(prompt, safety_settings=safety_settings)
 
             if not is_usable_ai_text(getattr(response, "text", None)):
