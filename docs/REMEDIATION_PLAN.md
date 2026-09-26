@@ -2,7 +2,7 @@
 
 ## Current outcome
 
-The five implementation waves are delivered in separate verified commits. Fifteen
+The five implementation waves are delivered in separate verified commits. Sixteen
 confirmed findings are recorded in [AUDIT_REPORT.md](../AUDIT_REPORT.md), with no
 unresolved confirmed critical/high crash, data-loss or progression blocker. Ordinary
 CI and frozen console validation now cover all shipped platforms. Manual frozen-TUI,
@@ -47,7 +47,7 @@ process deadline.
 | Criterion | Evidence and status |
 |-----------|---------------------|
 | Production/content/build/hook inventory | Every tracked area has an outcome in AUDIT_BASELINE.md; no production area remains unassigned |
-| Local tests and lint | Source `73de17d`: 385 tests pass, Flake8 clean, Pylint 10.00/10 |
+| Local tests and lint | Source `a6dfa85`: 386 tests pass, Flake8 clean, Pylint 10.00/10 |
 | Branch coverage | 91.93% statements, 82.26% branches, 88.94% combined; baseline 88.19% combined |
 | Invalid/legacy saves | Real-file malformed/nested types, unknown locations, failed reads, partial writes and failed replacement pass; existing session and last valid save preserved |
 | Crash/shutdown boundaries | Worker errors remain visible; redacted diagnostics, denied diagnostic writes, EOF, busy-input shutdown and broken-pipe tests pass; POSIX Ctrl+C tested |
@@ -58,7 +58,7 @@ process deadline.
 | Python 3.10/3.13 across Windows/Linux/macOS | All six test/ending/soak jobs passed at `73de17d` in run 36257692464 (and at `7dbda3d` in run 36256853518) |
 | Frozen Windows/Linux/macOS | All three builds and isolated startup/look/quit/EOF/version smokes passed at `73de17d` in run 36257692464 (and at `7dbda3d` in run 36256853518) |
 | Narrow/resized TUI | Headless source app resized to 20×5 then 100×30 and shut down during controlled in-flight work |
-| Frozen interactive TUI and Windows real-console Ctrl+C | macOS artifact startup, scene, completion/history, resize and Ctrl+Q exercised; Windows/Linux interactive checks remain unverified |
+| Frozen interactive TUI and Windows real-console Ctrl+C | macOS frozen builds exercised for all three protagonists (startup, scene, completion/history, resize, Ctrl+Q); Windows/Linux interactive checks remain unverified |
 | Live Gemini/model availability | Unverified; optional service test requires credentials and a live request |
 
 CI evidence: [first fully passing matrix](https://github.com/AntoanBG3/crimeandpunishment/actions/runs/36227963595),
@@ -73,7 +73,7 @@ closed-output-pipe regression that failed in run 36228403106.
 | Wave | Delivered boundaries / fixes | Commits |
 |------|-----------------------------|---------|
 | 1: crashes, data integrity and progression | Detached load validation, preserved live state, visible worker diagnostics, authored character attributes, preserved item text | `5bbd205`, `57accd8`, `127f809`, `c95a968`, `db2d276` |
-| 2: quick wins | Persuasion timing, save picker, response validity, shared matching, completion, Windows closed pipe, full-width TUI headings and accurate documentation | `fe8ec38`, `28f852d`, `55b9cb2`, `1791534`, `fa9a146`, `422f7a4`, `7dbda3d`, `7b4e47b`, `73de17d` |
+| 2: quick wins | Persuasion timing, save picker, response validity, shared matching, completion, Windows closed pipe, full-width TUI headings, `look at` completion and accurate documentation | `fe8ec38`, `28f852d`, `55b9cb2`, `1791534`, `fa9a146`, `422f7a4`, `7dbda3d`, `7b4e47b`, `73de17d`, `a6dfa85` |
 | 3: internal boundaries | AI injection, named tuple-compatible results, gameplay state/RNG injection, TerminalSession, split readable-item handlers | `69199b5`, `e1c858a`, `1fbf75b`, `32ace4b`, `a111c65` |
 | 4: measured retention | Isolated scenario harness and bounded UI history, output and recent events | `35fc25d`, `d2b26b7` |
 | 5: release hardening | Universal pinned dependencies, six-combination ordinary CI, three shared frozen builds, byte-safe smoke checks and shutdown/invariant regressions | `e1e7be0`, `4866b9c`, `b37acc2` |
@@ -163,10 +163,18 @@ terminal: both the full game title and `Choose Your Character` rendered without
 truncation, and Ctrl+Q closed the app.
 RichLog retains already-rendered lines at their original width after resizing;
 new output wraps at the current width. That is a retained UI limitation, not evidence
-that older content reflows. Other protagonists' frozen TUI selections and Windows/
-Linux interactive terminal behavior remain unverified; their engine ending paths
+that older content reflows. Windows/Linux interactive terminal behavior remains unverified; engine ending paths
 and headless UI behavior are covered separately.
 
 Heading-fix CI: [run 36257692464](https://github.com/AntoanBG3/crimeandpunishment/actions/runs/36257692464)
 at source `73de17d` completed successfully: all six interpreter/OS test and soak
 jobs and all three frozen build/smoke jobs passed.
+
+A further macOS build from `2c7eb3a` (source identical to `73de17d`; SHA-256
+`25de94e4ef78c005450c23f8e96979e31d09b474983a14cee091579b28d27e34`) was run in the
+same isolation for Sonya and Porfiry. Both selections started, rendered full-width
+headings, scene listings, objectives and the status bar; argument completion
+(`take liz`, `move to hay`), numbered exits, history recall, resizing 100×30 → 40×15
+→ 100×30 and Ctrl+Q (exit status 0) worked. This check exposed R016: Tab on
+`look at liz`, the form the tutorial hint suggests, offered nothing. The fix in
+`a6dfa85` was confirmed in the source TUI; it has not yet been through CI.

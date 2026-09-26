@@ -2,7 +2,7 @@
 
 Baseline: `1aa3721`, Python 3.13.5, macOS arm64; 332 tests passed, Flake8 clean,
 Pylint 10.00/10. Combined branch/statement coverage was 88.19% (3,939/4,312
-statements; 1,631/2,004 branches). At `73de17d`, 385 tests pass locally;
+statements; 1,631/2,004 branches). At `73de17d`, 385 tests passed locally;
 coverage is 4,282/4,658 statements and 1,711/2,080 branches (88.94% combined).
 
 Baseline installed direct/tool packages: google-genai 2.8.0, rich 15.0.0,
@@ -48,7 +48,7 @@ and roadmap references; current repository guidance is in `AGENTS.md`.
 | `game_engine/character_module.py` | Inventory, copies, memories, skills, objectives and serialization; R001/R003/R010 | Character, persistence, transfer and objective suites |
 | `game_engine/command_handler.py` | Aliases, dispatch, shared matching, numbered choices and NLP gate; R011 | Command wiring/results, target selection, malformed-input and engine scenarios |
 | `game_engine/command_result.py` | Named result retains tuple fields and explicit loop outcomes | Command-result compatibility and command wiring tests |
-| `game_engine/completion.py` | Shared scene context and ownership-compatible candidates; R012 | Completion suite for console and TUI candidates |
+| `game_engine/completion.py` | Shared scene context, ownership-compatible candidates and `look at` connectives; R012/R016 | Completion suite for console and TUI candidates |
 | `game_engine/diagnostics.py` | Exception type and stack locations only; no prompt/message/locals | Runtime failure redaction and denied-write tests |
 | `game_engine/display_mixin.py` | Rich output, map/journal, help, verbosity, more, presentation seams | Display, terminal/UX and full engine scenarios |
 | `game_engine/event_manager.py` | Event prerequisites, one-shot flags, generated items and fallback use; R009 | Event, fallback, objective and soak tests |

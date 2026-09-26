@@ -6,18 +6,21 @@
 
 ## Executive Summary
 
-The campaign identified 15 confirmed findings: four high, eight medium and three
+The campaign identified 16 confirmed findings: four high, eight medium and four
 low severity. Fixes preserve failed-load state, retain crash diagnostics, restore
 authored mechanics and item contents, and correct command, AI and UI edge cases.
 Each implementation was verified and committed separately. No confirmed high or
 critical crash, data-loss or progression blocker remains open in this inventory.
 
-At source commit `73de17d`, all 385 local tests pass with clean Flake8 and Pylint
-10.00/10. Coverage is 91.93% of statements, 82.26% of branches, 88.94% combined;
+At source commit `a6dfa85`, all 386 local tests pass with clean Flake8 and Pylint
+10.00/10. One coverage run measured 91.72% of statements, 82.07% of branches and
+88.74% combined; repeated runs range from about 88.7% to 89.0% combined because
+random world events exercise different branches (`73de17d` measured 88.94%);
 the baseline at `1aa3721` had 332 tests and 88.19% combined coverage. These numbers
 are evidence of exercised paths, not proof that the application has no defects.
 All six interpreter/OS jobs and three frozen console smokes passed in CI run
-36257692464 at `73de17d` (and earlier in run 36256853518 at `7dbda3d`). Cross-platform evidence and remaining manual/service checks are tracked in
+36257692464 at `73de17d` (and earlier in run 36256853518 at `7dbda3d`); the R016
+completion fix in `a6dfa85` has been verified locally only. Cross-platform evidence and remaining manual/service checks are tracked in
 [the remediation ledger](docs/REMEDIATION_PLAN.md); every tracked production area
 has a review outcome in [the inventory](docs/AUDIT_BASELINE.md).
 
@@ -256,6 +259,23 @@ have zero confidence. AI progress indicators also use the injected terminal serv
   change is 91.93% statements, 82.26% branches and 88.94% combined.
 - **Dependencies:** Real Textual/Rich rendering; no gameplay or save changes.
 
+### R016 — Completion ignores the `look at` form the tutorial teaches
+
+- **Category / severity / confidence:** QoL / Low / Confirmed.
+- **Effort:** Small. **Status:** Fixed in `a6dfa85`; 386 tests pass locally.
+- **Location:** `game_engine/completion.py:34`.
+- **Evidence:** In the frozen macOS TUI as Sonya, the tutorial hint suggested
+  `look at lizaveta's copper cross`, but Tab on `look at liz` did nothing. The
+  completer matched `at liz` as the target prefix, while `_handle_look_command`
+  strips `at the `/`at `/`the ` before matching. The console shared the defect.
+- **Implementation:** Strip the same connectives in the completer's look branch and
+  keep them in the input; only the remaining target text is replaced.
+- **Verification:** A new regression case failed before the fix and passes after;
+  `completion.py` has 100% statement and branch coverage. In the source TUI,
+  Tab on `look at liz` produced `look at lizaveta's copper cross`, which examined the item.
+- **Expected behavior:** Completion accepts the same `look` phrasings the command accepts.
+- **Dependencies:** Shares scene context with R012; no gameplay or save changes.
+
 ### R012 — Completion suggests unowned reading targets and omits carried inspection
 
 - **Category / severity / confidence:** QoL / Low / Confirmed.
@@ -298,17 +318,18 @@ All entries below are implemented; their IDs link the evidence above to the comm
 | R012 | Complete targets the command can act on | QoL | completion.py:17 |
 | R014 | Correct setup, licensing and command claims | QoL | README.md:8 |
 | R015 | Use available width for section headings | QoL | tui_app.py:245 |
+| R016 | Complete targets after `look at` | QoL | completion.py:34 |
 
 ## Summary Statistics
 
 Counts describe confirmed findings, including resolved ones. Zero entries mean no
 confirmed finding in that category, not a comprehensive accessibility/security certification.
-Historical per-fix test counts above are checkpoints; the latest full suite has 385 tests.
+Historical per-fix test counts above are checkpoints; the latest full suite has 386 tests.
 
 | Category | Critical | High | Medium | Low |
 |----------|----------|------|--------|-----|
 | UX | 0 | 0 | 1 | 0 |
-| QoL | 0 | 0 | 0 | 3 |
+| QoL | 0 | 0 | 0 | 4 |
 | Robustness | 0 | 4 | 6 | 0 |
 | Performance | 0 | 0 | 1 | 0 |
 | Accessibility | 0 | 0 | 0 | 0 |
