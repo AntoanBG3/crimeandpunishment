@@ -504,23 +504,25 @@ class GeminiAPI:
         if not os.path.exists(API_CONFIG_FILE):
             self._log_message(f"Config file '{API_CONFIG_FILE}' not found.", Colors.DIM)
             return None
-        # Catch only read and parse errors here: EOF at the Low AI prompt or a failed
-        # verification is not a broken file and must not move the key aside.
+        # Catch only errors reading or validating the file: EOF at the Low AI prompt or
+        # a failed verification is not a broken file and must not move the key aside.
         try:
             with open(API_CONFIG_FILE, "r", encoding="utf-8") as f:
                 config = json.load(f)
             key_to_try = config.get("gemini_api_key")
+            if not key_to_try:
+                return None
             preferred_model_from_config = config.get(
                 "chosen_model_name", DEFAULT_GEMINI_MODEL_NAME
             )
+            if not isinstance(key_to_try, str) or not isinstance(preferred_model_from_config, str):
+                raise ValueError("gemini_api_key and chosen_model_name must be strings")
         except Exception as e:
             self._log_message(
                 f"Error processing config file {API_CONFIG_FILE}: {e}",
                 Colors.YELLOW,
             )
             self._rename_invalid_config_file(API_CONFIG_FILE, "initial_config_error")
-            return None
-        if not key_to_try:
             return None
 
         key_source = API_CONFIG_FILE

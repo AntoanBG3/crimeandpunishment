@@ -128,6 +128,22 @@ class TestSavedKeyRetention(unittest.TestCase):
         self.replies.assert_called_once()
         self.assertIn("Gemini API key", self.replies.call_args.args[0])
 
+    def test_mistyped_values_count_as_a_malformed_file(self):
+        config_path = os.path.join(self.directory, "gemini_config.json")
+        rejected = _Models(error=RuntimeError("API key not valid."))
+        for config in (
+            {"gemini_api_key": "saved-key", "chosen_model_name": None},
+            {"gemini_api_key": 123},
+        ):
+            with self.subTest(config=config):
+                with open(config_path, "w", encoding="utf-8") as f:
+                    json.dump(config, f)
+                self.configure(rejected)
+                self.assertEqual(
+                    os.listdir(self.directory), ["gemini_config.json.initial_config_error"]
+                )
+                os.remove(config_path + ".initial_config_error")
+
     def test_eof_after_verification_keeps_saved_key(self):
         self.replies.side_effect = EOFError
         with self.assertRaises(EOFError):
