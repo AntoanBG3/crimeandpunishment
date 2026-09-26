@@ -197,7 +197,7 @@ def test_gemini_handle_env_and_config_and_generate_fallback(_getenv, tmp_path):
 
     cfg = tmp_path / "gemini_config.json"
     cfg.write_text('{"gemini_api_key":"abc","chosen_model_name":"gemini-3-flash-preview"}')
-    with patch("game_engine.gemini_interactions.API_CONFIG_FILE", str(cfg)), patch.object(api, "_load_genai", return_value=True), patch.object(
+    with patch("game_engine.gemini_interactions.API_CONFIG_FILE", str(cfg)), patch.object(
         api, "_attempt_api_setup", return_value=SetupResult.AUTH_FAILED
     ), patch.object(api, "_rename_invalid_config_file") as rename:
         out2 = api._handle_config_file_key()

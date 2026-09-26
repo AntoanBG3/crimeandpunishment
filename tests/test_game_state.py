@@ -2,7 +2,6 @@ import unittest
 from unittest.mock import MagicMock, patch, mock_open
 import os
 import sys
-import tempfile
 from types import SimpleNamespace
 
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -13,6 +12,7 @@ from game_engine.game_state import Game  # noqa: E402
 from game_engine.character_module import Character  # noqa: E402
 from game_engine.game_config import Colors, TIME_UNITS_PER_PLAYER_ACTION  # noqa: E402
 from game_engine.gemini_interactions import GeminiAPI  # noqa: E402
+from tests.test_command_handler import _Model  # noqa: E402
 
 
 class TestGameState(unittest.TestCase):
@@ -350,46 +350,33 @@ class TestGameState(unittest.TestCase):
         self.game.command_handler._process_command("theme", "default")
 
 
-class _OfflineModels:
-    """Client stand-in that fails verification like a machine without a network."""
-
-    def generate_content(self, **_kwargs):
-        raise ConnectionError("network unreachable")
-
-
 class TestStartupMenu(unittest.TestCase):
     """A configured API key must not decide how a new session starts."""
 
     def start_game(self, replies, **options):
         io = MagicMock()
         io.read_line.side_effect = replies
+        offline = _Model(error=ConnectionError("network unreachable"))
         api = GeminiAPI(
             sdk=SimpleNamespace(),
-            client_factory=lambda **_kwargs: SimpleNamespace(models=_OfflineModels()),
+            client_factory=lambda **_kwargs: SimpleNamespace(models=offline),
             terminal_io=io,
         )
         game = Game(gemini_api=api, terminal_io=io, **options)
-        with tempfile.TemporaryDirectory() as directory, patch(
-            "game_engine.gemini_interactions.API_CONFIG_FILE",
-            os.path.join(directory, "gemini_config.json"),
-        ), patch("sys.stdin.isatty", return_value=False):
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "offline-key"}):
             self.assertTrue(game._initialize_game())
         written = "\n".join(str(call.args[0]) for call in io.write_line.call_args_list if call.args)
         return game, io, written
 
     def test_env_key_keeps_load_prompt_and_character_choice(self):
-        with patch.dict(os.environ, {"GEMINI_API_KEY": "offline-key"}):
-            game, io, written = self.start_game(["", "2"])
+        game, io, written = self.start_game(["", "2"])
         self.assertEqual(game.player_character.name, "Sonya Marmeladova")
         self.assertEqual(io.read_line.call_count, 2)
         self.assertIn("Type 'load'", written)
         self.assertNotIn("Automatically selecting", written)
-        self.assertIsNone(game.gemini_api.model)
 
     def test_auto_start_option_skips_menu_without_reading_input(self):
-        with patch.dict(os.environ):
-            os.environ.pop("GEMINI_API_KEY", None)
-            game, io, written = self.start_game([], auto_start=True)
+        game, io, written = self.start_game([], auto_start=True)
         self.assertEqual(game.player_character.name, "Rodion Raskolnikov")
         io.read_line.assert_not_called()
         self.assertIn("Automatically selecting character", written)

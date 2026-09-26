@@ -525,7 +525,6 @@ class GeminiAPI:
             self._rename_invalid_config_file(API_CONFIG_FILE, "initial_config_error")
             return None
 
-        key_source = API_CONFIG_FILE
         self._log_message(f"Found API key in config file '{API_CONFIG_FILE}'.", Colors.YELLOW)
         if preferred_model_from_config != DEFAULT_GEMINI_MODEL_NAME:
             self._log_message(
@@ -533,29 +532,27 @@ class GeminiAPI:
                 Colors.YELLOW,
             )
 
-        if not self._load_genai():
-            return {"api_configured": False, "low_ai_preference": False}
-
-        setup_result = self._attempt_api_setup(key_to_try, key_source, preferred_model_from_config)
+        setup_result = self._attempt_api_setup(
+            key_to_try, API_CONFIG_FILE, preferred_model_from_config
+        )
         if setup_result:
             low_ai_pref = self._prompt_for_low_ai_mode()
             if self.chosen_model_name != preferred_model_from_config:
                 self.save_api_key_to_file(key_to_try)
             return {"api_configured": True, "low_ai_preference": low_ai_pref}
         if setup_result is SetupResult.AUTH_FAILED:
-            # A rejected key would fail on every launch, so move it aside.
             self._rename_invalid_config_file(
                 API_CONFIG_FILE,
                 f"failed_setup_with_{preferred_model_from_config.replace('/', '_')}",
             )
             self._print_color_func(
-                f"API key from {key_source} (with model '{preferred_model_from_config}') failed validation or setup.",
+                f"API key from {API_CONFIG_FILE} (with model '{preferred_model_from_config}') "
+                "failed validation or setup.",
                 Colors.YELLOW,
             )
             return None
-        # Offline, timed out or otherwise unverified: the key may be fine, so keep it.
         self._print_color_func(
-            f"Could not verify the API key from {key_source}. The file was kept and will be "
+            f"Could not verify the API key from {API_CONFIG_FILE}. The file was kept and will be "
             "tried again next launch; this session will use placeholder responses.",
             Colors.YELLOW,
         )

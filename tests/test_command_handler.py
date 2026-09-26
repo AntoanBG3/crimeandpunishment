@@ -217,10 +217,13 @@ def test_get_player_input_hint_branches_and_parse_empty():
 
 
 class _Model:
-    def __init__(self, text):
+    def __init__(self, text="test", error=None):
         self._text = text
+        self._error = error
 
     def generate_content(self, *_args, **_kwargs):
+        if self._error:
+            raise self._error
         return SimpleNamespace(text=self._text)
 
 

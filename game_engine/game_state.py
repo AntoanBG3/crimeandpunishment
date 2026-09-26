@@ -341,18 +341,8 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
         _validate_objective_rules(CHARACTERS_DATA, LOCATIONS_DATA, DEFAULT_ITEMS)
 
         game_loaded_successfully = False
-        # Non-interactive mode is an explicit opt-in; a configured API key must not
-        # take away the load prompt or the character choice.
         if self.auto_start:
             self._print_color("Starting a new game...", Colors.MAGENTA)
-            self.low_ai_data_mode = config_results.get("low_ai_preference", False)
-            self.world_manager.load_all_characters()
-            if not self.world_manager.select_player_character(non_interactive=True):
-                self._print_color(
-                    "Critical Error: Could not initialize player character. Exiting.",
-                    Colors.RED,
-                )
-                return False
         else:
             self._print_color(
                 "Type 'load' to load a saved game, or press Enter to start a new game.",
@@ -370,15 +360,15 @@ class Game(DisplayMixin, ItemInteractionHandler, NPCInteractionHandler):
                         Colors.YELLOW,
                     )
 
-            if not game_loaded_successfully:
-                self.low_ai_data_mode = config_results.get("low_ai_preference", False)
-                self.world_manager.load_all_characters()
-                if not self.world_manager.select_player_character():
-                    self._print_color(
-                        "Critical Error: Could not initialize player character. Exiting.",
-                        Colors.RED,
-                    )
-                    return False
+        if not game_loaded_successfully:
+            self.low_ai_data_mode = config_results.get("low_ai_preference", False)
+            self.world_manager.load_all_characters()
+            if not self.world_manager.select_player_character(non_interactive=self.auto_start):
+                self._print_color(
+                    "Critical Error: Could not initialize player character. Exiting.",
+                    Colors.RED,
+                )
+                return False
         if not self.player_character or not self.current_location_name:
             self._print_color("Game initialization failed critically. Exiting.", Colors.RED)
             return False

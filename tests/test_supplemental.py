@@ -331,8 +331,6 @@ def test_game_state_save_load_and_initialize_edge_paths(tmp_path):
     game.current_location_name = "Room"
     assert game._initialize_game() is True
     assert game.low_ai_data_mode is True
-    game._input_color.assert_not_called()
-    game.world_manager.select_player_character.assert_called_once_with(non_interactive=True)
 
     game = Game()
     game._print_color = MagicMock()

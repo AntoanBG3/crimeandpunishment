@@ -63,12 +63,12 @@ class TestAutoStartFlag(unittest.TestCase):
         return game_class, run_tui
 
     def test_console_keeps_start_menu_by_default(self):
-        game_class, _run_tui = self.launch("--no-tui")
+        game_class, _run_tui = self.launch()
         game_class.assert_called_once_with(auto_start=False)
         game_class.return_value.run.assert_called_once_with()
 
     def test_flag_reaches_console_game(self):
-        game_class, _run_tui = self.launch("--no-tui", "--auto-start")
+        game_class, _run_tui = self.launch("--auto-start")
         game_class.assert_called_once_with(auto_start=True)
 
     def test_flag_reaches_tui(self):
