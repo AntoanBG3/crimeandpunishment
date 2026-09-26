@@ -23,9 +23,12 @@ class DisplayMixin:
     def _print_color(self, text, color_code, end="\n"):
         self.terminal.write_line(f"{color_code}{text}{Colors.RESET}", end=end)
 
-    def _input_color(self, prompt_text, color_code, completion=True, secret=False):
+    def _input_color(self, prompt_text, color_code, completion=True, secret=False, history=True):
         return self.terminal.read_line(
-            f"{color_code}{prompt_text}{Colors.RESET}", completion=completion, secret=secret
+            f"{color_code}{prompt_text}{Colors.RESET}",
+            completion=completion,
+            secret=secret,
+            history=history,
         )
 
     def _print_block(self, text, color_code):

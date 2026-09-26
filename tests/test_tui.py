@@ -19,6 +19,7 @@ class FakeBackend:
         self.read_prompts = []
         self.read_completion_flags = []
         self.read_secret_flags = []
+        self.read_history_flags = []
         self.read_replies = []
         self.cleared = 0
         self.status_messages = []
@@ -26,10 +27,11 @@ class FakeBackend:
     def emit(self, renderable):
         self.emitted.append(renderable)
 
-    def read(self, prompt_text, completion=True, secret=False):
+    def read(self, prompt_text, completion=True, secret=False, history=True):
         self.read_prompts.append(prompt_text)
         self.read_completion_flags.append(completion)
         self.read_secret_flags.append(secret)
+        self.read_history_flags.append(history)
         return self.read_replies.pop(0) if self.read_replies else ""
 
     def clear(self):
@@ -91,6 +93,12 @@ class TestTerminalBackendSeam(unittest.TestCase):
         self.assertEqual(result, "key-123")
         self.assertEqual(self.backend.read_secret_flags, [True])
 
+    def test_read_line_history_flag_crosses_the_seam(self):
+        terminal.read_line("> ", "")
+        terminal.read_line("(y/n): ", "", history=False)
+        terminal.read_line("API key: ", "", secret=True)  # secrets are never recorded
+        self.assertEqual(self.backend.read_history_flags, [True, False, False])
+
     def test_clear_screen_routes_to_backend(self):
         terminal.clear_screen()
         self.assertEqual(self.backend.cleared, 1)
@@ -142,7 +150,7 @@ class TestBackendProtocolContract(unittest.TestCase):
 
     REQUIRED = {
         "emit": ["renderable"],
-        "read": ["prompt_text", "completion", "secret"],
+        "read": ["prompt_text", "completion", "secret", "history"],
         "clear": [],
         "status": ["message"],
     }
@@ -413,6 +421,33 @@ class TestTextualApp(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(command_input.password)
         self.assertEqual(captured["key"], "key-secret-123")
         self.assertEqual(terminal.load_history_lines(), [])
+
+    async def test_unrecorded_prompt_skips_history_walk_and_file(self):
+        from game_engine.tui_app import CrimeAndPunishmentApp
+
+        terminal.append_history_line("look")
+
+        def stub_game():
+            terminal.read_line("Save before quitting? (y/N): ", history=False)
+            terminal.read_line("> ")  # park
+
+        app = CrimeAndPunishmentApp(game_runner=stub_game)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.2)
+            command_input = app.query_one("CommandInput")
+            self.assertFalse(command_input.history_enabled)
+            await pilot.press("up")  # no walk into command history
+            self.assertEqual(command_input.value, "")
+            command_input.value = "n"
+            await pilot.press("enter")
+            await pilot.pause(0.2)
+            log = app.query_one("RichLog")
+            rendered = "\n".join(str(line) for line in log.lines)
+            self.assertIn("> n", rendered)
+            self.assertEqual(command_input.history, ["look"])
+            # The next prompt is a command prompt again.
+            self.assertTrue(command_input.history_enabled)
+        self.assertEqual(terminal.load_history_lines(), ["look"])
 
     async def test_exit_joins_game_thread_through_in_flight_work(self):
         import threading

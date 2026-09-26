@@ -56,10 +56,10 @@ class TextualBackend:
     def emit(self, renderable):
         self._post(self.app.write_log, renderable)
 
-    def read(self, prompt_text, completion=True, secret=False):
+    def read(self, prompt_text, completion=True, secret=False, history=True):
         if self.closed.is_set():
             raise EOFError
-        self._post(self.app.show_prompt, prompt_text, completion, secret)
+        self._post(self.app.show_prompt, prompt_text, completion, secret, history)
         line = self.input_queue.get()
         if line is _QUIT:
             raise EOFError
@@ -103,13 +103,16 @@ class CommandInput(Input):
 
     Up/down walk the same history file the console's PromptSession uses
     (terminal.HISTORY_FILE); the draft line is kept at the bottom of the
-    walk, prompt_toolkit-style.
+    walk, prompt_toolkit-style. Prompts for one-off answers and secrets
+    turn history off via history_enabled (the read(..., history=False)
+    flag): no walk, and the submitted line is not recorded.
     """
 
     def __init__(self, terminal_io=terminal, **kwargs):
         super().__init__(**kwargs)
         self.terminal = terminal_io
         self.completion_enabled = True
+        self.history_enabled = True
         self._cycle_base = None
         self._cycle_candidates = []
         self._cycle_index = -1
@@ -134,16 +137,16 @@ class CommandInput(Input):
             self._history_step(1)
 
     def record_submitted(self, line):
-        """Add a submitted line to in-memory and on-disk history."""
+        """Add a submitted line to in-memory and on-disk history when enabled."""
         self._history_index = None
         self._draft = ""
-        if line.strip():
+        if line.strip() and self.history_enabled:
             self.history.append(line)
             del self.history[:-MAX_HISTORY_ENTRIES]
             self.terminal.append_history_line(line)
 
     def _history_step(self, direction):
-        if not self.history:
+        if not self.history or not self.history_enabled:
             return
         if self._history_index is None:
             if direction > 0:
@@ -246,7 +249,7 @@ class CrimeAndPunishmentApp(App):
     def write_log(self, renderable):
         self.query_one("#log", RichLog).write(renderable, expand=isinstance(renderable, Rule))
 
-    def show_prompt(self, prompt_text, completion=True, secret=False):
+    def show_prompt(self, prompt_text, completion=True, secret=False, history=True):
         self.refresh_status_bar()
         prompt = str(prompt_text).strip() or ">"
         command_input = self.query_one(CommandInput)
@@ -255,6 +258,7 @@ class CrimeAndPunishmentApp(App):
         command_input.focus()
         command_input.placeholder = prompt
         command_input.completion_enabled = completion
+        command_input.history_enabled = history
         command_input.password = secret
 
     def refresh_status_bar(self):

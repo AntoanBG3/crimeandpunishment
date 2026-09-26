@@ -12,7 +12,7 @@ from .static_fallbacks import (
     generate_static_scenery_observation,
 )
 from .location_module import LOCATIONS_DATA
-from .objective_progression import evaluate_player_progression
+from .objective_progression import evaluate_player_progression, gift_refusal
 
 # Static reflective self-use effects: (reflection text, apparent_state for Raskolnikov).
 # Pure-static (no AI call), so they need no separate fallback. Text is faithful to each
@@ -1281,6 +1281,12 @@ class ItemInteractionHandler:
         # More sophisticated quantity handling could be added if items become stackable in a way that 'give' needs to respect.
         if not player_character.has_item(item_to_use_name, quantity=1):
             self._print_color(f"You don't have {item_to_use_name} to give.", Colors.RED)
+            return False
+
+        # NPCs never hand items back; keep an item its story beat still needs.
+        refusal = gift_refusal(self, item_to_use_name, target_npc.name)
+        if refusal:
+            self._print_color(refusal, Colors.YELLOW)
             return False
 
         # Snapshot before removal: a rejected transfer must preserve contents too.
