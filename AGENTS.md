@@ -65,12 +65,19 @@ Textual fall back to the console; preserve the mode-selection behavior in `main.
 - `game_engine/game_state.py`: `Game`, the main loop, save/load, and shared state.
   `Game` inherits `DisplayMixin`, `ItemInteractionHandler`, and
   `NPCInteractionHandler`; these mixins operate on the live `Game` instance.
+- `session_state.py`: `GameState` owns gameplay fields; compatibility descriptors
+  on `Game` preserve existing handlers. Inject AI, randomness and terminal services
+  through `Game` instead of detecting a test runner.
+- `persistence.py`: validates detached save candidates before replacing live state.
+- `command_result.py`: tuple-compatible `CommandResult` and explicit `TurnOutcome`.
 - `world_manager.py`, `command_handler.py`, and `event_manager.py`: service objects
   holding references to `Game`. **EventManager is not a mixin**; access it through
   `game.event_manager`. Check all services when renaming shared state attributes.
 - `terminal.py`: the shared input/output boundary for console and TUI.
   `display_mixin.py` composes presentation; `tui_app.py` bridges the blocking game
   loop and Textual using a worker thread and input queue.
+  `TerminalSession` isolates backend, providers, pacing and history; activate the
+  session around legacy module calls and keep a closed backend until its worker exits.
 - `gemini_interactions.py`: Gemini integration and natural-language parsing.
   `static_fallbacks.py`: offline narrative text and generators.
 - `objective_progression.py`: objective progression rules.
@@ -105,6 +112,7 @@ Textual fall back to the console; preserve the mode-selection behavior in `main.
 - Preserve the command result tuple:
   `(action_taken, show_atmospherics, time_to_advance, special_flag)`.
   `load_triggered` restarts the loop; other truthy special flags quit.
+  Prefer `CommandResult` and its `outcome` property while retaining tuple compatibility.
 - Conversation exchanges advance time internally. Do not also advance time for
   `talk to` at the main-loop level.
 - Mutate `dynamic_location_items` for live world inventory, not static JSON data.
@@ -146,5 +154,8 @@ Textual fall back to the console; preserve the mode-selection behavior in `main.
 - `.github/workflows/release.yml` runs tests across Windows, Linux, and macOS and
   builds PyInstaller executables. Preserve bundled `data`, Textual resources
   (`--collect-all textual`), and dynamic Gemini import collection.
+  `.github/workflows/ci.yml` also validates ordinary pushes and PRs on Python 3.10
+  and 3.13. Use `scripts/build_release.py` and the pinned requirements for builds;
+  `scripts/audit_scenarios.py` isolates saves, configuration and credentials for smokes.
 - For release work, `game_config.GAME_VERSION` must match the release tag;
   the workflow checks this. Do not change the version for unrelated edits.

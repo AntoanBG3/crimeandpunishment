@@ -7,11 +7,17 @@ description: Run, play, smoke-test, or screenshot the Crime and Punishment termi
 
 Terminal text adventure (Python, `rich` + `prompt_toolkit` + optional
 `textual` TUI). Gemini-powered at runtime but **fully playable with no API
-key**: piped stdin puts it in deterministic LOW-AI placeholder mode, which is
-exactly what an agent wants. All paths below are relative to the repo root.
+key**. Piped stdin skips the key prompt but can still use a configured key.
+Random world events remain active offline. All paths below are relative to the repo root.
 
-The driver is `.claude/skills/run-crimeandpunishment/driver.sh`. It is the
-primary agent path — use it before reaching for `python main.py` directly.
+Use `.venv/bin/python scripts/audit_scenarios.py --scenario console` for the
+primary smoke. This portable harness isolates working directory, saves, history,
+configuration and credentials, seeds randomness, and enforces a process deadline.
+Other scenarios are `endings`, `engine --actions 10000`, and `tui --actions 1000`.
+
+The legacy `.claude/skills/run-crimeandpunishment/driver.sh` remains available for
+custom commands and tmux captures. It uses the repository working directory and
+inherits credentials and configuration; do not use it for isolated offline checks.
 
 ## Prerequisites
 
@@ -20,13 +26,14 @@ primary agent path — use it before reaching for `python main.py` directly.
   (driver falls back to `python3` if `.venv` is missing).
 - `tmux` for the interactive/TUI captures (`/opt/homebrew/bin/tmux` here).
 
-There is no build step.
+Source runs need no build. Frozen releases use `scripts/build_release.py` after
+installing `requirements-build.txt`; see `docs/DEPENDENCIES.md`.
 
 ## Run (agent path)
 
 ```bash
-# End-to-end scripted run, asserts key markers, exit code 0/1:
-.claude/skills/run-crimeandpunishment/driver.sh smoke
+# Isolated end-to-end scripted run with a deadline:
+.venv/bin/python scripts/audit_scenarios.py --scenario console
 
 # Play your own commands (new game as Raskolnikov, LOW-AI, quits cleanly):
 .claude/skills/run-crimeandpunishment/driver.sh play "look" "move to stairwell" "talk to nastasya" "hello" "goodbye"
@@ -54,25 +61,25 @@ capture shows the scene listing and the status line
 ```
 
 Interactive: prompts for a Gemini API key on first run (type `skip` for the
-static-fallback mode), then character selection. Useless when piped — use the
-driver for that.
+static-fallback mode), then character selection. For piped verification, use the
+isolated harness.
 
 ## Test / lint
 
 ```bash
-.venv/bin/python -m unittest discover tests   # canonical; ~325 tests, ~5s
+.venv/bin/python -m unittest discover tests   # canonical offline suite
 .venv/bin/flake8 . && .venv/bin/pylint game_engine  # both kept at clean/10.00
 ```
 
 ## Gotchas
 
-- **TTY changes behavior.** Piped stdin: API-key prompt auto-skips to
-  placeholder mode, plain `input()`. Real TTY (tmux): the key prompt is
+- **TTY changes behavior.** Piped stdin: without a configured key, the API-key
+  prompt auto-skips to placeholder mode with plain input. Real TTY (tmux): the key prompt is
   interactive and loops until you type `skip`, and input goes through
   prompt_toolkit. The driver handles both; remember the difference if you
   drive it by hand.
-- **Don't set `GEMINI_API_KEY`** for deterministic runs — it triggers a live
-  network probe at startup and switches the game to AI mode.
+- **Use the isolated harness for offline runs.** A `GEMINI_API_KEY` or a key in
+  local configuration triggers a live startup probe even with piped input.
 - **`talk to` enters a dialogue sub-loop.** Game commands typed there are
   spoken to the NPC, not executed. Exit with `goodbye`, `leave`, or two empty
   lines.

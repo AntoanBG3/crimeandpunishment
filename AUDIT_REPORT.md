@@ -148,6 +148,20 @@ and checks ASCII markers directly. Windows revalidation is pending.
 
 ## Quality of Life Improvements
 
+### R014 — Documentation promises behavior the game does not provide
+
+- **Category / severity / confidence:** QoL / Low / Confirmed.
+- **Effort:** Small. **Status:** Corrected in this documentation change.
+- **Location:** `README.md`, `AGENTS.md`, `.claude/skills/run-crimeandpunishment/SKILL.md`.
+- **Evidence:** README named MIT despite the GPL version 3-or-later notice in
+  LICENSE.md; it advertised multi-action NLP and deterministic offline play despite
+  a single-intent schema and random world/skill checks. The legacy driver inherits
+  credentials/configuration, so piped input alone does not guarantee offline play.
+- **Implementation:** Correct these claims and document the isolated harness,
+  updated state boundaries, locked dependencies and ordinary CI.
+- **Verification:** Compare claims with local implementation and license notice;
+  run the documented ending scenario, shell syntax check and whitespace review.
+
 ### R012 — Completion suggests unowned reading targets and omits carried inspection
 
 - **Category / severity / confidence:** QoL / Low / Confirmed.
