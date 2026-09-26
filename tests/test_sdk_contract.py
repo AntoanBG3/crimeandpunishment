@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import httpx
 from google import genai
 
-from game_engine.gemini_interactions import GeminiAPI, is_usable_ai_text
+from game_engine.gemini_interactions import GeminiAPI, SetupResult, is_usable_ai_text
 
 
 class TestSDKContract(unittest.TestCase):
@@ -53,6 +53,32 @@ class TestSDKContract(unittest.TestCase):
                     'error': {'code': status, 'message': 'private-response', 'status': 'UNKNOWN'}}))
                 api = self.make_api(handler)
                 self.assertFalse(api._attempt_api_setup('offline-key', 'test', 'test-model'))
+                self.assertEqual(handler.call_count, 1)
+                self.assertIsNone(api.client)
+
+    def test_only_rejected_keys_are_auth_failures(self):
+        def error(code, status, message, **extra):
+            return httpx.Response(code, json={'error': {
+                'code': code, 'status': status, 'message': message, **extra}})
+
+        invalid_key = error(400, 'INVALID_ARGUMENT', 'API key not valid. Please pass a valid API key.',
+                            details=[{'@type': 'type.googleapis.com/google.rpc.ErrorInfo',
+                                      'reason': 'API_KEY_INVALID'}])
+        cases = {
+            'invalid key': (MagicMock(return_value=invalid_key), SetupResult.AUTH_FAILED),
+            'permission denied': (MagicMock(return_value=error(
+                403, 'PERMISSION_DENIED', 'Permission denied.')), SetupResult.AUTH_FAILED),
+            'offline': (MagicMock(side_effect=httpx.ConnectError('offline')), SetupResult.FAILED),
+            'timeout': (MagicMock(side_effect=httpx.ReadTimeout('slow')), SetupResult.FAILED),
+            'quota': (MagicMock(return_value=error(
+                429, 'RESOURCE_EXHAUSTED', 'Quota exceeded.')), SetupResult.FAILED),
+            'outage': (MagicMock(return_value=error(
+                503, 'UNAVAILABLE', 'The model is overloaded.')), SetupResult.FAILED),
+        }
+        for name, (handler, expected) in cases.items():
+            with self.subTest(name):
+                api = self.make_api(handler)
+                self.assertIs(api._attempt_api_setup('offline-key', 'test', 'test-model'), expected)
                 self.assertEqual(handler.call_count, 1)
                 self.assertIsNone(api.client)
 

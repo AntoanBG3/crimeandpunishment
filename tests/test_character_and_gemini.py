@@ -2,7 +2,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from game_engine.character_module import Character
-from game_engine.gemini_interactions import GeminiAPI
+from game_engine.gemini_interactions import GeminiAPI, SetupResult
 from game_engine.world_manager import WorldManager
 from game_engine.command_handler import CommandHandler
 from tests.test_command_handler import _make_state
@@ -175,13 +175,13 @@ def test_gemini_attempt_api_setup_success_and_failure_paths():
 
     with patch.object(api, "_load_genai", return_value=True):
         api.genai = SimpleNamespace(Client=lambda **kwargs: SimpleNamespace(models=SimpleNamespace(generate_content=lambda *a, **k: SimpleNamespace(text="test"))))
-        assert api._attempt_api_setup("k", "src", "m") is True
+        assert api._attempt_api_setup("k", "src", "m") is SetupResult.VERIFIED
 
         with patch.object(api, "_GeminiModelAdapter", return_value=BadModel()):
-            assert api._attempt_api_setup("k", "src", "m") is False
+            assert api._attempt_api_setup("k", "src", "m") is SetupResult.FAILED
 
         with patch.object(api, "_GeminiModelAdapter", side_effect=RuntimeError("boom")):
-            assert api._attempt_api_setup("k", "src", "m") is False
+            assert api._attempt_api_setup("k", "src", "m") is SetupResult.FAILED
 
 
 @patch("game_engine.gemini_interactions.os.getenv", return_value="env-key")
@@ -198,10 +198,11 @@ def test_gemini_handle_env_and_config_and_generate_fallback(_getenv, tmp_path):
     cfg = tmp_path / "gemini_config.json"
     cfg.write_text('{"gemini_api_key":"abc","chosen_model_name":"gemini-3-flash-preview"}')
     with patch("game_engine.gemini_interactions.API_CONFIG_FILE", str(cfg)), patch.object(api, "_load_genai", return_value=True), patch.object(
-        api, "_attempt_api_setup", return_value=False
-    ), patch.object(api, "_rename_invalid_config_file"):
+        api, "_attempt_api_setup", return_value=SetupResult.AUTH_FAILED
+    ), patch.object(api, "_rename_invalid_config_file") as rename:
         out2 = api._handle_config_file_key()
         assert out2 is None
+        assert rename.called
 
     api.model = None
     assert "Gemini API not configured" in api._generate_content_with_fallback("p", "ctx")

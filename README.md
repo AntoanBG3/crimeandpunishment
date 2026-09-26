@@ -68,7 +68,9 @@ python main.py --no-tui
 
 ### First-Run API Setup
 
-With the Gemini SDK installed, an interactive launch prompts for an API key if no usable key is configured. Enter `skip` to play offline, or supply a key through the prompt or `GEMINI_API_KEY`. Supplying a key does not skip the start menu: you still choose whether to load a save and which character to play. To skip both and start a new game as Raskolnikov, launch with `--auto-start`. The game also reads `gemini_config.json` from the directory where you launch it and offers to save a verified key there. Keep that file private. Get a key at [ai.google.dev](https://ai.google.dev/gemini-api/docs/api-key).
+With the Gemini SDK installed, an interactive launch prompts for an API key if no usable key is configured. Enter `skip` to play offline, or supply a key through the prompt or `GEMINI_API_KEY`. Get a key at [ai.google.dev](https://ai.google.dev/gemini-api/docs/api-key). Supplying a key does not skip the start menu: you still choose whether to load a save and which character to play. To skip both and start a new game as Raskolnikov, launch with `--auto-start`.
+
+The game also reads `gemini_config.json` from the directory where you launch it and offers to save a verified key there. Keep that file private. If the service rejects the saved key, the game renames the file to `gemini_config.json.failed_setup_with_<model>` and asks for a new key. Other verification failures, such as no network or a timeout, leave the file in place for the next launch, and that session uses placeholder text.
 
 > **Offline play:** Without the SDK or a usable key, the game uses static fallback text. Random skill checks and world events still occur. Piped input skips the key prompt, but a configured key can still enable API calls; use the isolated audit harness for guaranteed offline verification.
 

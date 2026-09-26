@@ -6,6 +6,7 @@ import importlib.util
 import math
 import re
 import sys
+from enum import Enum
 
 from . import terminal
 from .game_config import Colors
@@ -140,6 +141,22 @@ class NaturalLanguageParser:
         return {"intent": intent, "target": target.strip(), "confidence": confidence}
 
 
+class SetupResult(Enum):
+    """Outcome of verifying an API key; only VERIFIED is truthy.
+
+    AUTH_FAILED means the service rejected the key or its permissions, so a saved
+    copy would fail again. FAILED covers everything else (no network, timeouts,
+    SDK or response problems), where the key itself may still be valid.
+    """
+
+    VERIFIED = "verified"
+    AUTH_FAILED = "auth_failed"
+    FAILED = "failed"
+
+    def __bool__(self):
+        return self is SetupResult.VERIFIED
+
+
 class GeminiAPI:
     def __init__(self, *, sdk=None, client_factory=None, terminal_io=terminal):
         self.client_factory = client_factory
@@ -260,14 +277,14 @@ class GeminiAPI:
                 Colors.RED,
             )
             self.close()
-            return False
+            return SetupResult.FAILED
         if not self._load_genai():
             self.close()
-            return False
+            return SetupResult.FAILED
         genai_module = self.genai
         if genai_module is None:
             self.close()
-            return False
+            return SetupResult.FAILED
 
         try:
             self.close()
@@ -281,7 +298,7 @@ class GeminiAPI:
                 Colors.RED,
             )
             self.close()
-            return False
+            return SetupResult.FAILED
 
         try:
             model_instance = self._GeminiModelAdapter(self.client, model_to_use)
@@ -295,7 +312,7 @@ class GeminiAPI:
                 Colors.YELLOW,
             )
             self.close()
-            return False
+            return SetupResult.FAILED
 
         self._print_color_func(
             f"Verifying API key from {source} with model '{model_to_use}'...",
@@ -327,7 +344,7 @@ class GeminiAPI:
                 )
                 self.model = model_instance
                 self.chosen_model_name = model_to_use  # Confirm the successfully validated model
-                return True
+                return SetupResult.VERIFIED
             feedback_text = "Unknown issue during verification."
             if (
                 hasattr(test_response, "prompt_feedback")
@@ -353,7 +370,7 @@ class GeminiAPI:
                 Colors.RED,
             )
             self.close()
-            return False
+            return SetupResult.FAILED
         except Exception as e_test:
             self._print_color_func(
                 f"Error during API key verification call (from {source}, model '{model_to_use}'): {type(e_test).__name__}",
@@ -385,7 +402,7 @@ class GeminiAPI:
                     Colors.YELLOW,
                 )
             self.close()
-            return False
+            return SetupResult.AUTH_FAILED if is_auth_error else SetupResult.FAILED
 
     def _ask_for_model_selection(self):
         # DEFAULT_GEMINI_MODEL_NAME is defined at file level
@@ -484,52 +501,63 @@ class GeminiAPI:
         return None
 
     def _handle_config_file_key(self):
-        if os.path.exists(API_CONFIG_FILE):
-            try:
-                with open(API_CONFIG_FILE, "r", encoding="utf-8") as f:
-                    config = json.load(f)
-                key_to_try = config.get("gemini_api_key")
-                if not key_to_try:
-                    return None
-
-                key_source = API_CONFIG_FILE
-                preferred_model_from_config = config.get(
-                    "chosen_model_name", DEFAULT_GEMINI_MODEL_NAME
-                )
-                self._log_message(
-                    f"Found API key in config file '{API_CONFIG_FILE}'.", Colors.YELLOW
-                )
-                if preferred_model_from_config != DEFAULT_GEMINI_MODEL_NAME:
-                    self._log_message(
-                        f"Loaded preferred model '{preferred_model_from_config}' from config.",
-                        Colors.YELLOW,
-                    )
-
-                if not self._load_genai():
-                    return {"api_configured": False, "low_ai_preference": False}
-
-                if self._attempt_api_setup(key_to_try, key_source, preferred_model_from_config):
-                    low_ai_pref = self._prompt_for_low_ai_mode()
-                    if self.chosen_model_name != preferred_model_from_config:
-                        self.save_api_key_to_file(key_to_try)
-                    return {"api_configured": True, "low_ai_preference": low_ai_pref}
-                self._rename_invalid_config_file(
-                    API_CONFIG_FILE,
-                    f"failed_setup_with_{preferred_model_from_config.replace('/', '_')}",
-                )
-                self._print_color_func(
-                    f"API key from {key_source} (with model '{preferred_model_from_config}') failed validation or setup.",
-                    Colors.YELLOW,
-                )
-            except Exception as e:
-                self._log_message(
-                    f"Error processing config file {API_CONFIG_FILE}: {e}",
-                    Colors.YELLOW,
-                )
-                self._rename_invalid_config_file(API_CONFIG_FILE, "initial_config_error")
-        else:
+        if not os.path.exists(API_CONFIG_FILE):
             self._log_message(f"Config file '{API_CONFIG_FILE}' not found.", Colors.DIM)
-        return None
+            return None
+        # Catch only read and parse errors here: EOF at the Low AI prompt or a failed
+        # verification is not a broken file and must not move the key aside.
+        try:
+            with open(API_CONFIG_FILE, "r", encoding="utf-8") as f:
+                config = json.load(f)
+            key_to_try = config.get("gemini_api_key")
+            preferred_model_from_config = config.get(
+                "chosen_model_name", DEFAULT_GEMINI_MODEL_NAME
+            )
+        except Exception as e:
+            self._log_message(
+                f"Error processing config file {API_CONFIG_FILE}: {e}",
+                Colors.YELLOW,
+            )
+            self._rename_invalid_config_file(API_CONFIG_FILE, "initial_config_error")
+            return None
+        if not key_to_try:
+            return None
+
+        key_source = API_CONFIG_FILE
+        self._log_message(f"Found API key in config file '{API_CONFIG_FILE}'.", Colors.YELLOW)
+        if preferred_model_from_config != DEFAULT_GEMINI_MODEL_NAME:
+            self._log_message(
+                f"Loaded preferred model '{preferred_model_from_config}' from config.",
+                Colors.YELLOW,
+            )
+
+        if not self._load_genai():
+            return {"api_configured": False, "low_ai_preference": False}
+
+        setup_result = self._attempt_api_setup(key_to_try, key_source, preferred_model_from_config)
+        if setup_result:
+            low_ai_pref = self._prompt_for_low_ai_mode()
+            if self.chosen_model_name != preferred_model_from_config:
+                self.save_api_key_to_file(key_to_try)
+            return {"api_configured": True, "low_ai_preference": low_ai_pref}
+        if setup_result is SetupResult.AUTH_FAILED:
+            # A rejected key would fail on every launch, so move it aside.
+            self._rename_invalid_config_file(
+                API_CONFIG_FILE,
+                f"failed_setup_with_{preferred_model_from_config.replace('/', '_')}",
+            )
+            self._print_color_func(
+                f"API key from {key_source} (with model '{preferred_model_from_config}') failed validation or setup.",
+                Colors.YELLOW,
+            )
+            return None
+        # Offline, timed out or otherwise unverified: the key may be fine, so keep it.
+        self._print_color_func(
+            f"Could not verify the API key from {key_source}. The file was kept and will be "
+            "tried again next launch; this session will use placeholder responses.",
+            Colors.YELLOW,
+        )
+        return {"api_configured": False, "low_ai_preference": False}
 
     def _handle_manual_key_input(self):
         if not sys.stdin.isatty():
