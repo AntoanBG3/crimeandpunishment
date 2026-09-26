@@ -169,5 +169,90 @@ class TestObjectiveReachability(unittest.TestCase):
         self.assertEqual(self._stage("grapple_with_crime"), "seek_sonya")
 
 
+class TestSonyaCrossBeat(unittest.TestCase):
+    """Sonya's arc turns on giving her cross, and NPCs never hand items back."""
+
+    CROSS = "sonya's cypress cross"
+
+    def setUp(self):
+        self.game = Game()
+        self.game.low_ai_data_mode = True
+        self.game.gemini_api.model = None
+        self.mock_print = patch.object(self.game, "_print_color").start()
+        self.mock_narrative = patch.object(self.game, "_print_narrative").start()
+        self.sonya = build_player("Sonya Marmeladova")
+        self.rodion = Character("Rodion Raskolnikov", "", "", "Sonya's Room", ["Sonya's Room"])
+        self.katerina = Character(
+            "Katerina Ivanovna Marmeladova", "", "", "Sonya's Room", ["Sonya's Room"]
+        )
+        self.game.player_character = self.sonya
+        self.game.current_location_name = "Sonya's Room"
+        self.game.npcs_in_current_location = [self.rodion, self.katerina]
+
+    def tearDown(self):
+        patch.stopall()
+
+    def _stage(self):
+        return self.sonya.get_current_stage_for_objective("guide_raskolnikov")["stage_id"]
+
+    def _give_cross(self, target):
+        handler = self.game.command_handler
+        command, argument = handler.parse_action(f"give {self.CROSS} to {target}")
+        return handler._process_command(command, argument)
+
+    def _printed(self):
+        return " ".join(str(call.args[0]) for call in self.mock_print.call_args_list)
+
+    def _talk_to_rodion(self):
+        evaluate_player_progression(self.game, "talk_to", "Rodion Raskolnikov")
+
+    def test_early_gift_is_refused_and_costs_no_turn(self):
+        for expected_stage in ("initial_encounter", "lazarus_reading"):
+            self.assertEqual(self._stage(), expected_stage)
+            result = self._give_cross("Rodion")
+            self.assertFalse(result.action_taken)
+            self.assertTrue(self.sonya.has_item(self.CROSS))
+            self.assertFalse(self.rodion.has_item(self.CROSS))
+            self.assertIn("not ready to receive it", self._printed())
+            self._talk_to_rodion()
+        self.assertEqual(self._stage(), "offer_cross")
+        self.assertTrue(self._give_cross("Rodion").action_taken)
+        self.assertEqual(self._stage(), "receive_confession")
+        self.assertFalse(self.sonya.has_item(self.CROSS))
+        self.assertTrue(self.rodion.has_item(self.CROSS))
+
+    def test_cross_is_refused_to_anyone_but_rodion(self):
+        self._talk_to_rodion()
+        self._talk_to_rodion()
+        self.assertEqual(self._stage(), "offer_cross")
+        self.assertFalse(self._give_cross("Katerina").action_taken)
+        self.assertTrue(self.sonya.has_item(self.CROSS))
+        self.assertFalse(self.katerina.has_item(self.CROSS))
+        self.assertIn("meant for one who must bear a heavier cross", self._printed())
+        self.assertEqual(self._stage(), "offer_cross")
+
+    def test_talk_at_offer_cross_still_needs_the_gift(self):
+        self._talk_to_rodion()
+        self._talk_to_rodion()
+        self._talk_to_rodion()
+        self.assertEqual(self._stage(), "offer_cross")
+
+    def test_cross_already_with_rodion_no_longer_strands_her(self):
+        # State left by the pre-fix early gift (e.g. in an old save): Rodion holds
+        # the cross, and two talks bring Sonya to offer_cross with nothing to give.
+        self.sonya.remove_from_inventory(self.CROSS)
+        self.rodion.add_to_inventory(self.CROSS)
+        self._talk_to_rodion()
+        self._talk_to_rodion()
+        self.assertEqual(self._stage(), "offer_cross")
+        self._talk_to_rodion()
+        self.assertEqual(self._stage(), "receive_confession")
+        narration = " ".join(str(call.args[0]) for call in self.mock_narrative.call_args_list)
+        self.assertIn("He still carries the cypress cross", narration)
+        self.assertTrue(evaluate_player_progression(self.game, "confess"))
+        self.assertEqual(self._stage(), "follow_to_siberia")
+        self.assertTrue(self.game.world_manager._check_game_ending_conditions())
+
+
 if __name__ == "__main__":
     unittest.main()
