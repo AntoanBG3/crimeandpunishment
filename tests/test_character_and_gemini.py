@@ -169,7 +169,7 @@ def test_gemini_attempt_api_setup_success_and_failure_paths():
         def generate_content(self, *_a, **_k):
             return SimpleNamespace(text="test")
 
-    class BadModel:
+    class OtherWordingModel:
         def generate_content(self, *_a, **_k):
             return SimpleNamespace(text="nope")
 
@@ -177,8 +177,9 @@ def test_gemini_attempt_api_setup_success_and_failure_paths():
         api.genai = SimpleNamespace(Client=lambda **kwargs: SimpleNamespace(models=SimpleNamespace(generate_content=lambda *a, **k: SimpleNamespace(text="test"))))
         assert api._attempt_api_setup("k", "src", "m") is SetupResult.VERIFIED
 
-        with patch.object(api, "_GeminiModelAdapter", return_value=BadModel()):
-            assert api._attempt_api_setup("k", "src", "m") is SetupResult.FAILED
+        # Any reply verifies the key; its wording does not matter.
+        with patch.object(api, "_GeminiModelAdapter", return_value=OtherWordingModel()):
+            assert api._attempt_api_setup("k", "src", "m") is SetupResult.VERIFIED
 
         with patch.object(api, "_GeminiModelAdapter", side_effect=RuntimeError("boom")):
             assert api._attempt_api_setup("k", "src", "m") is SetupResult.FAILED

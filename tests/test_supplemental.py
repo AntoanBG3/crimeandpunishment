@@ -1129,16 +1129,17 @@ def test_gemini_parser_config_and_generation_edge_paths(tmp_path):
         def generate_content(self, *_args, **_kwargs):
             return SimpleNamespace(prompt_feedback=SimpleNamespace(block_reason="SAFETY"))
 
+    # A reply without text still proves the key works: blocked, or cut off at the cap.
     api.genai = SimpleNamespace(Client=lambda **_kwargs: SimpleNamespace())
     with patch.object(api, "_GeminiModelAdapter", return_value=EmptyModel()):
-        assert api._attempt_api_setup("key", "test", "model") is SetupResult.FAILED
+        assert api._attempt_api_setup("key", "test", "model") is SetupResult.VERIFIED
 
     class CandidateModel:
         def generate_content(self, *_args, **_kwargs):
             return SimpleNamespace(candidates=[SimpleNamespace(finish_reason=2)])
 
     with patch.object(api, "_GeminiModelAdapter", return_value=CandidateModel()):
-        assert api._attempt_api_setup("key", "test", "model") is SetupResult.FAILED
+        assert api._attempt_api_setup("key", "test", "model") is SetupResult.VERIFIED
 
     api.model = SimpleNamespace(generate_content=MagicMock(return_value=SimpleNamespace(text=None)))
     assert "unclear or restricted" in api._generate_content_with_fallback("prompt")
