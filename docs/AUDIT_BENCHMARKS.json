@@ -101,5 +101,98 @@
       "retained_bytes": 12103597,
       "peak_bytes": 12651352
     }
+  },
+  "final_recheck": {
+    "source_commit": "422f7a4",
+    "environment": "clean locked macOS arm64 Python 3.13 environment",
+    "engine": {
+      "scenario": "engine",
+      "seed": 1729,
+      "actions": 10000,
+      "seconds": 3.705255208995368,
+      "p95_command_ms": 0.9983749987441115,
+      "median_command_ms": 0.19079200137639418,
+      "retained_bytes": 517017,
+      "peak_bytes": 683531,
+      "samples": [
+        {
+          "actions": 2000,
+          "retained_bytes": 289152,
+          "events": 10
+        },
+        {
+          "actions": 4000,
+          "retained_bytes": 332407,
+          "events": 10
+        },
+        {
+          "actions": 6000,
+          "retained_bytes": 383877,
+          "events": 10
+        },
+        {
+          "actions": 8000,
+          "retained_bytes": 450766,
+          "events": 10
+        },
+        {
+          "actions": 10000,
+          "retained_bytes": 516993,
+          "events": 10
+        }
+      ],
+      "event_count": 10,
+      "day": 36
+    },
+    "tui": {
+      "scenario": "tui",
+      "seed": 1729,
+      "commands": 1000,
+      "seconds": 16.866236207999464,
+      "retained_history": 200,
+      "retained_log_lines": 1000,
+      "retained_bytes": 11829969,
+      "peak_bytes": 12691933
+    }
+  },
+  "additional_local_observations": {
+    "cold_console": {
+      "cold_console_session_ms": [
+        457.1739160019206,
+        436.50699999852804,
+        444.69308300176635,
+        438.04987499606796,
+        445.2409580044332
+      ],
+      "median_ms": 444.69308300176635,
+      "description": "Fresh process: offline startup, character selection, look, quit; no live model latency"
+    },
+    "profiled_operations": {
+      "save": {
+        "samples": 100,
+        "median_ms": 3.0012704992259387,
+        "p95_ms": 5.07758399908198,
+        "profile": "         2745701 function calls (1667001 primitive calls) in 0.331 seconds\n\n   Ordered by: cumulative time\n   List reduced from 34 to 6 due to restriction <6>\n\n   ncalls  tottime  percall  cumtime  percall filename:lineno(function)\n      100    0.000    0.000    0.331    0.003 crime-local-profile.py:10(saves)\n      100    0.001    0.000    0.330    0.003 game_state.py:161(save_game)\n      100    0.048    0.000    0.309    0.003 __init__.py:120(dump)\n   343500    0.031    0.000    0.234    0.000 encoder.py:415(_iterencode)\n1322900/343500    0.141    0.000    0.203    0.000 encoder.py:334(_iterencode_dict)\n321400/222100    0.037    0.000    0.089    0.000 encoder.py:278(_iterencode_list)\n\n\n"
+      },
+      "load": {
+        "samples": 100,
+        "median_ms": 2.4934584980655927,
+        "p95_ms": 2.5795839974307455,
+        "profile": "         1855401 function calls (1580201 primitive calls) in 0.249 seconds\n\n   Ordered by: cumulative time\n   List reduced from 78 to 6 due to restriction <6>\n\n   ncalls  tottime  percall  cumtime  percall filename:lineno(function)\n      100    0.001    0.000    0.249    0.002 crime-local-profile.py:11(loads)\n      100    0.000    0.000    0.249    0.002 game_state.py:215(load_game)\n      100    0.002    0.000    0.234    0.002 persistence.py:117(prepare_restore)\n     1400    0.010    0.000    0.217    0.000 persistence.py:38(_character)\n262300/14000    0.089    0.000    0.185    0.000 copy.py:119(deepcopy)\n35600/13500    0.029    0.000    0.173    0.000 copy.py:218(_deepcopy_dict)\n\n\n"
+      },
+      "world_update": {
+        "samples": 100,
+        "median_ms": 0.0012499949662014842,
+        "p95_ms": 0.008541996066924185,
+        "profile": "         2488 function calls in 0.000 seconds\n\n   Ordered by: cumulative time\n   List reduced from 18 to 6 due to restriction <6>\n\n   ncalls  tottime  percall  cumtime  percall filename:lineno(function)\n      100    0.000    0.000    0.000    0.000 crime-local-profile.py:13(<lambda>)\n      100    0.000    0.000    0.000    0.000 world_manager.py:43(advance_time)\n       20    0.000    0.000    0.000    0.000 world_manager.py:280(update_npc_locations_by_schedule)\n      666    0.000    0.000    0.000    0.000 session_state.py:45(__get__)\n       20    0.000    0.000    0.000    0.000 world_manager.py:378(update_npcs_in_current_location)\n      683    0.000    0.000    0.000    0.000 {built-in method builtins.getattr}\n\n\n"
+      },
+      "rich_render": {
+        "samples": 100,
+        "median_ms": 0.14466700304183178,
+        "p95_ms": 0.16733300435589626,
+        "profile": "         66687 function calls (65087 primitive calls) in 0.016 seconds\n\n   Ordered by: cumulative time\n   List reduced from 243 to 6 due to restriction <6>\n\n   ncalls  tottime  percall  cumtime  percall filename:lineno(function)\n      100    0.000    0.000    0.016    0.000 crime-local-profile.py:13(<lambda>)\n      100    0.000    0.000    0.015    0.000 terminal.py:323(renderable_to_text)\n      100    0.000    0.000    0.013    0.000 console.py:1652(print)\n  700/400    0.000    0.000    0.010    0.000 {method 'extend' of 'list' objects}\n2100/1200    0.001    0.000    0.009    0.000 console.py:1294(render)\n     1200    0.000    0.000    0.009    0.000 panel.py:141(__rich_console__)\n\n\n"
+      }
+    },
+    "method": "100 sequential operations on an offline seeded Game with quiet terminal and temporary saves; cProfile enabled. Rendering measures an inventory Rich Panel converted to text. These diagnostic timings include profiler overhead and are not performance acceptance thresholds."
   }
 }

@@ -1,103 +1,146 @@
 # Remediation campaign
 
-## Order and compatibility
+## Current outcome
 
-1. Record the baseline, inspect ownership, and reproduce state/crash defects.
-2. Repair persistence and crash handling with regressions; commit each fix.
-3. Repair small command/UI issues and document actual behavior.
-4. Separate persistent state, services, command outcomes, and injected runtime
-   dependencies; preserve existing commands, save JSON and narrative content.
-5. Measure engine/TUI long sessions and optimize demonstrated retention/cost.
-6. Add routine cross-platform CI, dependency constraints, and packaged smoke tests.
-7. Re-run acceptance scenarios and record unresolved external verification.
+The five implementation waves are delivered in separate verified commits. Fourteen
+confirmed findings are recorded in [AUDIT_REPORT.md](../AUDIT_REPORT.md), with no
+unresolved confirmed critical/high crash, data-loss or progression blocker. Ordinary
+CI and frozen console validation now cover all shipped platforms. Manual frozen-TUI,
+Windows console-control and optional live-service checks remain explicitly open.
 
-No live API request or publishing action is part of ordinary verification.
+## Architecture and ownership
 
-## Architecture map
+Startup flows through `main.choose_mode` to a console TerminalSession or the Textual
+app and its own TerminalSession. `Game` creates/injects AI, random and terminal
+services. `GameState` owns mutable gameplay fields; compatibility descriptors expose
+the old Game attributes to its display/item/NPC mixins and service objects.
 
-`main.choose_mode` selects console or Textual. `Game` owns mutable world state and
-inherits presentation and item/NPC handlers. CommandHandler parses and dispatches;
-WorldManager advances time and schedules; EventManager applies narrative events;
-objective_progression advances data-backed objectives. All services currently
-hold the Game instance. JSON content is lazily loaded into module caches.
+CommandHandler resolves aliases and scene targets, optionally classifies a single
+AI intent, and dispatches to a handler. CommandResult retains the four legacy tuple
+fields and exposes continue/load/quit outcomes. Successful actions mutate gameplay
+state; WorldManager advances time/schedules and EventManager checks event rules.
+Conversation exchanges own their time advancement. Objective progression owns stage
+rules. Rendering uses DisplayMixin and the terminal boundary.
 
-Terminal functions bridge console rendering/input or a Textual backend. Textual
-owns the event loop and a blocking game worker; the backend posts UI callbacks and
-waits on an input queue. TerminalSession owns each UI's backend, providers, pacing
-and history settings; context activation adapts legacy module calls. Color profiles
-still use module globals. Save/load writes relative to the working directory;
-history writes to the user's home. Gemini configuration is a relative JSON file,
-and Gemini client calls are synchronous. These are the external-state boundaries
-that the isolated harness must control.
+Save writes retain the legacy JSON shape and replace the destination atomically.
+Load parses and validates detached character/world candidates in `persistence.py`
+before applying them to Game. Saves and Gemini configuration live relative to the
+launch working directory; history lives under the user's home. Lazy content caches
+are module-owned, and color profiles still use module globals. These retained
+boundaries and their limitations are listed below.
+
+The TUI owns a blocking daemon worker and a single-slot input queue. UI callbacks
+are posted onto the Textual loop, busy input is rejected, and close signals unblock
+input. A closed backend remains attached until the worker finishes, preventing a
+late read from falling through to console input. Unexpected worker exceptions leave
+a visible diagnostic and a quit path. Main console failures write sanitized stack
+locations; expected EOF, interrupts and closed output pipes terminate controllably.
+
+Gemini uses synchronous SDK calls with a 10-second transport timeout and one attempt.
+Setup failures and session shutdown close the client. Shared response validation
+selects static fallbacks; tests inject dependencies instead of changing production
+behavior when a test runner is imported. A transport timeout is not a hard wall-clock
+process deadline.
 
 ## Acceptance ledger
 
-| Criterion | Status |
-|-----------|--------|
-| Baseline tests and linters | Passed locally; see AUDIT_BASELINE.md |
-| Invalid saves preserve current session | Passed: R001, real-file regressions and 335-test suite |
-| Unexpected worker errors produce diagnostics | Passed: R002, headless real-app regression |
-| Three protagonist offline paths and all main endings | Three command-level paths passed; existing progression tests cover alternate endings |
-| Actual SDK with mocked transport | Passed: R004, six real-SDK contract tests |
-| 10,000-action engine / 1,000-command TUI soak | Both completed before/after retention fixes; see AUDIT_BENCHMARKS.json |
-| Routine Python 3.10/3.13 OS matrix | Configured; clean macOS 3.10/3.13 pass 363 tests; remote runs pending |
-| Frozen Windows/Linux/macOS smoke checks | macOS clean build and console smoke passed; Windows/Linux pending |
-| Live Gemini compatibility | Unverified; requires optional credentials/service check |
+| Criterion | Evidence and status |
+|-----------|---------------------|
+| Production/content/build/hook inventory | Every tracked area has an outcome in AUDIT_BASELINE.md; no production area remains unassigned |
+| Local tests and lint | Source `7dbda3d`: 384 tests pass, Flake8 clean, Pylint 10.00/10 |
+| Branch coverage | 91.93% statements, 82.21% branches, 88.93% combined; baseline 88.19% combined |
+| Invalid/legacy saves | Real-file malformed/nested types, unknown locations, failed reads, partial writes and failed replacement pass; existing session and last valid save preserved |
+| Crash/shutdown boundaries | Worker errors remain visible; redacted diagnostics, denied diagnostic writes, EOF, busy-input shutdown and broken-pipe tests pass; POSIX Ctrl+C tested |
+| Main protagonist paths | Scripted offline Raskolnikov `siberia`, Sonya `follow_to_siberia`, Porfiry `case_solved` passed; objective suite covers alternate defined endings |
+| Actual Gemini SDK | google-genai 2.8.0 serialization, configured timeout/retries, HTTP failures, empty/blocked/non-text responses and cleanup tested with mocked transport; no live API requests |
+| Engine soak | 10,000 seeded actions with moving NPC schedules and save/load round trips completed; recent events capped at 10 |
+| TUI soak | 1,000 commands through actual thread/input/rendering bridge completed; history capped at 200 and RichLog at 1,000 lines |
+| Python 3.10/3.13 across Windows/Linux/macOS | All six test/ending/soak jobs passed at final source `7dbda3d` in run 36256853518 |
+| Frozen Windows/Linux/macOS | All three builds and isolated startup/look/quit/EOF/version smokes passed at final source `7dbda3d` in run 36256853518 |
+| Narrow/resized TUI | Headless source app resized to 20×5 then 100×30 and shut down during controlled in-flight work |
+| Frozen interactive TUI and Windows real-console Ctrl+C | Unverified; separate manual terminal checks needed |
+| Live Gemini/model availability | Unverified; optional service test requires credentials and a live request |
 
-## Backlog policy
+CI evidence: [first fully passing matrix](https://github.com/AntoanBG3/crimeandpunishment/actions/runs/36227963595),
+[final-source validation](https://github.com/AntoanBG3/crimeandpunishment/actions/runs/36256853518).
+Final-source run 36256853518 completed successfully: all six interpreter/OS test
+and soak jobs plus all three frozen build/smoke jobs passed, including the Windows
+closed-output-pipe regression that failed in run 36228403106.
 
-Each confirmed finding receives an ID, severity, confidence, reproduction, location,
-proposed fix, regression and resolving commit in AUDIT_REPORT.md. Update this ledger
-after verification, not after merely writing a test or a CI job. Do not mark remote
-platform checks as passed on the strength of local macOS tests.
+## Completed implementation waves
 
-## Completed structural boundaries
+| Wave | Delivered boundaries / fixes | Commits |
+|------|-----------------------------|---------|
+| 1: crashes, data integrity and progression | Detached load validation, preserved live state, visible worker diagnostics, authored character attributes, preserved item text | `5bbd205`, `57accd8`, `127f809`, `c95a968`, `db2d276` |
+| 2: quick wins | Persuasion timing, save picker, response validity, shared matching, completion, Windows closed pipe and accurate documentation | `fe8ec38`, `28f852d`, `55b9cb2`, `1791534`, `fa9a146`, `422f7a4`, `7dbda3d`, `7b4e47b` |
+| 3: internal boundaries | AI injection, named tuple-compatible results, gameplay state/RNG injection, TerminalSession, split readable-item handlers | `69199b5`, `e1c858a`, `1fbf75b`, `32ace4b`, `a111c65` |
+| 4: measured retention | Isolated scenario harness and bounded UI history, output and recent events | `35fc25d`, `d2b26b7` |
+| 5: release hardening | Universal pinned dependencies, six-combination ordinary CI, three shared frozen builds, byte-safe smoke checks and shutdown/invariant regressions | `e1e7be0`, `4866b9c`, `b37acc2` |
 
-- `refactor: split readable-item handlers without changing story effects`: reading
-  dispatch delegates newspapers, letters, scripture, notes, IOUs and books to
-  focused methods. Eight seeded before/after snapshots compare return values,
-  exact rendered text, character state, event summaries and notoriety; all match.
+The read-handler refactor preserves exact output and state across eight seeded
+before/after snapshots: old/fresh newspaper, mother's letter, scripture, anonymous
+note, IOU, student book and generic book. Command outcomes retain tuple compatibility;
+Game/terminal state changes have dedicated isolation and full-suite coverage.
 
-- `refactor: name command outcomes and isolate selected-item dispatch`: dispatch
-  returns immutable named results, and the main loop branches on TurnOutcome.
-  A tuple-compatible adapter preserves existing handler consumers. The selected
-  item interaction is now a separate method; command wiring remains AST-checked.
-  Full pre-addition suite: 347 passing; four outcome/wiring tests pass afterward.
+## Reproducing verification
 
-- `refactor: separate gameplay state and inject session dependencies`: GameState
-  owns mutable gameplay fields; explicit compatibility descriptors keep existing
-  handlers working while services remain on Game. Game accepts AI, terminal and RNG
-  dependencies. Character skill checks, world events and narrative choices share
-  the injected RNG; defaults preserve existing callers. State isolation, deterministic
-  random sequences and injected output are regression tested.
+Use the existing environment or install runtime and development requirements from
+the shared constraints. The canonical suite is `python -m unittest discover tests`;
+branch coverage uses `coverage run --branch --source=game_engine,main -m unittest discover tests`.
+Run Flake8 and `pylint game_engine` after implementation changes.
 
-## Reproducible scenarios
+```sh
+python scripts/audit_scenarios.py --scenario console
+python scripts/audit_scenarios.py --scenario endings
+python scripts/audit_scenarios.py --scenario engine --actions 10000
+python scripts/audit_scenarios.py --scenario tui --actions 1000
+```
 
-TerminalSession now isolates worker and UI callback settings. Tests cover concurrent
-workers, nested context restoration after an exception, independent history paths,
-and per-game pacing. The legacy terminal module remains a compatibility adapter.
-Shutdown retains a closed backend until the worker exits, preventing a late read
-from unexpectedly falling through to console input.
+Each invocation starts a child process in a temporary Unicode/spaced directory with
+isolated history/config/saves, no inherited Gemini credentials, seed 1729 and a
+180-second deadline. Failures expose exit status/traceback; assertions identify
+scenario input. Tests add 205 seeded malformed/blank/Unicode/long inputs, all authored
+references and reachability of 16 locations from every protagonist start.
 
-Additional audit regressions validate every authored location/item reference and
-reachability of all 16 locations from all three starting positions. Seed 1729
-drives 205 malformed/blank/Unicode/long command inputs with unchanged player state.
-The TUI resizes down to 20×5 and quits by Ctrl+Q during controlled in-flight work;
-the worker's subsequent input request receives EOF. Save checks inject denied
-reads, partial writes and failed replacement while preserving the last valid file.
-Console subprocess checks cover Ctrl+C at the startup prompt on POSIX and broken
-output pipes. Rich intentionally exits 1 on a broken pipe; the direct main boundary
-exits 0. Both terminate without a traceback or crash report. Windows console control
-events still require an interactive console check; Ctrl+Q is covered through Textual.
+Endings hold NPCs at authored starting locations to make command sequences stable;
+the engine soak uses moving schedules. The TUI soak exercises the bridge with
+controlled narrative, rather than 1,000 story actions. SDK contracts use real SDK
+objects with mocked HTTP transport; network timing and service availability are not
+established by those tests. CI retains coverage and scenario metrics as artifacts.
 
-Run `.venv/bin/python scripts/audit_scenarios.py --scenario NAME`, where NAME is
-`endings`, `console`, `engine`, or `tui`. Use `--actions 10000` for the engine and
-`--actions 1000` for TUI. Each invocation starts a child process in a temporary
-Unicode/spaced working directory with isolated history/config/saves, no inherited
-Gemini credentials, seeded randomness, and a 180-second process deadline.
+## Performance evidence
 
-Endings use authored starting locations with stationary NPC schedules to make
-command sequences reproducible; engine soaks exercise the real moving schedules.
-TUI soak exercises the real thread/input/rendering bridge with controlled narrative,
-not 1,000 story actions. Engine memory measurements include the benchmark's latency
-list. Wall-clock results are observations, not portable performance promises.
+`AUDIT_BENCHMARKS.json` retains comparable before/after observations plus a later
+recheck. The original 1,000-command TUI retained 1,000 history entries and 2,000 log
+lines; the fixed version retains 200 and 1,000. Traced memory decreased from 14.04 MB
+to 12.10 MB in those runs. The timing increased from 6.45 to 17.34 seconds with input
+gating; no speedup is claimed. Recent engine events now stay at 10 rather than 41.
+
+The later engine recheck completed 10,000 actions in 3.71 seconds (median local
+command 0.191 ms, p95 0.998 ms); TUI completed in 16.87 seconds with 11.83 MB retained.
+These instrumented measurements include the harness and latency samples and do not
+prove flat memory over arbitrarily long sessions. Authored journals/memories and the
+benchmark's sample list account for additional retained state.
+
+A five-process offline startup/select/look/quit observation had median 444.7 ms.
+Separate cProfile runs of 100 operations measured median save 3.00 ms, load 2.49 ms,
+world update 0.00125 ms and representative Rich-panel conversion 0.145 ms. Serialization
+and defensive copying dominate save/load profiles. Those diagnostic timings include
+profiler overhead; no further latency optimization is justified by this small local
+scenario. Live model latency is absent from all these figures.
+
+## Ordered remaining work
+
+| Order | Work / rationale | Severity / effort | Follow-up verification / dependencies |
+|-------|------------------|-------------------|---------------------------------------|
+| 1 | Visually exercise frozen TUI and native console shutdown on every shipped OS. Headless source tests and frozen console smokes do not prove terminal-emulator behavior. | Verification gap / Medium | Download the exact CI artifacts, select each protagonist, resize, exercise completion/history/secret prompt, quit during work; send Ctrl+C from a real Windows console. Requires those interactive platforms. |
+| 2 | Optional live Gemini smoke for the configured model. Mocked transport cannot establish current model availability or real timeout behavior. | Verification gap / Small | With authorized credentials, run startup probe and one narrative/intent request, observe bounded recovery and client cleanup without retaining keys/prompts. |
+| 3 | Isolate the remaining global color profile if multiple games must render concurrently. The shipped UI has one active session, so this is not a confirmed current gameplay defect. | Low maintenance / Medium | Reproduce color cross-talk between two games before migrating Colors behind a terminal/session adapter; preserve NO_COLOR/theme save compatibility. |
+| 4 | Split remaining long dialogue/self-use and character-specific handlers only with characterization coverage. Existing tests and endings pass; length alone does not establish a defect. | Low maintenance / Medium | Snapshot return/text/state for affected characters and item effects, then refactor one responsibility per commit. |
+| 5 | Decide whether persisted command history needs rotation. In-memory retention is bounded; deleting disk history would change existing behavior and no disk bottleneck was measured. | Low resource follow-up / Small | Measure loading a realistically large history file and test a user-chosen retention policy, including Unicode and malformed entries. |
+| 6 | Add a strict wall-clock AI cancellation boundary if required. One SDK attempt with per-transport timeouts is not equivalent to killing blocked work at ten seconds. | Reliability investigation / Medium | Controlled stalled DNS/connect/read transport or worker tests; verify no duplicate action and no late console fallback after shutdown. Avoid speculative concurrency. |
+| 7 | Replace more legacy mocks with boundary tests when touching those areas. Current suite discovery is checked, but high line coverage does not validate every assertion. | Low maintenance / Ongoing | Prefer real temporary files, state invariants and subprocess/real-app tests; preserve ordinary offline execution. |
+
+These items are explicit follow-ups, not hidden failures or confirmed high-severity
+bugs. No release was published during the audit; tag/version/signing/publication
+behavior remains separate from the exercised build and smoke paths.
