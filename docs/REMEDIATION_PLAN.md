@@ -79,6 +79,17 @@ and per-game pacing. The legacy terminal module remains a compatibility adapter.
 Shutdown retains a closed backend until the worker exits, preventing a late read
 from unexpectedly falling through to console input.
 
+Additional audit regressions validate every authored location/item reference and
+reachability of all 16 locations from all three starting positions. Seed 1729
+drives 205 malformed/blank/Unicode/long command inputs with unchanged player state.
+The TUI resizes down to 20×5 and quits by Ctrl+Q during controlled in-flight work;
+the worker's subsequent input request receives EOF. Save checks inject denied
+reads, partial writes and failed replacement while preserving the last valid file.
+Console subprocess checks cover Ctrl+C at the startup prompt on POSIX and broken
+output pipes. Rich intentionally exits 1 on a broken pipe; the direct main boundary
+exits 0. Both terminate without a traceback or crash report. Windows console control
+events still require an interactive console check; Ctrl+Q is covered through Textual.
+
 Run `.venv/bin/python scripts/audit_scenarios.py --scenario NAME`, where NAME is
 `endings`, `console`, `engine`, or `tui`. Use `--actions 10000` for the engine and
 `--actions 1000` for TUI. Each invocation starts a child process in a temporary

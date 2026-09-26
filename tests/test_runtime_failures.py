@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import tempfile
+import threading
 import unittest
 from unittest.mock import patch
 
@@ -11,6 +12,45 @@ from game_engine.diagnostics import record_failure
 
 
 class TestWorkerFailures(unittest.IsolatedAsyncioTestCase):
+    async def test_resize_and_ctrl_q_during_inflight_work(self):
+        entered, release = threading.Event(), threading.Event()
+        outcome = []
+
+        def in_flight():
+            terminal.write_line('Long wrapped narrative. ' * 30)
+            entered.set()
+            if not release.wait(timeout=5):
+                raise TimeoutError('test worker release')
+            try:
+                terminal.read_line('late prompt')
+            except EOFError:
+                outcome.append('closed')
+
+        with tempfile.TemporaryDirectory() as directory, patch.object(
+            terminal, 'HISTORY_FILE', str(Path(directory) / 'history')
+        ):
+            app = CrimeAndPunishmentApp(game_runner=in_flight)
+
+            def finish_after_shutdown():
+                app.backend.closed.wait(timeout=5)
+                release.set()
+
+            helper = threading.Thread(target=finish_after_shutdown, daemon=True)
+            helper.start()
+            try:
+                async with app.run_test(size=(30, 8)) as pilot:
+                    await pilot.pause(0.1)
+                    self.assertTrue(entered.is_set())
+                    await pilot.resize_terminal(20, 5)
+                    await pilot.resize_terminal(100, 30)
+                    await pilot.press('ctrl+q')
+            finally:
+                release.set()
+                helper.join(timeout=5)
+            self.assertEqual(outcome, ['closed'])
+            self.assertFalse(app._game_thread.is_alive())
+            self.assertIsNone(app.game_error)
+
     async def test_busy_input_does_not_queue_extra_commands(self):
         from textual.widgets import Input
         from game_engine.tui_app import CommandInput

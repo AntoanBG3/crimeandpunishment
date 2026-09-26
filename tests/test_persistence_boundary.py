@@ -67,6 +67,24 @@ class TestPersistenceBoundary(unittest.TestCase):
             self.game.save_game()
         self.assertEqual(self.path.read_bytes(), original)
 
+    def test_partial_write_failure_preserves_previous_file(self):
+        original = self.path.read_bytes()
+
+        def interrupted_write(_data, stream, **_kwargs):
+            stream.write('{partial')
+            raise OSError('simulated full disk')
+
+        with patch('game_engine.game_state.json.dump', side_effect=interrupted_write):
+            self.game.save_game()
+        self.assertEqual(self.path.read_bytes(), original)
+        self.assertTrue(self.game.load_game())
+
+    def test_unreadable_save_preserves_active_player(self):
+        player = self.game.player_character
+        with patch('game_engine.game_state.open', side_effect=PermissionError('denied')):
+            self.assertFalse(self.game.load_game())
+        self.assertIs(self.game.player_character, player)
+
     def test_legacy_text_memories_load_and_remain_readable(self):
         player = self.saved['all_character_objects_state']['Rodion Raskolnikov']
         player['memory_about_player'] = ['An old recollection.']
