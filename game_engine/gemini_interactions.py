@@ -17,6 +17,26 @@ GEMINI_API_KEY_ENV_VAR = "GEMINI_API_KEY"
 DEFAULT_GEMINI_MODEL_NAME = "gemini-3.8-flash"
 
 
+def _summarize_api_error(error, max_length=200):
+    """Return the server's status and message for a Gemini API error, or ''.
+
+    Only the structured fields from the SDK's APIError are used; arbitrary exception
+    text can carry request details and is never shown.
+    """
+    code = getattr(error, "code", None)
+    status = getattr(error, "status", None)
+    message = getattr(error, "message", None)
+    if not isinstance(code, int) or not isinstance(status, str):
+        return ""
+    summary = f"{code} {status}"
+    if isinstance(message, str) and message.strip():
+        message = " ".join(message.split())
+        if len(message) > max_length:
+            message = message[: max_length - 3] + "..."
+        summary += f": {message}"
+    return summary
+
+
 def is_usable_ai_text(text):
     """True if an AI response is real content, not absent/empty or an OOC fallback marker.
 
@@ -376,6 +396,9 @@ class GeminiAPI:
                 f"Error during API key verification call (from {source}, model '{model_to_use}'): {type(e_test).__name__}",
                 Colors.RED,
             )
+            api_error_summary = _summarize_api_error(e_test)
+            if api_error_summary:
+                self._print_color_func(f"Gemini API response: {api_error_summary}", Colors.RED)
             error_str = str(e_test).lower()
             auth_keywords = [
                 "api key not valid",

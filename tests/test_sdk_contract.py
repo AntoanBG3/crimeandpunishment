@@ -81,6 +81,23 @@ class TestSDKContract(unittest.TestCase):
                 self.assertEqual(handler.call_count, 1)
                 self.assertIsNone(api.client)
 
+    def test_verification_failure_shows_api_status_and_message(self):
+        handler = MagicMock(return_value=httpx.Response(404, json={'error': {
+            'code': 404, 'status': 'NOT_FOUND',
+            'message': 'models/test-model is not found for API version v1beta.'}}))
+        api = self.make_api(handler)
+        self.assertIs(api._attempt_api_setup('offline-key', 'test', 'test-model'),
+                      SetupResult.FAILED)
+        printed = [call.args[0] for call in api._print_color_func.call_args_list]
+        self.assertIn('Gemini API response: 404 NOT_FOUND: models/test-model is not found '
+                      'for API version v1beta.', printed)
+        self.assertFalse(any('offline-key' in line for line in printed))
+
+    def test_non_api_errors_do_not_show_exception_text(self):
+        api = self.make_api(MagicMock(side_effect=httpx.ConnectError('private-response')))
+        api._attempt_api_setup('offline-key', 'test', 'test-model')
+        self.assertNotIn('private-response', str(api._print_color_func.call_args_list))
+
     def test_transport_timeout_falls_back(self):
         api = self.make_api(MagicMock(side_effect=httpx.ReadTimeout('private-response')))
         result = api._attempt_api_setup('offline-key', 'test', 'test-model')
