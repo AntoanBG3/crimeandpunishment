@@ -146,7 +146,7 @@ class SetupResult(Enum):
 
     AUTH_FAILED means the service rejected the key or its permissions, so a saved
     copy would fail again. FAILED covers everything else (no network, timeouts,
-    SDK or response problems), where the key itself may still be valid.
+    SDK errors), where the key itself may still be valid.
     """
 
     VERIFIED = "verified"
@@ -331,46 +331,14 @@ class GeminiAPI:
                     "threshold": "BLOCK_NONE",
                 },
             ]
-            test_response = model_instance.generate_content(
+            # Any reply proves the service accepted the key and serves the model, so its
+            # text is not checked: thinking models count thoughts against
+            # max_output_tokens and can stop at this cap before writing anything.
+            model_instance.generate_content(
                 "This is a test of the API. Please respond with the word 'test' to confirm.",
                 generation_config={"candidate_count": 1, "max_output_tokens": 5},
                 safety_settings=safety_settings,
             )
-
-            if isinstance(getattr(test_response, "text", None), str) and "test" in test_response.text.lower():
-                self._print_color_func(
-                    f"API key from {source} verified successfully for model '{model_to_use}'.",
-                    Colors.GREEN,
-                )
-                self.model = model_instance
-                self.chosen_model_name = model_to_use  # Confirm the successfully validated model
-                return SetupResult.VERIFIED
-            feedback_text = "Unknown issue during verification."
-            if (
-                hasattr(test_response, "prompt_feedback")
-                and hasattr(test_response.prompt_feedback, "block_reason")
-                and test_response.prompt_feedback.block_reason
-            ):
-                feedback_text = f"Blocked due to: {test_response.prompt_feedback.block_reason}."
-            elif not hasattr(test_response, "text") or not test_response.text:
-                try:
-                    if test_response.candidates:
-                        finish_reason = test_response.candidates[0].finish_reason
-                        feedback_text = f"API key test call returned an empty or non-text response. Finish reason: {finish_reason}"
-                    else:
-                        feedback_text = "API key test call returned an empty or non-text response and no candidates."
-                except (AttributeError, IndexError):
-                    feedback_text = "API key test call returned an empty or non-text response."
-            else:
-                feedback_text = (
-                    f"API key test call returned unexpected text: '{test_response.text[:50]}...'"
-                )
-            self._print_color_func(
-                f"API key verification with model '{model_to_use}' (key from {source}) failed: {feedback_text}",
-                Colors.RED,
-            )
-            self.close()
-            return SetupResult.FAILED
         except Exception as e_test:
             self._print_color_func(
                 f"Error during API key verification call (from {source}, model '{model_to_use}'): {type(e_test).__name__}",
@@ -403,6 +371,14 @@ class GeminiAPI:
                 )
             self.close()
             return SetupResult.AUTH_FAILED if is_auth_error else SetupResult.FAILED
+
+        self._print_color_func(
+            f"API key from {source} verified successfully for model '{model_to_use}'.",
+            Colors.GREEN,
+        )
+        self.model = model_instance
+        self.chosen_model_name = model_to_use  # Confirm the successfully validated model
+        return SetupResult.VERIFIED
 
     def _ask_for_model_selection(self):
         # DEFAULT_GEMINI_MODEL_NAME is defined at file level

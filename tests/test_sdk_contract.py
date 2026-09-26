@@ -46,6 +46,27 @@ class TestSDKContract(unittest.TestCase):
         self.assertIsNone(api.client)
         self.assertIsNone(api.model)
 
+    def test_any_generation_reply_verifies_the_key(self):
+        # Thinking models count thoughts against max_output_tokens, so the small
+        # verification cap can end the reply before any text.
+        replies = {
+            'cut off while thinking': {
+                'candidates': [{'content': {}, 'finishReason': 'MAX_TOKENS'}],
+                'usageMetadata': {'promptTokenCount': 15, 'thoughtsTokenCount': 5,
+                                  'totalTokenCount': 20}},
+            'other wording': {'candidates': [{'content': {
+                'role': 'model', 'parts': [{'text': 'Confirmed.'}]}, 'finishReason': 'STOP'}]},
+            'blocked prompt': {'promptFeedback': {'blockReason': 'SAFETY'}},
+        }
+        for name, body in replies.items():
+            with self.subTest(name):
+                handler = MagicMock(return_value=httpx.Response(200, json=body))
+                api = self.make_api(handler)
+                result = api._attempt_api_setup('offline-key', 'test', 'test-model')
+                self.assertIs(result, SetupResult.VERIFIED)
+                self.assertEqual(handler.call_count, 1)
+                self.assertEqual(api.model.model_name, 'test-model')
+
     def test_http_failures_fall_back_without_retries(self):
         for status in (401, 403, 404, 429, 500, 503):
             with self.subTest(status=status):
