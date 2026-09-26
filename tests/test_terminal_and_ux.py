@@ -389,7 +389,7 @@ class TestSecretInput(unittest.TestCase):
         with patch.object(
             terminal, "_interactive_input_supported", return_value=True
         ), patch.object(terminal, "_get_session") as mock_session, patch.object(
-            terminal, "_unrecorded_session"
+            terminal, "_get_unrecorded_session"
         ) as mock_unrecorded:
             mock_unrecorded.return_value.prompt.return_value = "key-1"
             result = terminal.read_line("API key: ", secret=True)
@@ -398,9 +398,9 @@ class TestSecretInput(unittest.TestCase):
         kwargs = mock_unrecorded.return_value.prompt.call_args.kwargs
         self.assertTrue(kwargs["is_password"])
 
-    def test_secret_prompt_never_reaches_history_file(self):
-        # is_password only masks the echo; a real prompt shows whether the
-        # accepted text is appended to the FileHistory-backed session.
+    def test_secret_and_unrecorded_answers_never_reach_history_file(self):
+        # is_password only masks the echo; real prompts show whether accepted
+        # text is appended to the FileHistory-backed session.
         from prompt_toolkit.application import create_app_session
         from prompt_toolkit.input import create_pipe_input
         from prompt_toolkit.output import DummyOutput
@@ -417,6 +417,8 @@ class TestSecretInput(unittest.TestCase):
                 self.assertEqual(
                     terminal.read_line("API key: ", secret=True), "key-secret-123"
                 )
+                pipe_input.send_text("\x1b[An\r")  # Up recalls nothing, not even the key
+                self.assertEqual(terminal.read_line("(y/n): ", history=False), "n")
                 pipe_input.send_text("look\r")
                 self.assertEqual(terminal.read_line("> "), "look")
             with open(history_path, encoding="utf-8") as history_file:
@@ -430,18 +432,6 @@ class TestSecretInput(unittest.TestCase):
             mock_session.return_value.prompt.return_value = "look"
             terminal.read_line("> ")
         kwargs = mock_session.return_value.prompt.call_args.kwargs
-        self.assertFalse(kwargs["is_password"])
-
-    def test_unrecorded_prompt_uses_throwaway_session(self):
-        with patch.object(
-            terminal, "_interactive_input_supported", return_value=True
-        ), patch.object(terminal, "_get_session") as mock_session, patch.object(
-            terminal, "_unrecorded_session"
-        ) as mock_unrecorded:
-            mock_unrecorded.return_value.prompt.return_value = "n"
-            self.assertEqual(terminal.read_line("(y/n): ", history=False), "n")
-        mock_session.assert_not_called()
-        kwargs = mock_unrecorded.return_value.prompt.call_args.kwargs
         self.assertFalse(kwargs["is_password"])
 
     def test_plain_tty_path_uses_getpass(self):

@@ -169,6 +169,7 @@ def write_dialogue(text, color=""):
 HISTORY_FILE = os.path.expanduser("~/.crimeandpunishment_history")
 
 _session = None
+_unrecorded_session = None
 _completer_provider = None
 _toolbar_provider = None
 
@@ -233,18 +234,15 @@ def _get_session():
     return _current()._session
 
 
-def _unrecorded_session():
-    """A throwaway session whose history keeps nothing.
+def _get_unrecorded_session():
+    """Twin of _get_session() whose history keeps nothing: prompt_toolkit
+    appends every accepted line to history, even with is_password."""
+    if _current()._unrecorded_session is None:
+        from prompt_toolkit import PromptSession
+        from prompt_toolkit.history import DummyHistory
 
-    prompt_toolkit appends every accepted line to the session's history, and
-    is_password only masks the echo, so secrets and one-off answers
-    (history=False) must never reach the FileHistory-backed session from
-    _get_session().
-    """
-    from prompt_toolkit import PromptSession
-    from prompt_toolkit.history import DummyHistory
-
-    return PromptSession(history=DummyHistory())
+        _current()._unrecorded_session = PromptSession(history=DummyHistory())
+    return _current()._unrecorded_session
 
 
 def load_history_lines(limit=200):
@@ -322,7 +320,7 @@ def read_line(prompt_text, color="", completion=True, secret=False, history=True
 
     completer = _current()._completer_provider() if (completion and _current()._completer_provider) else None
     toolbar = _current()._toolbar_provider() if _current()._toolbar_provider else None
-    session = _get_session() if history else _unrecorded_session()
+    session = _get_session() if history else _get_unrecorded_session()
     return session.prompt(
         ANSI(rendered),
         completer=completer,
@@ -383,7 +381,7 @@ class TerminalSession:
         self._state = SimpleNamespace(
             _console=Console(highlight=False, soft_wrap=False),
             _backend=None, _last_line_blank=True, _session=None,
-            _completer_provider=None, _toolbar_provider=None,
+            _unrecorded_session=None, _completer_provider=None, _toolbar_provider=None,
             narrative_pace_enabled=False,
             HISTORY_FILE=HISTORY_FILE if history_file is None else history_file,
         )
