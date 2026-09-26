@@ -5,7 +5,7 @@
 
 <p align="center">
   <a href="https://github.com/AntoanBG3/crimeandpunishment/releases"><img src="https://img.shields.io/github/v/release/AntoanBG3/crimeandpunishment?style=for-the-badge&color=darkred" alt="Latest Release"></a>
-  <a href="LICENSE.md"><img src="https://img.shields.io/badge/license-GPLv3%2B-black?style=for-the-badge" alt="GPL version 3 or later"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3%2B-black?style=for-the-badge" alt="GPL version 3 or later"></a>
   <img src="https://img.shields.io/badge/python-3.10%2B-blue?style=for-the-badge" alt="Python 3.10+">
   <img src="https://img.shields.io/badge/powered%20by-Gemini%20API-orange?style=for-the-badge" alt="Gemini API">
 </p>
@@ -143,10 +143,11 @@ CrimeAndPunishment/
 │   ├── items.json                   # Item catalogue: properties & mechanical effects
 │   └── locations.json               # Map of St. Petersburg connections
 ├── tests/                           # unittest suite (no network, no TTY required)
-├── docs/                            # Audit evidence, remediation backlog, dependencies
+├── docs/                            # Dependencies and feature-commit workflow
+├── licenses/                        # Third-party license texts for release builds
 ├── scripts/                         # Isolated audit scenarios, builds, commit reminder
 ├── requirements.txt                 # google-genai, rich, prompt_toolkit, textual
-└── LICENSE.md                       # GPL version 3 or later notice
+└── LICENSE                          # GNU GPL version 3
 ```
 
 ---
@@ -172,4 +173,8 @@ Contributions, bug reports, and features are welcome! Feel free to open an issue
 ---
 
 ## License
-This project carries a **GNU GPL version 3 or later** notice. See [LICENSE.md](LICENSE.md).
+Copyright (C) 2026 AntoanBG3
+
+Crime and Punishment is free software: you can redistribute it and/or modify it under the terms of the **GNU General Public License** as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. It is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See [LICENSE](LICENSE) for the full license text.
+
+Release executables bundle Python and third-party libraries under their own licenses; each release includes a `<platform>-THIRD_PARTY_NOTICES.txt` file listing them with their full license texts.
