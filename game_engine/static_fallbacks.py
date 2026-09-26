@@ -11,11 +11,12 @@ STATIC_ATMOSPHERIC_DETAILS = [
     "A sense of unease hangs in the air.",
 ]
 
+# Overheard exchanges; {npc1} and {npc2} are the two speakers' names.
 STATIC_NPC_NPC_INTERACTIONS = [
-    "NPC1: The times are hard, wouldn't you agree?\nNPC2: Indeed. One must be careful.",
-    "NPC1: Did you see the price of bread today?\nNPC2: Scandalous!",
-    "You overhear two figures nearby discussing trivial matters.",
-    "Two NPCs are talking nearby, but their words are indistinct.",
+    "{npc1}: The times are hard, wouldn't you agree?\n{npc2}: Indeed. One must be careful.",
+    "{npc1}: Did you see the price of bread today?\n{npc2}: Scandalous!",
+    "You overhear {npc1} and {npc2} discussing trivial matters.",
+    "{npc1} and {npc2} are talking nearby, but their words are indistinct.",
 ]
 
 STATIC_DREAM_SEQUENCES = [

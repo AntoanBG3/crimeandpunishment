@@ -439,7 +439,9 @@ class EventManager:
                 or self.game.low_ai_data_mode
             ):
                 if STATIC_NPC_NPC_INTERACTIONS:
-                    interaction_text = getattr(self.game, "rng", random).choice(STATIC_NPC_NPC_INTERACTIONS)
+                    interaction_text = getattr(self.game, "rng", random).choice(
+                        STATIC_NPC_NPC_INTERACTIONS
+                    ).format(npc1=npc1.name, npc2=npc2.name)
                 else:
                     interaction_text = f"{npc1.name} and {npc2.name} exchange a few quiet words."  # Ultimate fallback
                 # No specific color change for static here, just print it like AI would have.

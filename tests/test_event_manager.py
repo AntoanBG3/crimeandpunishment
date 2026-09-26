@@ -10,6 +10,7 @@ if project_root not in sys.path:
 
 from game_engine.event_manager import EventManager  # noqa: E402
 from game_engine.game_state import Game  # noqa: E402
+from game_engine.static_fallbacks import STATIC_NPC_NPC_INTERACTIONS  # noqa: E402
 
 
 class TestEventManager(unittest.TestCase):
@@ -139,6 +140,32 @@ class TestStoryEventsWithAuthoredData(unittest.TestCase):
             "katerina_ivanovna_public_lament_recent", self.game.event_manager.triggered_events
         )
         self.assertIn("Katerina Ivanovna caused a public scene.", self.game.key_events_occurred)
+
+    def test_static_npc_exchanges_name_the_real_speakers(self):
+        # The static lines serve a configured key in LOW-AI mode and unusable AI text.
+        razumikhin = self.game.all_character_objects["Dmitri Razumikhin"]
+        nastasya = self.game.all_character_objects["Nastasya"]
+        self.game.npcs_in_current_location = [razumikhin, nastasya]
+        names = {razumikhin.name, nastasya.name}
+        api = self.game.gemini_api
+        for low_ai, ai_text in ((True, "Unused API text"), (False, "(OOC: blocked)")):
+            for template in STATIC_NPC_NPC_INTERACTIONS:
+                self.game.low_ai_data_mode = low_ai
+                with self.subTest(low_ai=low_ai, template=template), \
+                        patch.object(api, "model", object()), \
+                        patch.object(api, "get_npc_to_npc_interaction",
+                                     return_value=ai_text) as generate, \
+                        patch.object(self.game.rng, "choice", return_value=template), \
+                        patch.object(self.game, "_print_color") as print_color, \
+                        patch.object(self.game, "_print_dialogue") as print_dialogue:
+                    self.assertTrue(self.game.event_manager.attempt_npc_npc_interaction())
+                    self.assertEqual(generate.called, not low_ai)
+                    speakers = {call.args[0] for call in print_dialogue.call_args_list}
+                    self.assertLessEqual(speakers, names)
+                    printed = [str(call.args[0]) for call in print_color.call_args_list]
+                    printed += [str(call.args[1]) for call in print_dialogue.call_args_list]
+                    self.assertFalse([line for line in printed if "NPC" in line])
+                    self.assertTrue(speakers or any(name in " ".join(printed) for name in names))
 
 
 if __name__ == "__main__":
