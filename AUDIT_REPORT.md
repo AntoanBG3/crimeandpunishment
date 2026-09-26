@@ -12,12 +12,12 @@ authored mechanics and item contents, and correct command, AI and UI edge cases.
 Each implementation was verified and committed separately. No confirmed high or
 critical crash, data-loss or progression blocker remains open in this inventory.
 
-At source commit `7dbda3d`, all 384 local tests pass with clean Flake8 and Pylint
-10.00/10. Coverage is 91.93% of statements, 82.21% of branches, 88.93% combined;
+At source commit `73de17d`, all 385 local tests pass with clean Flake8 and Pylint
+10.00/10. Coverage is 91.93% of statements, 82.26% of branches, 88.94% combined;
 the baseline at `1aa3721` had 332 tests and 88.19% combined coverage. These numbers
 are evidence of exercised paths, not proof that the application has no defects.
 All six interpreter/OS jobs and three frozen console smokes passed in CI run
-36256853518. Cross-platform evidence and remaining manual/service checks are tracked in
+36257692464 at `73de17d` (and earlier in run 36256853518 at `7dbda3d`). Cross-platform evidence and remaining manual/service checks are tracked in
 [the remediation ledger](docs/REMEDIATION_PLAN.md); every tracked production area
 has a review outcome in [the inventory](docs/AUDIT_BASELINE.md).
 
@@ -243,7 +243,7 @@ have zero confidence. AI progress indicators also use the injected terminal serv
 ### R015 — TUI headings truncate in wide terminals
 
 - **Category / severity / confidence:** QoL / Low / Confirmed.
-- **Effort:** Small. **Status:** Fixed in the heading-width change; 385 tests pass locally.
+- **Effort:** Small. **Status:** Fixed in `73de17d`; 385 tests pass locally and all nine CI jobs pass in run 36257692464.
 - **Location:** `game_engine/tui_app.py:245`.
 - **Evidence:** The actual macOS CI executable showed `Choose Your Cha…` in a
   100-column terminal. A real-app regression reproduced a 20-column Rich rule;
@@ -251,7 +251,8 @@ have zero confidence. AI progress indicators also use the injected terminal serv
 - **Expected behavior / implementation:** Expand section rules to the log's
   available width, while preserving other renderables' existing sizing.
 - **Verification:** The failing regression now passes at widths 100 and 40;
-  74 focused UI tests, all 385 tests, Flake8 and Pylint pass. Coverage after this
+  74 focused UI tests, all 385 tests, Flake8 and Pylint pass. A rebuilt macOS
+  executable also displays the full headings in a real terminal. Coverage after this
   change is 91.93% statements, 82.26% branches and 88.94% combined.
 - **Dependencies:** Real Textual/Rich rendering; no gameplay or save changes.
 

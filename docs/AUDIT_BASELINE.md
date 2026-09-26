@@ -2,8 +2,8 @@
 
 Baseline: `1aa3721`, Python 3.13.5, macOS arm64; 332 tests passed, Flake8 clean,
 Pylint 10.00/10. Combined branch/statement coverage was 88.19% (3,939/4,312
-statements; 1,631/2,004 branches). At `7dbda3d`, 384 tests pass locally;
-coverage is 4,282/4,658 statements and 1,710/2,080 branches (88.93% combined).
+statements; 1,631/2,004 branches). At `73de17d`, 385 tests pass locally;
+coverage is 4,282/4,658 statements and 1,711/2,080 branches (88.94% combined).
 
 Baseline installed direct/tool packages: google-genai 2.8.0, rich 15.0.0,
 prompt_toolkit 3.0.52, textual 8.2.7, httpx 0.28.1, coverage 7.13.5,
@@ -54,7 +54,7 @@ and roadmap references; current repository guidance is in `AGENTS.md`.
 | `game_engine/event_manager.py` | Event prerequisites, one-shot flags, generated items and fallback use; R009 | Event, fallback, objective and soak tests |
 | `game_engine/game_config.py` | Lazy resources, constants, aliases and global color settings; color isolation deferred | Command wiring, NO_COLOR tests and frozen foreign-directory startup |
 | `game_engine/game_state.py` | Startup, session loop, save writing and settings; R001/R007 | Full suite; partial write/replace, permission, legacy and invalid-save regressions |
-| `game_engine/gemini_interactions.py` | SDK/client lifecycle, transport options, config, parsing and bounded prompt inputs; R004/R009 | Actual SDK mocked transport; configuration, response and parser regressions |
+| `game_engine/gemini_interactions.py` | SDK/client lifecycle, transport options, config, parsing and bounded conversation-history entries; R004/R009 | Actual SDK mocked transport; configuration, response and parser regressions |
 | `game_engine/item_interaction_handler.py` | Targeting, transfer ownership, consumption and readable content; R009/R010/R011 | Item/transfer suites, seeded read snapshots and protagonist scenarios |
 | `game_engine/location_module.py` | Lazy content loading and bundled resource resolution | Reference/reachability tests and frozen foreign-directory startup |
 | `game_engine/npc_interaction_handler.py` | Dialogue sub-loop/time, persuasion and confession; R005 | NPC/persuasion, objective and ending scenarios |
@@ -63,7 +63,7 @@ and roadmap references; current repository guidance is in `AGENTS.md`.
 | `game_engine/session_state.py` | Mutable gameplay ownership and compatibility descriptors | Two-game isolation, RNG and persistence round trips |
 | `game_engine/static_fallbacks.py` | Fallback signatures, narrative availability and injected random choices | Fallback, deterministic RNG and offline ending scenarios |
 | `game_engine/terminal.py` | Console IO, history, paging, non-TTY/NO_COLOR, secret input and session context; R006 | Terminal/UX, history retention and concurrent/nested session tests |
-| `game_engine/tui_app.py` | Thread/queue lifecycle, busy input, errors, history and resizing; R002/R006 | Real App.run_test tests, shutdown tests and 1,000-command soak |
+| `game_engine/tui_app.py` | Thread/queue lifecycle, busy input, errors, history, resizing and section-rule widths; R002/R006/R015 | Real App.run_test tests, shutdown tests and 1,000-command soak |
 | `game_engine/world_manager.py` | Character initialization, time/day rollover, schedules, movement, event summaries and endings; R003/R006/R011 | World initialization, game logic, reachability, progression and 10,000-action soak |
 | `main.py` | Mode selection, controlled exits, Windows closed-pipe diagnostics; R002/R013 | Mode, subprocess shutdown and frozen console checks |
 | `requirements-build.txt` | PyInstaller constrained by shared lock | Three OS frozen builds |

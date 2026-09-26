@@ -2,7 +2,7 @@
 
 ## Current outcome
 
-The five implementation waves are delivered in separate verified commits. Fourteen
+The five implementation waves are delivered in separate verified commits. Fifteen
 confirmed findings are recorded in [AUDIT_REPORT.md](../AUDIT_REPORT.md), with no
 unresolved confirmed critical/high crash, data-loss or progression blocker. Ordinary
 CI and frozen console validation now cover all shipped platforms. Manual frozen-TUI,
@@ -47,23 +47,24 @@ process deadline.
 | Criterion | Evidence and status |
 |-----------|---------------------|
 | Production/content/build/hook inventory | Every tracked area has an outcome in AUDIT_BASELINE.md; no production area remains unassigned |
-| Local tests and lint | Source `7dbda3d`: 384 tests pass, Flake8 clean, Pylint 10.00/10 |
-| Branch coverage | 91.93% statements, 82.21% branches, 88.93% combined; baseline 88.19% combined |
+| Local tests and lint | Source `73de17d`: 385 tests pass, Flake8 clean, Pylint 10.00/10 |
+| Branch coverage | 91.93% statements, 82.26% branches, 88.94% combined; baseline 88.19% combined |
 | Invalid/legacy saves | Real-file malformed/nested types, unknown locations, failed reads, partial writes and failed replacement pass; existing session and last valid save preserved |
 | Crash/shutdown boundaries | Worker errors remain visible; redacted diagnostics, denied diagnostic writes, EOF, busy-input shutdown and broken-pipe tests pass; POSIX Ctrl+C tested |
 | Main protagonist paths | Scripted offline Raskolnikov `siberia`, Sonya `follow_to_siberia`, Porfiry `case_solved` passed; objective suite covers alternate defined endings |
 | Actual Gemini SDK | google-genai 2.8.0 serialization, configured timeout/retries, HTTP failures, empty/blocked/non-text responses and cleanup tested with mocked transport; no live API requests |
 | Engine soak | 10,000 seeded actions with moving NPC schedules and save/load round trips completed; recent events capped at 10 |
 | TUI soak | 1,000 commands through actual thread/input/rendering bridge completed; history capped at 200 and RichLog at 1,000 lines |
-| Python 3.10/3.13 across Windows/Linux/macOS | All six test/ending/soak jobs passed at final source `7dbda3d` in run 36256853518 |
-| Frozen Windows/Linux/macOS | All three builds and isolated startup/look/quit/EOF/version smokes passed at final source `7dbda3d` in run 36256853518 |
+| Python 3.10/3.13 across Windows/Linux/macOS | All six test/ending/soak jobs passed at `73de17d` in run 36257692464 (and at `7dbda3d` in run 36256853518) |
+| Frozen Windows/Linux/macOS | All three builds and isolated startup/look/quit/EOF/version smokes passed at `73de17d` in run 36257692464 (and at `7dbda3d` in run 36256853518) |
 | Narrow/resized TUI | Headless source app resized to 20×5 then 100×30 and shut down during controlled in-flight work |
-| Frozen interactive TUI and Windows real-console Ctrl+C | Unverified; separate manual terminal checks needed |
+| Frozen interactive TUI and Windows real-console Ctrl+C | macOS artifact startup, scene, completion/history, resize and Ctrl+Q exercised; Windows/Linux interactive checks remain unverified |
 | Live Gemini/model availability | Unverified; optional service test requires credentials and a live request |
 
 CI evidence: [first fully passing matrix](https://github.com/AntoanBG3/crimeandpunishment/actions/runs/36227963595),
-[final-source validation](https://github.com/AntoanBG3/crimeandpunishment/actions/runs/36256853518).
-Final-source run 36256853518 completed successfully: all six interpreter/OS test
+[pre-heading-fix validation](https://github.com/AntoanBG3/crimeandpunishment/actions/runs/36256853518),
+[final-source validation](https://github.com/AntoanBG3/crimeandpunishment/actions/runs/36257692464).
+Run 36256853518 at `7dbda3d` and final-source run 36257692464 at `73de17d` both completed successfully: all six interpreter/OS test
 and soak jobs plus all three frozen build/smoke jobs passed, including the Windows
 closed-output-pipe regression that failed in run 36228403106.
 
@@ -72,7 +73,7 @@ closed-output-pipe regression that failed in run 36228403106.
 | Wave | Delivered boundaries / fixes | Commits |
 |------|-----------------------------|---------|
 | 1: crashes, data integrity and progression | Detached load validation, preserved live state, visible worker diagnostics, authored character attributes, preserved item text | `5bbd205`, `57accd8`, `127f809`, `c95a968`, `db2d276` |
-| 2: quick wins | Persuasion timing, save picker, response validity, shared matching, completion, Windows closed pipe and accurate documentation | `fe8ec38`, `28f852d`, `55b9cb2`, `1791534`, `fa9a146`, `422f7a4`, `7dbda3d`, `7b4e47b` |
+| 2: quick wins | Persuasion timing, save picker, response validity, shared matching, completion, Windows closed pipe, full-width TUI headings and accurate documentation | `fe8ec38`, `28f852d`, `55b9cb2`, `1791534`, `fa9a146`, `422f7a4`, `7dbda3d`, `7b4e47b`, `73de17d` |
 | 3: internal boundaries | AI injection, named tuple-compatible results, gameplay state/RNG injection, TerminalSession, split readable-item handlers | `69199b5`, `e1c858a`, `1fbf75b`, `32ace4b`, `a111c65` |
 | 4: measured retention | Isolated scenario harness and bounded UI history, output and recent events | `35fc25d`, `d2b26b7` |
 | 5: release hardening | Universal pinned dependencies, six-combination ordinary CI, three shared frozen builds, byte-safe smoke checks and shutdown/invariant regressions | `e1e7be0`, `4866b9c`, `b37acc2` |
@@ -144,3 +145,28 @@ scenario. Live model latency is absent from all these figures.
 These items are explicit follow-ups, not hidden failures or confirmed high-severity
 bugs. No release was published during the audit; tag/version/signing/publication
 behavior remains separate from the exercised build and smoke paths.
+
+## Interactive macOS artifact check
+
+Downloaded `crimeandpunishment-macos` from CI run 36256853518 (source `7dbda3d`),
+SHA-256 `79e8b98842e75adb5318b4083a0683f65c2d7c870cec9d5d22b588322c161b7f`.
+Executed in a separate tmux server with a temporary spaced/Unicode working directory
+and home, cleared Gemini environment keys, and selected `skip` at the masked prompt.
+Raskolnikov startup, scene/status rendering, completion cycling, `look`, history
+recall, resizing 100×30 → 40×15 → 100×30 and Ctrl+Q all worked. The isolated server
+exited afterward. No credentials or personal conversation content were used.
+
+This check exposed R015: Rule headings used only 20 columns in a wide terminal.
+The regression failed before `73de17d` and passes at widths 100 and 40 afterward.
+A fresh local build from `73de17d` was also launched in an isolated 100-column tmux
+terminal: both the full game title and `Choose Your Character` rendered without
+truncation, and Ctrl+Q closed the app.
+RichLog retains already-rendered lines at their original width after resizing;
+new output wraps at the current width. That is a retained UI limitation, not evidence
+that older content reflows. Other protagonists' frozen TUI selections and Windows/
+Linux interactive terminal behavior remain unverified; their engine ending paths
+and headless UI behavior are covered separately.
+
+Heading-fix CI: [run 36257692464](https://github.com/AntoanBG3/crimeandpunishment/actions/runs/36257692464)
+at source `73de17d` completed successfully: all six interpreter/OS test and soak
+jobs and all three frozen build/smoke jobs passed.
