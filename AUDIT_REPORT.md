@@ -63,6 +63,20 @@ Inventory, dependencies, acceptance evidence and deferred work are maintained in
 
 ## High-Priority Improvements
 
+### R013 — Windows closed output pipes produce false crash reports
+
+- **Category / severity / confidence:** Robustness / Medium / Confirmed on Windows CI.
+- **Effort:** Small. **Status:** Fix implemented; Windows rerun pending.
+- **Location:** `main.py:_closed_output_pipe`.
+- **Evidence:** Both Windows Python versions in CI run 36228403106 exited 120 after
+  `OSError: [Errno 22] Invalid argument`, wrote a crash report, then failed final
+  stdout flushing when their output reader had closed. POSIX cases passed.
+- **Implementation:** Recognize Windows EINVAL only when a non-terminal stdout also
+  fails flushing; redirect its final flush to the null device. Ordinary filesystem
+  failures retain diagnostics. The same subprocess regression will rerun on Windows.
+- **Local regression:** Verify healthy stdout and unrelated permission errors are
+  never classified as a broken pipe; verify the Windows flush-failure condition.
+
 ### R008 — Advertised Python 3.10 support was not routinely exercised
 
 - **Category / severity / confidence:** Robustness / Medium / Confirmed.

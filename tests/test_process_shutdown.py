@@ -1,6 +1,7 @@
 """Real console processes must terminate cleanly on interrupts and closed output."""
 
 import os
+import errno
 from pathlib import Path
 import selectors
 import signal
@@ -9,12 +10,27 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import MagicMock, patch
+
+import main
 
 
 MAIN = Path(__file__).resolve().parents[1] / 'main.py'
 
 
 class TestProcessShutdown(unittest.TestCase):
+    def test_windows_invalid_argument_requires_broken_stdout(self):
+        error = OSError(errno.EINVAL, 'invalid argument')
+        output = MagicMock()
+        output.isatty.return_value = False
+        with patch.object(main.sys, 'platform', 'win32'), patch.object(main.sys, 'stdout', output):
+            self.assertFalse(main._closed_output_pipe(error))
+            output.flush.side_effect = error
+            self.assertTrue(main._closed_output_pipe(error))
+            self.assertFalse(main._closed_output_pipe(PermissionError('file access denied')))
+            output.isatty.return_value = True
+            self.assertFalse(main._closed_output_pipe(error))
+
     def setUp(self):
         directory = tempfile.TemporaryDirectory(prefix='crime shutdown ü ')
         self.addCleanup(directory.cleanup)
