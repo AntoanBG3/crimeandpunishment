@@ -134,6 +134,16 @@ and checks ASCII markers directly. Windows revalidation is pending.
 
 ## Quality of Life Improvements
 
+### R012 — Completion suggests unowned reading targets and omits carried inspection
+
+- **Category / severity / confidence:** QoL / Low / Confirmed.
+- **Effort:** Small. **Status:** Fixed; commit `fix: align completion targets with item ownership`.
+- **Location:** `game_engine/completion.py:_ARGUMENT_POOLS`.
+- **Evidence:** `read` offered room items that its handler requires the player to
+  carry; `look` omitted carried items that inspection supports.
+- **Implementation:** Complete reading from inventory and inspection from both
+  inventory and room targets. Two updated/new regression cases failed before the fix.
+
 ### R011 — Target selection differs between commands and survives movement
 
 - **Category / severity / confidence:** UX / Medium / Confirmed.

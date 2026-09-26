@@ -23,9 +23,9 @@ _ARGUMENT_POOLS = {
     "give": ("inventory",),
     "take": ("items",),
     "drop": ("inventory",),
-    "read": ("inventory", "items"),
+    "read": ("inventory",),
     "use": ("inventory",),
-    "look": ("items", "npcs"),
+    "look": ("items", "npcs", "inventory"),
     "move to": ("exits",),
 }
 

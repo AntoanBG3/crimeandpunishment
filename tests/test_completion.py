@@ -47,10 +47,13 @@ class TestGameCompleter(unittest.TestCase):
         self.assertIn("old newspaper", results)
         self.assertNotIn("mother's letter", results)
 
-    def test_read_completes_inventory_and_scene(self):
+    def test_read_completes_only_owned_items(self):
         results = _completions(self.completer, "read ")
         self.assertIn("mother's letter", results)
-        self.assertIn("old newspaper", results)
+        self.assertNotIn("old newspaper", results)
+
+    def test_look_completes_inventory_items(self):
+        self.assertIn("mother's letter", _completions(self.completer, "look moth"))
 
     def test_unknown_verb_yields_nothing(self):
         self.assertEqual(_completions(self.completer, "dance with so"), [])
