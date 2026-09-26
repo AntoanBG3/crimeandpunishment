@@ -67,7 +67,7 @@ class TestSavedKeyRetention(unittest.TestCase):
         self.addCleanup(directory.cleanup)
         self.directory = directory.name
         self.config_path = os.path.join(self.directory, "gemini_config.json")
-        self.write_config({"gemini_api_key": "saved-key", "chosen_model_name": "gemini-3.5-flash"})
+        self.write_config({"gemini_api_key": "saved-key", "chosen_model_name": "gemini-3.8-flash"})
         for patcher in (
             patch("game_engine.gemini_interactions.API_CONFIG_FILE", self.config_path),
             patch.dict(os.environ, {"GEMINI_API_KEY": ""}),
@@ -107,7 +107,7 @@ class TestSavedKeyRetention(unittest.TestCase):
         self.assertEqual(result, {"api_configured": False, "low_ai_preference": False})
         self.assertIsNone(api.model)
         self.assertEqual(
-            os.listdir(self.directory), ["gemini_config.json.failed_setup_with_gemini-3.5-flash"]
+            os.listdir(self.directory), ["gemini_config.json.failed_setup_with_gemini-3.8-flash"]
         )
         self.replies.assert_called_once()
         self.assertIn("Gemini API key", self.replies.call_args.args[0])

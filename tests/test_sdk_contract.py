@@ -129,6 +129,23 @@ class TestSDKContract(unittest.TestCase):
                 self.assertEqual(handler.call_count, 1)
                 self.assertIsNone(api.client)
 
+    def test_verification_failure_shows_api_status_and_message(self):
+        handler = MagicMock(return_value=httpx.Response(404, json={'error': {
+            'code': 404, 'status': 'NOT_FOUND',
+            'message': 'models/test-model is not found for API version v1beta.'}}))
+        api = self.make_api(handler)
+        self.assertIs(api._attempt_api_setup('offline-key', 'test', 'test-model'),
+                      SetupResult.MODEL_UNAVAILABLE)
+        printed = [call.args[0] for call in api._print_color_func.call_args_list]
+        self.assertIn('Gemini API response: 404 NOT_FOUND: models/test-model is not found '
+                      'for API version v1beta.', printed)
+        self.assertFalse(any('offline-key' in line for line in printed))
+
+    def test_non_api_errors_do_not_show_exception_text(self):
+        api = self.make_api(MagicMock(side_effect=httpx.ConnectError('private-response')))
+        api._attempt_api_setup('offline-key', 'test', 'test-model')
+        self.assertNotIn('private-response', str(api._print_color_func.call_args_list))
+
     def configure_saved_model(self, model, handler, *, tty, answers=()):
         """Run configure() with a gemini_config.json that names ``model``."""
         directory = tempfile.TemporaryDirectory()
@@ -166,8 +183,8 @@ class TestSDKContract(unittest.TestCase):
         run = self.configure_saved_model(RETIRED_MODEL, handler, tty=True, answers=['3', 'n'])
         self.assertEqual(run.result, {'api_configured': True, 'low_ai_preference': False})
         self.assertIn('Enter your choice', run.answers.call_args_list[0].args[0])
-        self.assertEqual(run.requested, [RETIRED_MODEL, 'gemini-3.1-flash-lite'])
-        self.assertEqual(run.saved['chosen_model_name'], 'gemini-3.1-flash-lite')
+        self.assertEqual(run.requested, [RETIRED_MODEL, 'gemini-3.5-flash-lite'])
+        self.assertEqual(run.saved['chosen_model_name'], 'gemini-3.5-flash-lite')
 
     def test_replacement_model_is_saved_before_the_low_ai_prompt(self):
         handler = MagicMock(side_effect=serve_all_but_retired)
