@@ -55,6 +55,22 @@ class TestGameCompleter(unittest.TestCase):
     def test_look_completes_inventory_items(self):
         self.assertIn("mother's letter", _completions(self.completer, "look moth"))
 
+    def test_look_at_connective_completes_target(self):
+        # The tutorial suggests 'look at X'; the connective must not be
+        # treated as part of the target, and it stays in the input.
+        self.assertEqual(
+            self.completer.candidates("look at old"), [("old newspaper", -3)]
+        )
+        self.assertEqual(
+            self.completer.candidates("examine the rask"),
+            [("raskolnikov's axe", -4)],
+        )
+        self.assertEqual(
+            self.completer.candidates("look at the moth"),
+            [("mother's letter", -4)],
+        )
+        self.assertIn("Sonya Marmeladova", _completions(self.completer, "look at "))
+
     def test_unknown_verb_yields_nothing(self):
         self.assertEqual(_completions(self.completer, "dance with so"), [])
 
