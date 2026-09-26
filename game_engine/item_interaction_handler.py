@@ -750,234 +750,17 @@ class ItemInteractionHandler:
             self._print_color(f"You can't read the {item_to_use_name}.", Colors.YELLOW)
             return False
         if item_to_use_name == "old newspaper" or item_to_use_name == "fresh newspaper":
-            self._print_color(
-                f"You smooth out the creases of the {item_to_use_name} and scan the faded print.",
-                Colors.WHITE,
-            )
-            article_snippet = None
-            ai_generated = False
-            if not self.low_ai_data_mode and self.gemini_api.model:
-                article_snippet = self.gemini_api.get_newspaper_article_snippet(
-                    self.current_day,
-                    self._get_recent_events_summary(),
-                    self._get_objectives_summary(player_character),
-                    player_character.apparent_state,
-                )
-
-            if (
-                not is_usable_ai_text(article_snippet)
-                or self.low_ai_data_mode
-            ):
-                if STATIC_NEWSPAPER_SNIPPETS:
-                    article_snippet = getattr(self, "rng", random).choice(STATIC_NEWSPAPER_SNIPPETS)
-                else:
-                    article_snippet = (
-                        "The newsprint is smudged and uninteresting."  # Ultimate fallback
-                    )
-
-                if article_snippet:  # Make sure we have something to print/log
-                    article_snippet = self._apply_verbosity(article_snippet)
-                    self._print_color(
-                        f'An article catches your eye: "{article_snippet}"', Colors.CYAN
-                    )  # Static in Cyan
-                    player_character.add_journal_entry(
-                        "News (Static)",
-                        article_snippet,
-                        self._get_current_game_time_period_str(),
-                    )  # Optionally log differently
-            elif article_snippet:  # AI success and not OOC
-                article_snippet = self._apply_verbosity(article_snippet)
-                self._print_color(
-                    f'An article catches your eye: "{article_snippet}"', Colors.YELLOW
-                )
-                player_character.add_journal_entry(
-                    "News (AI)",
-                    article_snippet,
-                    self._get_current_game_time_period_str(),
-                )  # Optionally log differently
-                ai_generated = True
-
-            if not article_snippet:  # Final fallback if all else fails
-                self._print_color(
-                    "The print is too faded or the news too mundane to hold your interest.",
-                    Colors.DIM,
-                )
-
-            # Common logic for both AI and static snippets if they are valid
-            if article_snippet:
-                if (
-                    "crime" in article_snippet.lower()
-                    or "investigation" in article_snippet.lower()
-                    or "murder" in article_snippet.lower()
-                ):
-                    player_character.apparent_state = "thoughtful"
-                    if player_character.name == "Rodion Raskolnikov":
-                        player_character.add_player_memory(
-                            memory_type="read_news_crime",
-                            turn=self.game_time,
-                            content={"summary": "Read unsettling news about the recent crime."},
-                            sentiment_impact=0,
-                        )
-                        self.player_notoriety_level = min(self.player_notoriety_level + 0.1, 3)
-                self.last_significant_event_summary = f"read an {item_to_use_name}."
-                if ai_generated:
-                    self._remember_ai_output(article_snippet, "news_article")
-            return True
+            return self._read_newspaper(item_to_use_name)
         if item_to_use_name == "mother's letter":
-            self._print_color(
-                "You re-read your mother's letter. Her words of love and anxiety, Dunya's predicament... it all weighs heavily on you.",
-                Colors.YELLOW,
-            )
-            reflection = None
-            prompt_context = "re-reading mother's letter about Dunya and Luzhin, feeling guilt and responsibility"
-            if not self.low_ai_data_mode and self.gemini_api.model:
-                reflection = self.gemini_api.get_player_reflection(
-                    player_character,
-                    current_location_name,
-                    self.world_manager.get_current_time_period(),
-                    prompt_context,
-                )
-
-            if (
-                not is_usable_ai_text(reflection)
-                or self.low_ai_data_mode
-            ):
-                if STATIC_PLAYER_REFLECTIONS:
-                    reflection = getattr(self, "rng", random).choice(STATIC_PLAYER_REFLECTIONS)
-                else:
-                    reflection = "The letter stirs a whirlwind of emotions and responsibilities."  # Ultimate fallback
-                self._print_color(
-                    f'"{self._apply_verbosity(reflection)}"', Colors.DIM
-                )  # Static reflection in DIM
-            else:  # AI success
-                reflection = self._apply_verbosity(reflection)
-                self._print_color(f'"{reflection}"', Colors.CYAN)
-                self._remember_ai_output(reflection, "read_letter")
-
-            player_character.apparent_state = getattr(self, "rng", random).choice(["burdened", "agitated", "resolved"])
-            if player_character.name == "Rodion Raskolnikov":
-                player_character.add_player_memory(
-                    memory_type="reread_mother_letter",
-                    turn=self.game_time,
-                    content={
-                        "summary": "Re-reading mother's letter intensified feelings of duty and distress."
-                    },
-                    sentiment_impact=-1,
-                )
-            self.last_significant_event_summary = f"re-read the {item_to_use_name}."
-            return True
+            return self._read_mothers_letter(item_to_use_name)
         if item_to_use_name == "sonya's new testament":
-            self._print_color(
-                f"You open {item_to_use_name}. The familiar words of the Gospels seem to both accuse and offer a sliver of hope.",
-                Colors.GREEN,
-            )
-            reflection = None
-            prompt_context = (
-                f"reading from {item_to_use_name}, pondering Lazarus, guilt, and salvation"
-            )
-            if not self.low_ai_data_mode and self.gemini_api.model:
-                reflection = self.gemini_api.get_player_reflection(
-                    player_character,
-                    current_location_name,
-                    self.world_manager.get_current_time_period(),
-                    prompt_context,
-                )
-
-            if (
-                not is_usable_ai_text(reflection)
-                or self.low_ai_data_mode
-            ):
-                if STATIC_PLAYER_REFLECTIONS:
-                    reflection = getattr(self, "rng", random).choice(STATIC_PLAYER_REFLECTIONS)
-                else:
-                    reflection = (
-                        "The words offer a strange mix of judgment and hope."  # Ultimate fallback
-                    )
-                self._print_color(
-                    f'"{self._apply_verbosity(reflection)}"', Colors.DIM
-                )  # Static reflection in DIM
-            else:  # AI success
-                reflection = self._apply_verbosity(reflection)
-                self._print_color(f'"{reflection}"', Colors.CYAN)
-                self._remember_ai_output(reflection, "read_testament")
-
-            if player_character.name == "Rodion Raskolnikov":
-                player_character.apparent_state = getattr(self, "rng", random).choice(
-                    ["contemplative", "remorseful", "thoughtful", "hopeful"]
-                )
-                player_character.add_player_memory(
-                    memory_type="read_testament_sonya",
-                    turn=self.game_time,
-                    content={
-                        "summary": "Read from the New Testament, stirring deep thoughts of salvation and suffering."
-                    },
-                    sentiment_impact=0,
-                )
-            self.last_significant_event_summary = f"read from {item_to_use_name}."
-            return True
+            return self._read_testament(item_to_use_name)
         if item_to_use_name == "anonymous note":
-            if item_obj_in_inventory and "generated_content" in item_obj_in_inventory:
-                self._print_color(f"You read the {item_to_use_name}:", Colors.WHITE)
-                self._print_color(f"\"{item_obj_in_inventory['generated_content']}\"", Colors.CYAN)
-                player_character.add_journal_entry(
-                    "Note",
-                    item_obj_in_inventory["generated_content"],
-                    self._get_current_game_time_period_str(),
-                )
-                self.last_significant_event_summary = f"read an {item_to_use_name}."
-                if (
-                    "watch" in item_obj_in_inventory["generated_content"].lower()
-                    or "know" in item_obj_in_inventory["generated_content"].lower()
-                ):
-                    player_character.apparent_state = "paranoid"
-                return True
-            self._print_color(
-                f"The {item_to_use_name} seems to be blank or unreadable.",
-                Colors.RED,
-            )
-            return False
+            return self._read_anonymous_note(item_to_use_name, item_obj_in_inventory)
         if item_to_use_name == "IOU Slip":
-            if item_obj_in_inventory and item_obj_in_inventory.get("content"):
-                self._print_color(
-                    f"You examine the {item_to_use_name}: \"{item_obj_in_inventory['content']}\"",
-                    Colors.YELLOW,
-                )
-            else:
-                self._print_color(
-                    f"You look at the {item_to_use_name}. It's a formal-looking slip of paper.",
-                    Colors.YELLOW,
-                )
-            self.last_significant_event_summary = f"read an {item_to_use_name}."
-            return True
+            return self._read_iou_slip(item_to_use_name, item_obj_in_inventory)
         if item_to_use_name == "Student's Dog-eared Book":
-            book_reflection = None
-            if not self.low_ai_data_mode and self.gemini_api.model:
-                book_reflection = self.gemini_api.get_item_interaction_description(
-                    player_character,
-                    item_to_use_name,
-                    item_props,
-                    "read",
-                    current_location_name,
-                    self.world_manager.get_current_time_period(),
-                )
-
-            if (
-                not is_usable_ai_text(book_reflection)
-                or self.low_ai_data_mode
-            ):
-                book_reflection = generate_static_item_interaction_description(
-                    item_to_use_name, "read", rng=getattr(self, "rng", random)
-                )
-                self._print_color(
-                    f"You open the {item_to_use_name}. {book_reflection}", Colors.CYAN
-                )  # Static in Cyan
-            else:  # AI success
-                self._print_color(
-                    f"You open the {item_to_use_name}. {book_reflection}", Colors.YELLOW
-                )
-
-            self.last_significant_event_summary = f"read from a {item_to_use_name}."
-            return True
+            return self._read_student_book(item_to_use_name, item_props)
 
         read_reflection = None
         if not self.low_ai_data_mode and self.gemini_api.model:
@@ -1002,6 +785,249 @@ class ItemInteractionHandler:
             self._print_color(f"You read the {item_to_use_name}. {read_reflection}", Colors.YELLOW)
 
         self.last_significant_event_summary = f"read the {item_to_use_name}."
+        return True
+
+    def _read_newspaper(self, item_to_use_name):
+        player_character = self.player_character
+        self._print_color(
+            f"You smooth out the creases of the {item_to_use_name} and scan the faded print.",
+            Colors.WHITE,
+        )
+        article_snippet = None
+        ai_generated = False
+        if not self.low_ai_data_mode and self.gemini_api.model:
+            article_snippet = self.gemini_api.get_newspaper_article_snippet(
+                self.current_day,
+                self._get_recent_events_summary(),
+                self._get_objectives_summary(player_character),
+                player_character.apparent_state,
+            )
+
+        if (
+            not is_usable_ai_text(article_snippet)
+            or self.low_ai_data_mode
+        ):
+            if STATIC_NEWSPAPER_SNIPPETS:
+                article_snippet = getattr(self, "rng", random).choice(STATIC_NEWSPAPER_SNIPPETS)
+            else:
+                article_snippet = (
+                    "The newsprint is smudged and uninteresting."  # Ultimate fallback
+                )
+
+            if article_snippet:  # Make sure we have something to print/log
+                article_snippet = self._apply_verbosity(article_snippet)
+                self._print_color(
+                    f'An article catches your eye: "{article_snippet}"', Colors.CYAN
+                )  # Static in Cyan
+                player_character.add_journal_entry(
+                    "News (Static)",
+                    article_snippet,
+                    self._get_current_game_time_period_str(),
+                )  # Optionally log differently
+        elif article_snippet:  # AI success and not OOC
+            article_snippet = self._apply_verbosity(article_snippet)
+            self._print_color(
+                f'An article catches your eye: "{article_snippet}"', Colors.YELLOW
+            )
+            player_character.add_journal_entry(
+                "News (AI)",
+                article_snippet,
+                self._get_current_game_time_period_str(),
+            )  # Optionally log differently
+            ai_generated = True
+
+        if not article_snippet:  # Final fallback if all else fails
+            self._print_color(
+                "The print is too faded or the news too mundane to hold your interest.",
+                Colors.DIM,
+            )
+
+        # Common logic for both AI and static snippets if they are valid
+        if article_snippet:
+            if (
+                "crime" in article_snippet.lower()
+                or "investigation" in article_snippet.lower()
+                or "murder" in article_snippet.lower()
+            ):
+                player_character.apparent_state = "thoughtful"
+                if player_character.name == "Rodion Raskolnikov":
+                    player_character.add_player_memory(
+                        memory_type="read_news_crime",
+                        turn=self.game_time,
+                        content={"summary": "Read unsettling news about the recent crime."},
+                        sentiment_impact=0,
+                    )
+                    self.player_notoriety_level = min(self.player_notoriety_level + 0.1, 3)
+            self.last_significant_event_summary = f"read an {item_to_use_name}."
+            if ai_generated:
+                self._remember_ai_output(article_snippet, "news_article")
+        return True
+
+    def _read_mothers_letter(self, item_to_use_name):
+        player_character = self.player_character
+        current_location_name = self.current_location_name or "Unknown Location"
+        self._print_color(
+            "You re-read your mother's letter. Her words of love and anxiety, Dunya's predicament... it all weighs heavily on you.",
+            Colors.YELLOW,
+        )
+        reflection = None
+        prompt_context = "re-reading mother's letter about Dunya and Luzhin, feeling guilt and responsibility"
+        if not self.low_ai_data_mode and self.gemini_api.model:
+            reflection = self.gemini_api.get_player_reflection(
+                player_character,
+                current_location_name,
+                self.world_manager.get_current_time_period(),
+                prompt_context,
+            )
+
+        if (
+            not is_usable_ai_text(reflection)
+            or self.low_ai_data_mode
+        ):
+            if STATIC_PLAYER_REFLECTIONS:
+                reflection = getattr(self, "rng", random).choice(STATIC_PLAYER_REFLECTIONS)
+            else:
+                reflection = "The letter stirs a whirlwind of emotions and responsibilities."  # Ultimate fallback
+            self._print_color(
+                f'"{self._apply_verbosity(reflection)}"', Colors.DIM
+            )  # Static reflection in DIM
+        else:  # AI success
+            reflection = self._apply_verbosity(reflection)
+            self._print_color(f'"{reflection}"', Colors.CYAN)
+            self._remember_ai_output(reflection, "read_letter")
+
+        player_character.apparent_state = getattr(self, "rng", random).choice(["burdened", "agitated", "resolved"])
+        if player_character.name == "Rodion Raskolnikov":
+            player_character.add_player_memory(
+                memory_type="reread_mother_letter",
+                turn=self.game_time,
+                content={
+                    "summary": "Re-reading mother's letter intensified feelings of duty and distress."
+                },
+                sentiment_impact=-1,
+            )
+        self.last_significant_event_summary = f"re-read the {item_to_use_name}."
+        return True
+
+    def _read_testament(self, item_to_use_name):
+        player_character = self.player_character
+        current_location_name = self.current_location_name or "Unknown Location"
+        self._print_color(
+            f"You open {item_to_use_name}. The familiar words of the Gospels seem to both accuse and offer a sliver of hope.",
+            Colors.GREEN,
+        )
+        reflection = None
+        prompt_context = (
+            f"reading from {item_to_use_name}, pondering Lazarus, guilt, and salvation"
+        )
+        if not self.low_ai_data_mode and self.gemini_api.model:
+            reflection = self.gemini_api.get_player_reflection(
+                player_character,
+                current_location_name,
+                self.world_manager.get_current_time_period(),
+                prompt_context,
+            )
+
+        if (
+            not is_usable_ai_text(reflection)
+            or self.low_ai_data_mode
+        ):
+            if STATIC_PLAYER_REFLECTIONS:
+                reflection = getattr(self, "rng", random).choice(STATIC_PLAYER_REFLECTIONS)
+            else:
+                reflection = (
+                    "The words offer a strange mix of judgment and hope."  # Ultimate fallback
+                )
+            self._print_color(
+                f'"{self._apply_verbosity(reflection)}"', Colors.DIM
+            )  # Static reflection in DIM
+        else:  # AI success
+            reflection = self._apply_verbosity(reflection)
+            self._print_color(f'"{reflection}"', Colors.CYAN)
+            self._remember_ai_output(reflection, "read_testament")
+
+        if player_character.name == "Rodion Raskolnikov":
+            player_character.apparent_state = getattr(self, "rng", random).choice(
+                ["contemplative", "remorseful", "thoughtful", "hopeful"]
+            )
+            player_character.add_player_memory(
+                memory_type="read_testament_sonya",
+                turn=self.game_time,
+                content={
+                    "summary": "Read from the New Testament, stirring deep thoughts of salvation and suffering."
+                },
+                sentiment_impact=0,
+            )
+        self.last_significant_event_summary = f"read from {item_to_use_name}."
+        return True
+
+    def _read_anonymous_note(self, item_to_use_name, item_obj_in_inventory):
+        player_character = self.player_character
+        if item_obj_in_inventory and "generated_content" in item_obj_in_inventory:
+            self._print_color(f"You read the {item_to_use_name}:", Colors.WHITE)
+            self._print_color(f"\"{item_obj_in_inventory['generated_content']}\"", Colors.CYAN)
+            player_character.add_journal_entry(
+                "Note",
+                item_obj_in_inventory["generated_content"],
+                self._get_current_game_time_period_str(),
+            )
+            self.last_significant_event_summary = f"read an {item_to_use_name}."
+            if (
+                "watch" in item_obj_in_inventory["generated_content"].lower()
+                or "know" in item_obj_in_inventory["generated_content"].lower()
+            ):
+                player_character.apparent_state = "paranoid"
+            return True
+        self._print_color(
+            f"The {item_to_use_name} seems to be blank or unreadable.",
+            Colors.RED,
+        )
+        return False
+
+    def _read_iou_slip(self, item_to_use_name, item_obj_in_inventory):
+        if item_obj_in_inventory and item_obj_in_inventory.get("content"):
+            self._print_color(
+                f"You examine the {item_to_use_name}: \"{item_obj_in_inventory['content']}\"",
+                Colors.YELLOW,
+            )
+        else:
+            self._print_color(
+                f"You look at the {item_to_use_name}. It's a formal-looking slip of paper.",
+                Colors.YELLOW,
+            )
+        self.last_significant_event_summary = f"read an {item_to_use_name}."
+        return True
+
+    def _read_student_book(self, item_to_use_name, item_props):
+        player_character = self.player_character
+        current_location_name = self.current_location_name or "Unknown Location"
+        book_reflection = None
+        if not self.low_ai_data_mode and self.gemini_api.model:
+            book_reflection = self.gemini_api.get_item_interaction_description(
+                player_character,
+                item_to_use_name,
+                item_props,
+                "read",
+                current_location_name,
+                self.world_manager.get_current_time_period(),
+            )
+
+        if (
+            not is_usable_ai_text(book_reflection)
+            or self.low_ai_data_mode
+        ):
+            book_reflection = generate_static_item_interaction_description(
+                item_to_use_name, "read", rng=getattr(self, "rng", random)
+            )
+            self._print_color(
+                f"You open the {item_to_use_name}. {book_reflection}", Colors.CYAN
+            )  # Static in Cyan
+        else:  # AI success
+            self._print_color(
+                f"You open the {item_to_use_name}. {book_reflection}", Colors.YELLOW
+            )
+
+        self.last_significant_event_summary = f"read from a {item_to_use_name}."
         return True
 
     def _handle_self_use_item(self, item_to_use_name, item_props, effect_key):

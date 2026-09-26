@@ -53,6 +53,11 @@ platform checks as passed on the strength of local macOS tests.
 
 ## Completed structural boundaries
 
+- `refactor: split readable-item handlers without changing story effects`: reading
+  dispatch delegates newspapers, letters, scripture, notes, IOUs and books to
+  focused methods. Eight seeded before/after snapshots compare return values,
+  exact rendered text, character state, event summaries and notoriety; all match.
+
 - `refactor: name command outcomes and isolate selected-item dispatch`: dispatch
   returns immutable named results, and the main loop branches on TurnOutcome.
   A tuple-compatible adapter preserves existing handler consumers. The selected
