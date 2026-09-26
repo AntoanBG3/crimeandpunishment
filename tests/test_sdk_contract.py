@@ -1,12 +1,38 @@
 """Exercise the actual installed SDK and serialization with an offline transport."""
 
+import json
+import os
+import tempfile
 import unittest
-from unittest.mock import MagicMock
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 import httpx
 from google import genai
 
-from game_engine.gemini_interactions import GeminiAPI, SetupResult, is_usable_ai_text
+from game_engine.gemini_interactions import (
+    DEFAULT_GEMINI_MODEL_NAME, GeminiAPI, SetupResult, is_usable_ai_text,
+)
+
+RETIRED_MODEL = 'gemini-3.1-pro-preview'
+
+
+def not_found(model):
+    """The service's reply for a model it does not serve, such as a retired preview."""
+    return httpx.Response(404, json={'error': {'code': 404, 'status': 'NOT_FOUND', 'message': (
+        f'models/{model} is not found for API version v1beta, '
+        'or is not supported for generateContent.')}})
+
+
+def requested_model(request):
+    return request.url.path.split('/models/')[1].split(':')[0]
+
+
+def serve_all_but_retired(request):
+    if requested_model(request) == RETIRED_MODEL:
+        return not_found(RETIRED_MODEL)
+    return httpx.Response(200, json={'candidates': [{'content': {
+        'role': 'model', 'parts': [{'text': 'test'}]}, 'finishReason': 'STOP'}]})
 
 
 class TestSDKContract(unittest.TestCase):
@@ -92,6 +118,7 @@ class TestSDKContract(unittest.TestCase):
             'offline': (httpx.ConnectError('offline'), SetupResult.FAILED),
             'quota': (error(429, 'RESOURCE_EXHAUSTED', 'Quota exceeded.'), SetupResult.FAILED),
             'outage': (error(503, 'UNAVAILABLE', 'The model is overloaded.'), SetupResult.FAILED),
+            'retired model': (not_found(RETIRED_MODEL), SetupResult.MODEL_UNAVAILABLE),
         }
         for name, (outcome, expected) in cases.items():
             with self.subTest(name):
@@ -101,6 +128,69 @@ class TestSDKContract(unittest.TestCase):
                 self.assertIs(api._attempt_api_setup('offline-key', 'test', 'test-model'), expected)
                 self.assertEqual(handler.call_count, 1)
                 self.assertIsNone(api.client)
+
+    def configure_saved_model(self, model, handler, *, tty, answers=()):
+        """Run configure() with a gemini_config.json that names ``model``."""
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.config_path = os.path.join(directory.name, 'gemini_config.json')
+        with open(self.config_path, 'w', encoding='utf-8') as f:
+            json.dump({'gemini_api_key': 'offline-key', 'chosen_model_name': model}, f)
+        api = self.make_api(handler)
+        read_line = MagicMock(side_effect=list(answers))
+        with patch('game_engine.gemini_interactions.API_CONFIG_FILE', self.config_path), \
+                patch.dict(os.environ, {'GEMINI_API_KEY': ''}), \
+                patch('sys.stdin.isatty', return_value=tty):
+            result = api.configure(api._print_color_func, read_line)
+        with open(self.config_path, encoding='utf-8') as f:
+            saved = json.load(f)
+        return SimpleNamespace(
+            api=api, result=result, saved=saved, answers=read_line,
+            files=os.listdir(directory.name),
+            requested=[requested_model(call.args[0]) for call in handler.call_args_list])
+
+    def test_unavailable_saved_model_falls_back_to_the_default(self):
+        handler = MagicMock(side_effect=serve_all_but_retired)
+        run = self.configure_saved_model(RETIRED_MODEL, handler, tty=False, answers=['n'])
+        self.assertEqual(run.result, {'api_configured': True, 'low_ai_preference': False})
+        self.assertEqual(run.requested, [RETIRED_MODEL, DEFAULT_GEMINI_MODEL_NAME])
+        self.assertEqual(run.api.model.model_name, DEFAULT_GEMINI_MODEL_NAME)
+        # The key stays, and the model that works replaces the retired one.
+        self.assertEqual(run.files, ['gemini_config.json'])
+        self.assertEqual(run.saved, {'gemini_api_key': 'offline-key',
+                                     'chosen_model_name': DEFAULT_GEMINI_MODEL_NAME})
+        run.answers.assert_called_once()  # Only the Low AI prompt.
+
+    def test_unavailable_saved_model_offers_the_model_menu_on_a_terminal(self):
+        handler = MagicMock(side_effect=serve_all_but_retired)
+        run = self.configure_saved_model(RETIRED_MODEL, handler, tty=True, answers=['3', 'n'])
+        self.assertEqual(run.result, {'api_configured': True, 'low_ai_preference': False})
+        self.assertIn('Enter your choice', run.answers.call_args_list[0].args[0])
+        self.assertEqual(run.requested, [RETIRED_MODEL, 'gemini-3.1-flash-lite'])
+        self.assertEqual(run.saved['chosen_model_name'], 'gemini-3.1-flash-lite')
+
+    def test_replacement_model_is_saved_before_the_low_ai_prompt(self):
+        handler = MagicMock(side_effect=serve_all_but_retired)
+        with self.assertRaises(EOFError):
+            self.configure_saved_model(RETIRED_MODEL, handler, tty=False, answers=[EOFError])
+        with open(self.config_path, encoding='utf-8') as f:
+            self.assertEqual(json.load(f)['chosen_model_name'], DEFAULT_GEMINI_MODEL_NAME)
+
+    def test_saved_key_is_kept_when_no_model_is_available(self):
+        # Without a terminal, the default is the only other model to try.
+        for saved_model, requested in (
+            (RETIRED_MODEL, [RETIRED_MODEL, DEFAULT_GEMINI_MODEL_NAME]),
+            (DEFAULT_GEMINI_MODEL_NAME, [DEFAULT_GEMINI_MODEL_NAME]),
+        ):
+            with self.subTest(saved_model=saved_model):
+                handler = MagicMock(side_effect=lambda request: not_found(requested_model(request)))
+                run = self.configure_saved_model(saved_model, handler, tty=False)
+                self.assertEqual(run.result, {'api_configured': False, 'low_ai_preference': False})
+                self.assertEqual(run.requested, requested)
+                self.assertIsNone(run.api.model)
+                self.assertEqual(run.files, ['gemini_config.json'])
+                self.assertEqual(run.saved['chosen_model_name'], saved_model)
+                run.answers.assert_not_called()
 
     def test_transport_timeout_falls_back(self):
         api = self.make_api(MagicMock(side_effect=httpx.ReadTimeout('private-response')))

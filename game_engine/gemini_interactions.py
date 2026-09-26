@@ -145,12 +145,15 @@ class SetupResult(Enum):
     """Outcome of verifying an API key; only VERIFIED is truthy.
 
     AUTH_FAILED means the service rejected the key or its permissions, so a saved
-    copy would fail again. FAILED covers everything else (no network, timeouts,
-    SDK errors), where the key itself may still be valid.
+    copy would fail again. MODEL_UNAVAILABLE means the service does not serve the
+    requested model (404 NOT_FOUND, e.g. a retired preview or a typo), so the key
+    may work with another model. FAILED covers everything else (no network,
+    timeouts, SDK errors), where the key itself may still be valid.
     """
 
     VERIFIED = "verified"
     AUTH_FAILED = "auth_failed"
+    MODEL_UNAVAILABLE = "model_unavailable"
     FAILED = "failed"
 
     def __bool__(self):
@@ -359,18 +362,31 @@ class GeminiAPI:
             is_auth_error = grpc_permission_denied or any(
                 keyword in error_str for keyword in auth_keywords
             )
+            # The SDK's APIError carries the HTTP code and status of the reply.
+            is_model_missing = (
+                getattr(e_test, "code", None) == 404
+                or getattr(e_test, "status", None) == "NOT_FOUND"
+            )
             if is_auth_error:
+                result = SetupResult.AUTH_FAILED
                 self._print_color_func(
                     f"The API key from '{source}' appears invalid or lacks permissions for model '{model_to_use}'/region.",
                     Colors.RED,
                 )
+            elif is_model_missing:
+                result = SetupResult.MODEL_UNAVAILABLE
+                self._print_color_func(
+                    f"Model '{model_to_use}' was not found; it may be retired or misspelled.",
+                    Colors.YELLOW,
+                )
             else:
+                result = SetupResult.FAILED
                 self._print_color_func(
                     f"Unexpected error during verification with model '{model_to_use}'.",
                     Colors.YELLOW,
                 )
             self.close()
-            return SetupResult.AUTH_FAILED if is_auth_error else SetupResult.FAILED
+            return result
 
         self._print_color_func(
             f"API key from {source} verified successfully for model '{model_to_use}'.",
@@ -479,6 +495,24 @@ class GeminiAPI:
             return {"api_configured": False, "low_ai_preference": False}
         return None
 
+    def _retry_with_another_model(self, api_key, source, unavailable_model):
+        """Try the key again after the service reported ``unavailable_model`` missing.
+
+        A terminal offers the model menu, where Enter picks the default; otherwise
+        the default model is tried unless it is the model that failed.
+        """
+        if sys.stdin.isatty():
+            self._print_color_func("The API key is kept; choose another model.", Colors.YELLOW)
+            model = self._ask_for_model_selection()
+        elif unavailable_model != DEFAULT_GEMINI_MODEL_NAME:
+            model = DEFAULT_GEMINI_MODEL_NAME
+            self._print_color_func(
+                f"The API key is kept; trying the default model '{model}'.", Colors.YELLOW
+            )
+        else:
+            return SetupResult.MODEL_UNAVAILABLE
+        return self._attempt_api_setup(api_key, source, model)
+
     def _handle_config_file_key(self):
         if not os.path.exists(API_CONFIG_FILE):
             self._log_message(f"Config file '{API_CONFIG_FILE}' not found.", Colors.DIM)
@@ -514,10 +548,15 @@ class GeminiAPI:
         setup_result = self._attempt_api_setup(
             key_to_try, API_CONFIG_FILE, preferred_model_from_config
         )
+        if setup_result is SetupResult.MODEL_UNAVAILABLE:
+            setup_result = self._retry_with_another_model(
+                key_to_try, API_CONFIG_FILE, preferred_model_from_config
+            )
         if setup_result:
-            low_ai_pref = self._prompt_for_low_ai_mode()
+            # Save a replacement model before the prompt, so quitting there keeps it.
             if self.chosen_model_name != preferred_model_from_config:
                 self.save_api_key_to_file(key_to_try)
+            low_ai_pref = self._prompt_for_low_ai_mode()
             return {"api_configured": True, "low_ai_preference": low_ai_pref}
         if setup_result is SetupResult.AUTH_FAILED:
             self._rename_invalid_config_file(
