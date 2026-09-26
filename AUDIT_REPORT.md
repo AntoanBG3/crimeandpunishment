@@ -79,6 +79,14 @@ Inventory, dependencies, acceptance evidence and deferred work are maintained in
   Unicode directory. The sandbox semaphore restriction required an unsandboxed
   frozen smoke. Cross-platform results will be recorded separately.
 
+First CI run [36191659270](https://github.com/AntoanBG3/crimeandpunishment/actions/runs/36191659270)
+passed all six interpreter/OS test-and-soak jobs and the macOS/Linux frozen checks.
+The Windows executable built, but the smoke harness assumed UTF-8 while frozen
+Python emitted locale-encoded text. This was a harness decoding failure, not a
+demonstrated game crash. `fix: inspect frozen smoke markers without locale assumptions`
+adds a failing-then-passing real subprocess fixture emitting Windows-style bytes
+and checks ASCII markers directly. Windows revalidation is pending.
+
 ### R004 — Production AI behavior changes under test runners
 
 - **Category / severity / confidence:** Robustness / Medium / Confirmed.

@@ -220,17 +220,19 @@ async def tui(seed, actions):
 
 def console(binary=None):
     command = [str(binary)] if binary else [sys.executable, str(ROOT / 'main.py')]
-    result = subprocess.run(command + ['--no-tui'], input='\n1\nlook\nquit\nn\n',
-                            text=True, capture_output=True, timeout=30, check=False)
+    # Frozen Python can use the Windows locale even when the launcher uses UTF-8.
+    # Smoke markers are ASCII; inspect bytes without decoding unrelated prose.
+    result = subprocess.run(command + ['--no-tui'], input=b'\n1\nlook\nquit\nn\n',
+                            capture_output=True, timeout=30, check=False)
     assert result.returncode == 0, f'exit={result.returncode}; stderr={result.stderr}'
     for marker in ('Choose Your Character', "Raskolnikov's Garret", 'Exiting game. Goodbye.'):
-        assert marker in result.stdout, marker
-    eof = subprocess.run(command + ['--no-tui'], input='', text=True, capture_output=True,
+        assert marker.encode('ascii') in result.stdout, marker
+    eof = subprocess.run(command + ['--no-tui'], input=b'', capture_output=True,
                          timeout=30, check=False)
     assert eof.returncode == 0, eof.stderr
-    version = subprocess.run(command + ['--version'], text=True, capture_output=True,
+    version = subprocess.run(command + ['--version'], capture_output=True,
                              timeout=30, check=True)
-    assert 'Crime and Punishment ' in version.stdout
+    assert b'Crime and Punishment ' in version.stdout
     return {'exit_code': result.returncode, 'eof_exit_code': eof.returncode}
 
 

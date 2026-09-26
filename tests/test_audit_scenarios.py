@@ -4,7 +4,11 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import unittest
+from unittest.mock import patch
+
+from scripts import audit_scenarios
 
 
 SCENARIOS = Path(__file__).resolve().parents[1] / 'scripts' / 'audit_scenarios.py'
@@ -27,3 +31,15 @@ class TestAuditScenarios(unittest.TestCase):
 
     def test_seeded_engine_with_real_save_roundtrips(self):
         self.assertEqual(self.run_scenario('engine')['actions'], 100)
+
+    def test_frozen_smoke_accepts_windows_locale_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'main.py').write_text(
+                "import sys\n"
+                "sys.stdout.buffer.write(b\"Choose Your Character\\nRaskolnikov's Garret\\n"
+                "Exiting game. Goodbye.\\nCrime and Punishment 1.2.0\\n\\xb7\\n\")\n",
+                encoding='utf-8',
+            )
+            with patch.object(audit_scenarios, 'ROOT', root):
+                self.assertEqual(audit_scenarios.console()['exit_code'], 0)
