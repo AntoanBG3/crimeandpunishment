@@ -49,7 +49,7 @@
                     },
                     {
                         "stage_id": "engage_porfiry_intellectually",
-                        "description": "Test your theories and will against Porfiry Petrovich, attempting to outwit him.",
+                        "description": "The duel with Porfiry Petrovich has begun, and every evasion costs you. Seek out Sonya, whose faith may show you another way.",
                         "is_current_stage": false
                     },
                     {
@@ -96,12 +96,12 @@
                 "stages": [
                     {
                         "stage_id": "initial_validation",
-                        "description": "Internally justify your actions based on your theory.",
+                        "description": "Justify your actions by your theory, and test it against Porfiry Petrovich, who has read your article on crime.",
                         "is_current_stage": true
                     },
                     {
                         "stage_id": "challenged_by_reality",
-                        "description": "Confront the human cost and psychological toll, questioning the theory's basis.",
+                        "description": "Confront the human cost and psychological toll, and measure the theory against Sonya's faith.",
                         "is_current_stage": false
                     },
                     {
@@ -129,12 +129,12 @@
                 "stages": [
                     {
                         "stage_id": "learn_of_arrival",
-                        "description": "React to the news of your mother and sister's arrival and Dunya's engagement.",
+                        "description": "React to the news of your mother and sister's arrival and Dunya's engagement: confront Pyotr Petrovich Luzhin over his intentions towards her.",
                         "is_current_stage": true
                     },
                     {
                         "stage_id": "confront_luzhin",
-                        "description": "Confront Pyotr Petrovich Luzhin over his intentions towards Dunya.",
+                        "description": "Luzhin's intentions are laid bare, but Dunya has another pursuer. Find out what Arkady Svidrigailov wants with her.",
                         "is_current_stage": false
                     },
                     {
@@ -323,15 +323,15 @@
                 "stages": [
                     {
                         "stage_id": "initial_suspicion",
-                        "description": "Observe Raskolnikov and gather preliminary impressions."
+                        "description": "Draw Raskolnikov into conversation and gather preliminary impressions."
                     },
                     {
                         "stage_id": "psychological_probes",
-                        "description": "Engage Raskolnikov in conversations designed to test his guilt and theories."
+                        "description": "Test Raskolnikov's guilt and theories with pointed arguments, persuading him that you understand his mind."
                     },
                     {
                         "stage_id": "closing_the_net",
-                        "description": "Subtly reveal the strength of the evidence or understanding of Raskolnikov's mind."
+                        "description": "Subtly reveal the strength of the evidence, and persuade Raskolnikov that confession is his only way out."
                     },
                     {
                         "stage_id": "encourage_confession",
@@ -735,7 +735,7 @@
         "schedule": {
             "Morning": "Katerina Ivanovna's Apartment",
             "Afternoon": "Katerina Ivanovna's Apartment",
-            "Evening": "Katerina Ivanovna's Apartment",
+            "Evening": "Haymarket Square",
             "Night": "Katerina Ivanovna's Apartment"
         },
         "apparent_state": "feverish and agitated",

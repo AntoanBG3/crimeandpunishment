@@ -120,6 +120,19 @@ def travel(game, destination):
     raise AssertionError(f'No route to {destination}')
 
 
+def retry_until_advanced(game, text, attempts=20):
+    """Repeat a command, as a player would, until the main objective moves on."""
+    from game_engine.objective_progression import MAIN_OBJECTIVE_BY_CHARACTER
+
+    objective = MAIN_OBJECTIVE_BY_CHARACTER[game.player_character.name]
+    before = game.player_character.get_current_stage_for_objective(objective)['stage_id']
+    for _ in range(attempts):
+        execute(game, text)
+        if game.player_character.get_current_stage_for_objective(objective)['stage_id'] != before:
+            return
+    raise AssertionError(f'{text!r} never advanced {objective} past {before}')
+
+
 def endings(seed):
     from game_engine.objective_progression import MAIN_OBJECTIVE_BY_CHARACTER
 
@@ -130,8 +143,9 @@ def endings(seed):
         travel(game, game.all_character_objects[target].current_location)
         execute(game, 'talk to ' + target)
         if name == 'Porfiry Petrovich':
-            execute(game, 'persuade Rodion that confession will help')
-            execute(game, 'persuade Rodion that confession will help')
+            # Only a successful Persuasion check advances; a failed one is retried.
+            retry_until_advanced(game, 'persuade Rodion that confession will help')
+            retry_until_advanced(game, 'persuade Rodion that confession will help')
         else:
             execute(game, 'talk to ' + target)
         if name == 'Sonya Marmeladova':

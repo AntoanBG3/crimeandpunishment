@@ -12,10 +12,13 @@ Design:
   (`MAIN_OBJECTIVE_BY_CHARACTER`). The game-ending check looks only at that
   objective, so completing a *secondary* objective that happens to carry an
   `is_ending_stage` does NOT end the story.
-- Intermediate stages advance one step per relevant interaction (talk / persuade /
-  give); the stage itself is the counter.
+- Intermediate stages advance one step per relevant interaction (talk / successful
+  persuasion / give); the stage itself is the counter. A failed persuasion check
+  advances nothing, so the player retries it.
 - Every *final* (ending) transition is gated behind the deliberate `confess`
   capstone act, so endings are earned rather than tripped during exploration.
+- NPCs never hand items back, so an item whose gift is a beat is kept for it:
+  `gift_refusal` refuses it to anyone but the beat's recipient, and before the beat.
 - `evaluate_player_progression` is null-safe and never raises; a failure here must
   not break the action that triggered it.
 """
@@ -46,6 +49,13 @@ _DUNYA = "Dunya Raskolnikova"
 def _npc_present(name):
     return lambda game: any(
         getattr(n, "name", None) == name
+        for n in getattr(game, "npcs_in_current_location", []) or []
+    )
+
+
+def _npc_carries(name, item):
+    return lambda game: any(
+        getattr(n, "name", None) == name and n.has_item(item)
         for n in getattr(game, "npcs_in_current_location", []) or []
     )
 
@@ -141,9 +151,16 @@ _RULES = {
         {"obj": "guide_raskolnikov", "from": "lazarus_reading", "event": "talk_to",
          "target": _RODION, "to": "offer_cross",
          "narrate": "You sense the moment has come to offer him your cypress cross."},
+        # The cross is kept for this beat; gift_refusal speaks these lines.
         {"obj": "guide_raskolnikov", "from": "offer_cross", "event": "give_item",
          "target": _CROSS, "secondary": _RODION, "to": "receive_confession",
+         "refuse_other": "You close your hand around the cypress cross. It is not yours to give away lightly; it is meant for one who must bear a heavier cross.",
+         "refuse_early": "You touch the cypress cross at your breast but leave it where it is. He is not ready to receive it. Not yet.",
          "narrate": "He takes the cross. The walls he built around himself begin to give way."},
+        # Saves from before gift_refusal can have the cross already in his hands.
+        {"obj": "guide_raskolnikov", "from": "offer_cross", "event": "talk_to",
+         "target": _RODION, "require": _npc_carries(_RODION, _CROSS), "to": "receive_confession",
+         "narrate": "He still carries the cypress cross you gave him. The walls he built around himself begin to give way."},
         # Capstone: resolve to follow him (Raskolnikov present).
         {"obj": "guide_raskolnikov", "from": "receive_confession", "event": "confess",
          "require": _npc_present(_RODION), "to": "follow_to_siberia",
@@ -233,6 +250,38 @@ def evaluate_player_progression(game, event, target=None, secondary=None):
             print(f"[DEBUG] evaluate_player_progression error (event={event!r}, target={target!r}): {exc}")
             traceback.print_exc()
         return False
+
+
+def gift_refusal(game, item_name, recipient_name):
+    """Return an in-character refusal when giving an item away would strand the story.
+
+    A give_item rule with refusal lines keeps its item for that beat: while the
+    objective is live, the item goes only to the rule's recipient, and only at the
+    rule's stage. Returns None when the gift may go ahead. Never raises.
+    """
+    try:
+        pc = getattr(game, "player_character", None)
+        if pc is None:
+            return None
+        for rule in _RULES.get(getattr(pc, "name", None)) or []:
+            if rule["event"] != "give_item" or "refuse_other" not in rule:
+                continue
+            if not _target_matches(rule["target"], item_name):
+                continue
+            obj = pc.get_objective_by_id(rule["obj"])
+            if not obj or not obj.get("active") or obj.get("completed"):
+                continue
+            if not _target_matches(rule.get("secondary"), recipient_name):
+                return rule["refuse_other"]
+            current = pc.get_current_stage_for_objective(rule["obj"])
+            if not current or current.get("stage_id") != rule["from"]:
+                return rule["refuse_early"]
+        return None
+    except Exception as exc:
+        # A guard failure must not block the give action that asked.
+        if DEBUG_LOGS:
+            print(f"[DEBUG] gift_refusal error (item={item_name!r}, recipient={recipient_name!r}): {exc}")
+        return None
 
 
 def validate_rules(characters_data, locations_data, items_data):

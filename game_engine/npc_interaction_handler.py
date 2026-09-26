@@ -396,7 +396,9 @@ class NPCInteractionHandler:
             f"attempted to persuade {target_npc.name} regarding '{statement_text[:30]}...'."
         )
         self._record_npc_post_interaction_memories(target_npc, "during persuasion attempt")
-        evaluate_player_progression(self, "persuade", target_npc.name)
+        # Only an argument that lands moves the story; a failed one can be retried.
+        if success:
+            evaluate_player_progression(self, "persuade", target_npc.name)
         return True, True
 
     def _handle_confess_command(self, argument=None):
