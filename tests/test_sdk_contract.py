@@ -11,10 +11,14 @@ import httpx
 from google import genai
 
 from game_engine.gemini_interactions import (
-    DEFAULT_GEMINI_MODEL_NAME, GeminiAPI, SetupResult, is_usable_ai_text,
+    DEFAULT_GEMINI_MODEL_NAME, INTENT_GEMINI_MODEL_NAME, GeminiAPI, NaturalLanguageParser,
+    SetupResult, is_usable_ai_text,
 )
 
 RETIRED_MODEL = 'gemini-3.1-pro-preview'
+TAVERN_SCENE = {'exits': [{'name': 'Tavern', 'description': 'a noisy tavern'}],
+                'items': [], 'npcs': [], 'inventory': []}
+MOVE_TO_TAVERN = {'intent': 'move', 'target': 'Tavern', 'confidence': 0.9}
 
 
 def not_found(model):
@@ -24,8 +28,22 @@ def not_found(model):
         'or is not supported for generateContent.')}})
 
 
+def api_error(code, status, message):
+    return httpx.Response(code, json={'error': {
+        'code': code, 'status': status, 'message': message}})
+
+
+def reply(text):
+    return httpx.Response(200, json={'candidates': [{'content': {
+        'role': 'model', 'parts': [{'text': text}]}, 'finishReason': 'STOP'}]})
+
+
 def requested_model(request):
     return request.url.path.split('/models/')[1].split(':')[0]
+
+
+def generation_config(request):
+    return json.loads(request.content).get('generationConfig', {})
 
 
 def serve_all_but_retired(request):
@@ -208,6 +226,85 @@ class TestSDKContract(unittest.TestCase):
                 self.assertEqual(run.files, ['gemini_config.json'])
                 self.assertEqual(run.saved['chosen_model_name'], saved_model)
                 run.answers.assert_not_called()
+
+    def verified_parser(self, handler, model=DEFAULT_GEMINI_MODEL_NAME):
+        """A parser for a key verified with ``model``, and the requests made after that."""
+        requests = []
+
+        def record(request):
+            requests.append(request)
+            return handler(request)
+
+        api = self.make_api(record)
+        self.assertIs(api._attempt_api_setup('offline-key', 'test', model), SetupResult.VERIFIED)
+        requests.clear()
+        return NaturalLanguageParser(api), requests
+
+    def test_intent_parser_asks_flash_lite_for_minimal_thinking(self):
+        parser, requests = self.verified_parser(lambda request: reply(json.dumps(MOVE_TO_TAVERN)))
+        self.assertEqual(parser.parse_player_intent('walk over to the tavern', TAVERN_SCENE),
+                         MOVE_TO_TAVERN)
+        self.assertEqual([requested_model(r) for r in requests], [INTENT_GEMINI_MODEL_NAME])
+        config = generation_config(requests[0])
+        self.assertEqual(config['maxOutputTokens'], NaturalLanguageParser.INTENT_MAX_OUTPUT_TOKENS)
+        self.assertEqual(list(config['thinkingConfig'].values()), ['MINIMAL'])
+
+    def test_intent_parser_falls_back_to_the_verified_model(self):
+        failures = {
+            'not served': not_found(INTENT_GEMINI_MODEL_NAME),
+            'no permission': api_error(403, 'PERMISSION_DENIED', 'Permission denied.'),
+            'settings rejected': api_error(400, 'INVALID_ARGUMENT', 'Thinking not supported.'),
+            'cut off while thinking': httpx.Response(200, json={
+                'candidates': [{'content': {}, 'finishReason': 'MAX_TOKENS'}],
+                'usageMetadata': {'thoughtsTokenCount': 1024}}),
+            'offline': httpx.ConnectError('offline'),
+        }
+        for name, failure in failures.items():
+            with self.subTest(name):
+                def respond(request, failure=failure):
+                    if requested_model(request) != INTENT_GEMINI_MODEL_NAME:
+                        return reply(json.dumps(MOVE_TO_TAVERN))
+                    if isinstance(failure, Exception):
+                        raise failure
+                    return failure
+
+                parser, requests = self.verified_parser(respond)
+                for words in ('walk over to the tavern', 'head for the tavern'):
+                    parsed = parser.parse_player_intent(words, TAVERN_SCENE)
+                    self.assertEqual(parsed, MOVE_TO_TAVERN)
+                # Flash-Lite fails once; later inputs go straight to the verified model.
+                self.assertEqual([requested_model(r) for r in requests], [
+                    INTENT_GEMINI_MODEL_NAME, DEFAULT_GEMINI_MODEL_NAME, DEFAULT_GEMINI_MODEL_NAME])
+                fallback = generation_config(requests[1])
+                self.assertNotIn('thinkingConfig', fallback)
+                self.assertEqual(fallback['maxOutputTokens'],
+                                 NaturalLanguageParser.INTENT_MAX_OUTPUT_TOKENS)
+
+    def test_rejected_thinking_setting_retries_flash_lite_without_it(self):
+        # A key verified with Flash-Lite falls back to that same model, left on its defaults.
+        def respond(request):
+            if 'thinkingConfig' in generation_config(request):
+                return api_error(400, 'INVALID_ARGUMENT', 'Thinking level not supported.')
+            return reply(json.dumps(MOVE_TO_TAVERN))
+
+        parser, requests = self.verified_parser(respond, model=INTENT_GEMINI_MODEL_NAME)
+        self.assertEqual(parser.parse_player_intent('walk over to the tavern', TAVERN_SCENE),
+                         MOVE_TO_TAVERN)
+        self.assertEqual([requested_model(r) for r in requests], [INTENT_GEMINI_MODEL_NAME] * 2)
+
+    def test_intent_parser_gives_up_when_both_models_fail(self):
+        calls = []
+
+        def respond(request):
+            # Only the verification call succeeds.
+            calls.append(request)
+            return reply('test') if len(calls) == 1 else not_found(requested_model(request))
+
+        parser, requests = self.verified_parser(respond)
+        self.assertEqual(parser.parse_player_intent('walk over to the tavern', TAVERN_SCENE),
+                         {'intent': 'unknown', 'target': '', 'confidence': 0.0})
+        self.assertEqual([requested_model(r) for r in requests],
+                         [INTENT_GEMINI_MODEL_NAME, DEFAULT_GEMINI_MODEL_NAME])
 
     def test_transport_timeout_falls_back(self):
         api = self.make_api(MagicMock(side_effect=httpx.ReadTimeout('private-response')))

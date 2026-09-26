@@ -15,6 +15,8 @@ from .game_config import Colors
 API_CONFIG_FILE = "gemini_config.json"
 GEMINI_API_KEY_ENV_VAR = "GEMINI_API_KEY"
 DEFAULT_GEMINI_MODEL_NAME = "gemini-3.8-flash"
+# Free-form input becomes a one-line JSON intent; a small, fast model suits that.
+INTENT_GEMINI_MODEL_NAME = "gemini-3.5-flash-lite"
 
 
 def _summarize_api_error(error, max_length=200):
@@ -48,16 +50,26 @@ def is_usable_ai_text(text):
 
 
 class NaturalLanguageParser:
-    """Translate free-form player input into structured game intents."""
+    """Translate free-form player input into structured game intents.
+
+    Intents come from INTENT_GEMINI_MODEL_NAME with minimal thinking requested:
+    thought tokens count against max_output_tokens, so a reply that thinks can stop
+    before any JSON. If that model fails or says nothing, the model the key was
+    verified with is tried once, and the intent model is skipped from then on.
+    """
 
     INTENT_SCHEMA = {
         "intent": ["move", "take", "examine", "talk", "unknown"],
         "target": "string",
         "confidence": "float (0-1)",
     }
+    # Far above the one-line reply: minimal thinking can still spend some tokens,
+    # and the fallback model thinks at its own default level.
+    INTENT_MAX_OUTPUT_TOKENS = 1024
 
     def __init__(self, gemini_api):
         self.gemini_api = gemini_api
+        self._intent_model_failed = False
 
     def _contains_unsafe_request(self, input_text):
         lowered = input_text.lower()
@@ -72,15 +84,37 @@ class NaturalLanguageParser:
         ]
         return any(phrase in lowered for phrase in unsafe_phrases)
 
-    def _select_intent_model(self):
-        if not self.gemini_api._load_genai() or not self.gemini_api.client:
-            return self.gemini_api.model
+    @staticmethod
+    def _reply_text(model, prompt, generation_config):
+        """The reply's text, or None when the call fails or produces none."""
         try:
-            return self.gemini_api._GeminiModelAdapter(
-                self.gemini_api.client, DEFAULT_GEMINI_MODEL_NAME
+            text = getattr(
+                model.generate_content(prompt, generation_config=generation_config), "text", None
             )
         except Exception:
-            return self.gemini_api.model
+            return None
+        return text if is_usable_ai_text(text) else None
+
+    def _request_intent_text(self, prompt):
+        config = {
+            "candidate_count": 1,
+            "max_output_tokens": self.INTENT_MAX_OUTPUT_TOKENS,
+            "temperature": 0.1,
+        }
+        with self.gemini_api.terminal.status("The city holds its breath…"):
+            if self.gemini_api.client and not self._intent_model_failed:
+                intent_model = self.gemini_api._GeminiModelAdapter(
+                    self.gemini_api.client, INTENT_GEMINI_MODEL_NAME
+                )
+                minimal_thinking = {"thinking_config": {"thinking_level": "MINIMAL"}}
+                text = self._reply_text(intent_model, prompt, {**config, **minimal_thinking})
+                if text is not None:
+                    return text
+                # Unavailable to this key, rejected the settings or said nothing:
+                # later inputs go straight to the verified model.
+                self._intent_model_failed = True
+            # No thinking setting here: the levels a model accepts vary by model.
+            return self._reply_text(self.gemini_api.model, prompt, config)
 
     def parse_player_intent(self, input_text, current_context):
         default_response = {"intent": "unknown", "target": "", "confidence": 0.0}
@@ -123,22 +157,8 @@ class NaturalLanguageParser:
             f'Player input: "{sanitized_input}"\n'
         )
 
-        model = self._select_intent_model()
-        try:
-            with self.gemini_api.terminal.status("The city holds its breath…"):
-                response = model.generate_content(
-                    prompt,
-                    generation_config={
-                        "candidate_count": 1,
-                        "max_output_tokens": 120,
-                        "temperature": 0.1,
-                    },
-                )
-        except Exception:
-            return default_response
-
-        raw_text = getattr(response, "text", None)
-        if not is_usable_ai_text(raw_text):
+        raw_text = self._request_intent_text(prompt)
+        if raw_text is None:
             return default_response
         payload = self.gemini_api._extract_json_payload(raw_text)
         if not isinstance(payload, dict):
