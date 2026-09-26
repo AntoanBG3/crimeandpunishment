@@ -168,6 +168,29 @@ class TestObjectiveReachability(unittest.TestCase):
         self.assertTrue(action)
         self.assertEqual(self._stage("grapple_with_crime"), "seek_sonya")
 
+    def test_only_successful_persuasion_advances(self):
+        # A failed Persuasion check is narrated as a failure and leaves the stage
+        # for a retry; only a success tightens the net.
+        self._set("Porfiry Petrovich", [self._npc("Rodion Raskolnikov")], "Raskolnikov's Garret")
+        self.game.gemini_api.model = None  # use placeholder dialogue, no network
+        pc = self.game.player_character
+        with patch.object(self.game, "_print_narrative") as narrative, \
+                patch.object(self.game, "_print_dialogue"):
+            evaluate_player_progression(self.game, "talk_to", "Rodion Raskolnikov")
+            self.assertEqual(self._stage("solve_murders"), "psychological_probes")
+            narrative.reset_mock()
+            with patch.object(pc, "check_skill", return_value=False):
+                result = self.game._handle_persuade_command(("Rodion", "confession will help"))
+            self.assertEqual(result, (True, True))
+            self.assertEqual(self._stage("solve_murders"), "psychological_probes")
+            narrative.assert_not_called()
+            printed = " ".join(str(call.args[0]) for call in self.mock_print.call_args_list)
+            self.assertIn("Your words don't seem to convince Rodion Raskolnikov", printed)
+            with patch.object(pc, "check_skill", return_value=True):
+                self.game._handle_persuade_command(("Rodion", "confession will help"))
+        self.assertEqual(self._stage("solve_murders"), "closing_the_net")
+        self.assertIn("The net draws tighter", narrative.call_args.args[0])
+
 
 class TestSonyaCrossBeat(unittest.TestCase):
     """Sonya's arc turns on giving her cross, and NPCs never hand items back."""

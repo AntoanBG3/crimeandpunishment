@@ -12,8 +12,9 @@ Design:
   (`MAIN_OBJECTIVE_BY_CHARACTER`). The game-ending check looks only at that
   objective, so completing a *secondary* objective that happens to carry an
   `is_ending_stage` does NOT end the story.
-- Intermediate stages advance one step per relevant interaction (talk / persuade /
-  give); the stage itself is the counter.
+- Intermediate stages advance one step per relevant interaction (talk / successful
+  persuasion / give); the stage itself is the counter. A failed persuasion check
+  advances nothing, so the player retries it.
 - Every *final* (ending) transition is gated behind the deliberate `confess`
   capstone act, so endings are earned rather than tripped during exploration.
 - NPCs never hand items back, so an item whose gift is a beat is kept for it:
