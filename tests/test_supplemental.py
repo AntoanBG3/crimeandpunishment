@@ -315,7 +315,7 @@ def test_game_state_save_load_and_initialize_edge_paths(tmp_path):
     bad_save.write_text("{bad-json")
     with patch("game_engine.game_state.SAVE_GAME_FILE", str(bad_save)):
         assert game.load_game() is False
-    assert game.player_character is None
+    assert game.player_character is character
 
     game = Game()
     game._print_color = MagicMock()
@@ -694,7 +694,8 @@ def test_event_manager_fallback_edge_paths():
     )
     manager = EventManager(game)
     manager.action_find_anonymous_note()
-    assert "found an anonymous warning note." not in str(game.last_significant_event_summary)
+    assert "found an anonymous warning note." in str(game.last_significant_event_summary)
+    assert game.dynamic_location_items[game.current_location_name][-1]["generated_content"].strip()
 
     game.current_location_name = "Haymarket Square"
     with patch("game_engine.event_manager.STATIC_STREET_LIFE_EVENTS", []):

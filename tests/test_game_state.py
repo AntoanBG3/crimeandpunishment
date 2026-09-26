@@ -14,6 +14,9 @@ from game_engine.game_config import Colors, TIME_UNITS_PER_PLAYER_ACTION  # noqa
 
 class TestGameState(unittest.TestCase):
     def setUp(self):
+        location_patch = patch.dict("game_engine.game_state.LOCATIONS_DATA", {"start_location": {}})
+        location_patch.start()
+        self.addCleanup(location_patch.stop)
         self.game = Game()
         self.game.player_character = Character(
             "Test Player",

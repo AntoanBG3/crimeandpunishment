@@ -38,13 +38,13 @@ STATIC_NEWSPAPER_SNIPPETS = [
 ]
 
 
-def generate_static_scenery_observation(scenery_noun_phrase):
+def generate_static_scenery_observation(scenery_noun_phrase, rng=random):
     options = [
         f"You observe the {scenery_noun_phrase}. It is as it seems.",
         f"The {scenery_noun_phrase} is unremarkable.",
         f"You find nothing special about the {scenery_noun_phrase}.",
     ]
-    return random.choice(options)
+    return rng.choice(options)
 
 
 STATIC_STREET_LIFE_EVENTS = [
@@ -76,12 +76,12 @@ STATIC_PLAYER_REFLECTIONS = [
 ]
 
 
-def generate_static_item_interaction_description(item_name, action_type):
+def generate_static_item_interaction_description(item_name, action_type, rng=random):
     options = [
         f"You {action_type} the {item_name} for a moment, but no special insight comes to mind.",
         f"You handle the {item_name}, but it seems ordinary under your {action_type}.",
     ]
-    return random.choice(options)
+    return rng.choice(options)
 
 
 STATIC_ANONYMOUS_NOTE_CONTENT = "They know. Watched at every turn. The old woman is not the only ghost that haunts these streets. Burn this."

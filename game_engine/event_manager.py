@@ -1,5 +1,6 @@
 # event_manager.py
 import random
+from .gemini_interactions import is_usable_ai_text
 from .game_config import (
     Colors,
     DEFAULT_ITEMS,
@@ -96,7 +97,7 @@ class EventManager:
             and katerina.current_location == "Haymarket Square"
             and self.game.current_location_name == "Haymarket Square"
             and self.game.world_manager.get_current_time_period() in ["Afternoon", "Evening"]
-            and random.random() < 0.10  # Reduced chance
+            and getattr(self.game, "rng", random).random() < 0.10  # Reduced chance
             and "katerina_ivanovna_public_lament_recent" not in self.triggered_events
         )
 
@@ -108,7 +109,7 @@ class EventManager:
             and self.game.player_notoriety_level >= 1.5
             and self.game.current_location_name
             in ["Raskolnikov's Garret", "Stairwell (Outside Raskolnikov's Garret)"]
-            and random.random() < 0.25  # Not too common
+            and getattr(self.game, "rng", random).random() < 0.25  # Not too common
             and "find_anonymous_warning_note" not in self.triggered_events
         )
 
@@ -169,7 +170,7 @@ class EventManager:
             self.game._print_color("This news weighs heavily on your mind.", Colors.YELLOW)
 
             # --- Enhanced emotional impact ---
-            self.game.player_character.apparent_state = random.choice(
+            self.game.player_character.apparent_state = getattr(self.game, "rng", random).choice(
                 ["agitated", "burdened", "thoughtful"]
             )
             self.game._print_color(
@@ -199,12 +200,11 @@ class EventManager:
                 )
 
             if (
-                reflection_text is None
-                or (isinstance(reflection_text, str) and reflection_text.startswith("(OOC:"))
+                not is_usable_ai_text(reflection_text)
                 or self.game.low_ai_data_mode
             ):
                 if STATIC_PLAYER_REFLECTIONS:
-                    reflection_text = random.choice(STATIC_PLAYER_REFLECTIONS)
+                    reflection_text = getattr(self.game, "rng", random).choice(STATIC_PLAYER_REFLECTIONS)
                 else:
                     reflection_text = "Your mind is a whirl of conflicting emotions and calculations."  # Ultimate fallback
                 self.game._print_color(
@@ -260,8 +260,7 @@ class EventManager:
             )
 
         if (
-            note_text is None
-            or (isinstance(note_text, str) and note_text.startswith("(OOC:"))
+            not is_usable_ai_text(note_text)
             or self.game.low_ai_data_mode
         ):
             note_text = STATIC_ANONYMOUS_NOTE_CONTENT  # Direct use of the static string
@@ -319,7 +318,7 @@ class EventManager:
     def trigger_street_life_haymarket(self):
         return (
             self.game.current_location_name == "Haymarket Square"
-            and random.random() < 0.10
+            and getattr(self.game, "rng", random).random() < 0.10
             and "street_life_haymarket_recent" not in self.triggered_events
         )
 
@@ -337,12 +336,11 @@ class EventManager:
             )
 
         if (
-            description is None
-            or (isinstance(description, str) and description.startswith("(OOC:"))
+            not is_usable_ai_text(description)
             or self.game.low_ai_data_mode
         ):
             if STATIC_STREET_LIFE_EVENTS:
-                description = random.choice(STATIC_STREET_LIFE_EVENTS)
+                description = getattr(self.game, "rng", random).choice(STATIC_STREET_LIFE_EVENTS)
             else:
                 description = "The usual hustle and bustle of the Haymarket continues around you."  # Ultimate fallback
             # Print static description, perhaps with a different color or note
@@ -437,12 +435,11 @@ class EventManager:
                 )
 
             if (
-                interaction_text is None
-                or (isinstance(interaction_text, str) and interaction_text.startswith("(OOC:"))
+                not is_usable_ai_text(interaction_text)
                 or self.game.low_ai_data_mode
             ):
                 if STATIC_NPC_NPC_INTERACTIONS:
-                    interaction_text = random.choice(STATIC_NPC_NPC_INTERACTIONS)
+                    interaction_text = getattr(self.game, "rng", random).choice(STATIC_NPC_NPC_INTERACTIONS)
                 else:
                     interaction_text = f"{npc1.name} and {npc2.name} exchange a few quiet words."  # Ultimate fallback
                 # No specific color change for static here, just print it like AI would have.

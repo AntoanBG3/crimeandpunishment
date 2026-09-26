@@ -242,6 +242,24 @@ class TestTextualApp(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(transcript, ["look"])
         self.assertIsNone(terminal.get_backend())
 
+    async def test_section_heading_uses_available_terminal_width(self):
+        from rich.rule import Rule
+        from game_engine.tui_app import CrimeAndPunishmentApp
+
+        def stub_game():
+            terminal.write_renderable(Rule("Choose Your Character"))
+            terminal.read_line("> ")
+
+        app = CrimeAndPunishmentApp(game_runner=stub_game)
+        async with app.run_test(size=(100, 30)) as pilot:
+            await pilot.pause(0.2)
+            rendered = "\n".join(str(line) for line in app.query_one("RichLog").lines)
+            self.assertIn("Choose Your Character", rendered)
+            await pilot.resize_terminal(40, 15)
+            app.write_log(Rule("Crime and Punishment"))
+            rendered = "\n".join(str(line) for line in app.query_one("RichLog").lines)
+            self.assertIn("Crime and Punishment", rendered)
+
     async def test_quit_sentinel_unblocks_game_thread(self):
         from game_engine.tui_app import CrimeAndPunishmentApp
 
@@ -264,15 +282,15 @@ class TestTextualApp(unittest.IsolatedAsyncioTestCase):
         from game_engine.completion import GameCompleter
         from game_engine.tui_app import CrimeAndPunishmentApp
 
-        terminal.set_completer_provider(
+        provider = (
             lambda: GameCompleter(lambda: {"items": ["apple", "axe"]})
         )
-        self.addCleanup(terminal.set_completer_provider, None)
 
         def stub_game():
             terminal.read_line("> ")  # park; completion stays enabled
 
         app = CrimeAndPunishmentApp(game_runner=stub_game)
+        app.terminal.set_completer_provider(provider)
         async with app.run_test() as pilot:
             await pilot.pause(0.2)
             command_input = app.query_one("CommandInput")
@@ -292,15 +310,15 @@ class TestTextualApp(unittest.IsolatedAsyncioTestCase):
         from game_engine.completion import GameCompleter
         from game_engine.tui_app import CrimeAndPunishmentApp
 
-        terminal.set_completer_provider(
+        provider = (
             lambda: GameCompleter(lambda: {"items": ["apple"]})
         )
-        self.addCleanup(terminal.set_completer_provider, None)
 
         def stub_game():
             terminal.read_line("You: ", completion=False)  # dialogue mode
 
         app = CrimeAndPunishmentApp(game_runner=stub_game)
+        app.terminal.set_completer_provider(provider)
         async with app.run_test() as pilot:
             await pilot.pause(0.2)
             command_input = app.query_one("CommandInput")

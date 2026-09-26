@@ -23,11 +23,15 @@ _ARGUMENT_POOLS = {
     "give": ("inventory",),
     "take": ("items",),
     "drop": ("inventory",),
-    "read": ("inventory", "items"),
+    "read": ("inventory",),
     "use": ("inventory",),
-    "look": ("items", "npcs"),
+    "look": ("items", "npcs", "inventory"),
     "move to": ("exits",),
 }
+
+# Connective words _handle_look_command strips before matching ('look at X').
+# They stay in the input; only the text after them is completed.
+_LOOK_CONNECTIVES = ("at the ", "at ", "the ")
 
 
 def _command_words():
@@ -64,6 +68,11 @@ def completion_candidates(text_before_cursor, context):
     for word, canonical in words:
         if text.startswith(word + " "):
             partial = text[len(word) + 1:]
+            if canonical == "look":
+                for connective in _LOOK_CONNECTIVES:
+                    if partial.startswith(connective):
+                        partial = partial[len(connective):]
+                        break
             return [
                 (candidate, -len(partial))
                 for candidate in _argument_candidates(context, canonical)

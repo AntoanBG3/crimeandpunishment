@@ -1,5 +1,6 @@
 # main.py
 import importlib.util
+import errno
 import os
 import sys
 
@@ -18,10 +19,24 @@ if not _package_available("google.genai"):
     print("\n[WARNING] 'google-genai' package is not installed.")
     print("[WARNING] The game will run in fallback deterministic mode without AI features.\n")
 
-# The shipped default UI. The Textual TUI is the default since the parity
-# work in docs/TUI_PARITY_PLAN.md landed; --no-tui / CRIME_TUI=0 opts out,
+# The shipped default UI. --no-tui / CRIME_TUI=0 opts out,
 # and any non-TTY stream still gets the classic console automatically.
 DEFAULT_MODE = "tui"
+
+
+def _closed_output_pipe(error):
+    """Windows may report EINVAL for a pipe whose reader has closed."""
+    if isinstance(error, BrokenPipeError):
+        return True
+    if sys.platform != 'win32' or not isinstance(error, OSError) or error.errno != errno.EINVAL:
+        return False
+    if sys.stdout.isatty():
+        return False
+    try:
+        sys.stdout.flush()
+    except OSError as flush_error:
+        return flush_error.errno in (errno.EINVAL, errno.EPIPE)
+    return False
 
 
 def choose_mode(argv=None, environ=None):
@@ -54,21 +69,37 @@ def choose_mode(argv=None, environ=None):
     return "tui"
 
 
-if __name__ == "__main__":
+def main():
+    """Run either interface with a process-level diagnostic boundary."""
     if "--version" in sys.argv:
         from game_engine.game_config import GAME_VERSION
 
         print(f"Crime and Punishment {GAME_VERSION}")
-        raise SystemExit(0)
+        return 0
     if choose_mode() == "tui":
         from game_engine.tui_app import run_tui
 
-        run_tui()
-        raise SystemExit(0)
+        return run_tui()
     from game_engine.game_state import Game
+    from game_engine.terminal import TerminalSession
 
-    game_instance = Game()
+    with TerminalSession().activate():
+        Game().run()
+    return 0
+
+
+if __name__ == "__main__":
     try:
-        game_instance.run()
+        raise SystemExit(main())
     except (KeyboardInterrupt, EOFError):
         print("\nFarewell. St. Petersburg will wait.")
+    except Exception as error:
+        if _closed_output_pipe(error):
+            # Redirect final interpreter flush too: the reader has closed stdout.
+            with open(os.devnull, "w", encoding="utf-8") as sink:
+                os.dup2(sink.fileno(), sys.stdout.fileno())
+            raise SystemExit(0) from None
+        from game_engine.diagnostics import failure_message, record_failure
+
+        print(failure_message(error, record_failure(error)), file=sys.stderr)
+        raise SystemExit(1) from None

@@ -18,32 +18,34 @@ from .gemini_interactions import is_usable_ai_text
 class DisplayMixin:
     """Mixin providing all display, output, and UI-related methods."""
 
+    terminal = terminal
+
     def _print_color(self, text, color_code, end="\n"):
-        terminal.write_line(f"{color_code}{text}{Colors.RESET}", end=end)
+        self.terminal.write_line(f"{color_code}{text}{Colors.RESET}", end=end)
 
     def _input_color(self, prompt_text, color_code, completion=True, secret=False):
-        return terminal.read_line(
+        return self.terminal.read_line(
             f"{color_code}{prompt_text}{Colors.RESET}", completion=completion, secret=secret
         )
 
     def _print_block(self, text, color_code):
         """Print text preceded by exactly one blank line."""
-        terminal.ensure_blank_line()
+        self.terminal.ensure_blank_line()
         self._print_color(text, color_code)
 
     def _print_renderable(self, renderable, allow_paging=False):
         """Print a Rich renderable (Panel, Table, ...) through the funnel."""
-        terminal.ensure_blank_line()
-        terminal.write_renderable(renderable, allow_paging=allow_paging)
+        self.terminal.ensure_blank_line()
+        self.terminal.write_renderable(renderable, allow_paging=allow_paging)
 
     def _print_narrative(self, text, color_code):
         """Print a narrative beat, paragraph-paced when the player enabled it."""
-        terminal.ensure_blank_line()
-        terminal.write_narrative(f"{color_code}{text}{Colors.RESET}")
+        self.terminal.ensure_blank_line()
+        self.terminal.write_narrative(f"{color_code}{text}{Colors.RESET}")
 
     def _print_dialogue(self, speaker, quote):
         """Print a speaker-attributed line; wrapped lines hang under the name."""
-        terminal.write_dialogue(
+        self.terminal.write_dialogue(
             f'{Colors.YELLOW}{speaker}:{Colors.RESET} {quote}', Colors.RESET
         )
 
@@ -51,7 +53,7 @@ class DisplayMixin:
         return f"{Colors.GREEN}> {Colors.RESET}"
 
     def _separator_line(self):
-        return Colors.DIM + terminal.separator() + Colors.RESET
+        return Colors.DIM + self.terminal.separator() + Colors.RESET
 
     def _get_mode_label(self):
         if self.low_ai_data_mode or not self.gemini_api.model:
@@ -106,7 +108,7 @@ class DisplayMixin:
             return
         # The live toolbar already shows this line; don't repeat it every turn
         # unless the player explicitly asked for headers.
-        if terminal.toolbar_active() and not getattr(self, "turn_headers_explicit", False):
+        if self.terminal.toolbar_active() and not getattr(self, "turn_headers_explicit", False):
             return
         self._print_block(self._status_line_text(), Colors.DIM)
 
@@ -314,7 +316,7 @@ class DisplayMixin:
 
             if not is_usable_ai_text(details) or self.low_ai_data_mode:
                 if STATIC_ATMOSPHERIC_DETAILS:
-                    details = random.choice(STATIC_ATMOSPHERIC_DETAILS)
+                    details = getattr(self, "rng", random).choice(STATIC_ATMOSPHERIC_DETAILS)
                 else:
                     details = "The atmosphere is thick with unspoken stories."  # Ultimate fallback
             else:

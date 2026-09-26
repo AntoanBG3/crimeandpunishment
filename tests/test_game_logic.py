@@ -1295,6 +1295,7 @@ class TestLowAIMode(unittest.TestCase):
             os.remove("test_savegame_low_ai.json")
 
         self.game.low_ai_data_mode = True
+        self.game.world_manager.initialize_dynamic_location_items()
         self.game.save_game()
 
         # Reset game state for loading

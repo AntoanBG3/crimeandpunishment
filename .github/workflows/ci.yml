@@ -1,0 +1,104 @@
+name: Audit validation
+
+# Branches are tested through their pull request; pushing to both a PR branch
+# and the PR would otherwise run the whole matrix twice. Run it manually for a
+# branch without a PR.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: audit-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ['3.10', '3.13']
+    runs-on: ${{ matrix.os }}
+    env:
+      PYTHONUTF8: '1'
+      NO_COLOR: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: |
+            requirements*.txt
+            constraints.txt
+      - name: Install locked dependencies
+        run: python -m pip install -r requirements.txt -r requirements-dev.txt
+      - name: Check installed dependencies
+        run: python -m pip check
+      - name: Offline tests with branch coverage
+        run: python -m coverage run --branch --source=game_engine,main -m unittest discover tests
+      - name: Coverage report
+        run: python -m coverage json -o coverage.json
+      - name: Lint
+        if: runner.os == 'Linux' && matrix.python == '3.13'
+        run: |
+          python -m flake8 .
+          python -m pylint game_engine
+      - name: Scripted endings
+        run: python scripts/audit_scenarios.py --scenario endings
+      - name: Engine soak
+        run: python scripts/audit_scenarios.py --scenario engine --actions 10000 > engine-soak.json
+      - name: TUI soak
+        run: python scripts/audit_scenarios.py --scenario tui --actions 1000 > tui-soak.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: audit-${{ matrix.os }}-${{ matrix.python }}
+          path: |
+            coverage.json
+            engine-soak.json
+            tui-soak.json
+
+  frozen:
+    needs: test
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: crimeandpunishment-linux
+            binary: crimeandpunishment-linux
+          - os: windows-latest
+            name: crimeandpunishment-windows
+            binary: crimeandpunishment-windows.exe
+          - os: macos-latest
+            name: crimeandpunishment-macos
+            binary: crimeandpunishment-macos
+    runs-on: ${{ matrix.os }}
+    env:
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install locked build dependencies
+        run: python -m pip install -r requirements.txt -r requirements-build.txt
+      - name: Build
+        run: python scripts/build_release.py --name ${{ matrix.name }}
+      - name: Smoke from isolated Unicode working directory
+        run: python scripts/audit_scenarios.py --scenario console --binary dist/${{ matrix.binary }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: |
+            dist/${{ matrix.binary }}
+            dist/${{ matrix.name }}-THIRD_PARTY_NOTICES.txt
+          if-no-files-found: error

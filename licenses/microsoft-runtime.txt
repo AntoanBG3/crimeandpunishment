@@ -1,0 +1,4 @@
+VCRUNTIME140.dll, VCRUNTIME140_1.dll, ucrtbase.dll and api-ms-win-*.dll are
+Microsoft Visual C++ and Universal C Runtime redistributable files. They ship
+with the Python.org Windows build that this executable bundles and are
+redistributed under Microsoft's terms for those runtime files.

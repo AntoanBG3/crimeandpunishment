@@ -9,8 +9,8 @@ widget, and the persistent status bar replaces the prompt_toolkit bottom
 toolbar (terminal.toolbar_active() reports True, which also suppresses the
 per-turn header).
 
-Classic console mode remains the default; this module is only imported when
-the player opts in (``python main.py --tui`` or ``CRIME_TUI=1``).
+The TUI is the default in a terminal; console mode remains available through
+``--no-tui`` and is used for non-TTY streams or when Textual is unavailable.
 """
 
 import contextlib
@@ -24,10 +24,13 @@ from textual.binding import Binding
 from textual.widgets import Input, RichLog, Static
 
 from game_engine import terminal
+from game_engine.diagnostics import failure_message, record_failure
 
 # Sentinel pushed onto the input queue at shutdown so a game thread blocked
 # in read() wakes up and unwinds via EOFError.
 _QUIT = object()
+MAX_HISTORY_ENTRIES = 200
+MAX_LOG_LINES = 1000
 
 
 class TextualBackend:
@@ -35,23 +38,39 @@ class TextualBackend:
 
     def __init__(self, app):
         self.app = app
-        self.input_queue = queue.Queue()
+        self.input_queue = queue.Queue(maxsize=1)
+        self.closed = threading.Event()
 
     def _post(self, callback, *args):
         # The app may already be shutting down while the game thread is still
         # unwinding; dropped output at that point is acceptable.
-        with contextlib.suppress(Exception):
+        if self.closed.is_set():
+            return
+        try:
             self.app.call_from_thread(callback, *args)
+        except RuntimeError:
+            if not self.app._shutting_down:
+                raise
 
     def emit(self, renderable):
         self._post(self.app.write_log, renderable)
 
     def read(self, prompt_text, completion=True, secret=False):
+        if self.closed.is_set():
+            raise EOFError
         self._post(self.app.show_prompt, prompt_text, completion, secret)
         line = self.input_queue.get()
         if line is _QUIT:
             raise EOFError
         return line
+
+    def close(self):
+        self.closed.set()
+        # Replace a queued command so shutdown never waits for queue capacity.
+        with contextlib.suppress(queue.Empty):
+            self.input_queue.get_nowait()
+        with contextlib.suppress(queue.Full):
+            self.input_queue.put_nowait(_QUIT)
 
     def clear(self):
         # A rule in the log stands in for clearing the screen on move.
@@ -86,13 +105,14 @@ class CommandInput(Input):
     walk, prompt_toolkit-style.
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, terminal_io=terminal, **kwargs):
         super().__init__(**kwargs)
+        self.terminal = terminal_io
         self.completion_enabled = True
         self._cycle_base = None
         self._cycle_candidates = []
         self._cycle_index = -1
-        self.history = terminal.load_history_lines()
+        self.history = self.terminal.load_history_lines()
         self._history_index = None
         self._draft = ""
 
@@ -118,7 +138,8 @@ class CommandInput(Input):
         self._draft = ""
         if line.strip():
             self.history.append(line)
-            terminal.append_history_line(line)
+            del self.history[:-MAX_HISTORY_ENTRIES]
+            self.terminal.append_history_line(line)
 
     def _history_step(self, direction):
         if not self.history:
@@ -140,7 +161,7 @@ class CommandInput(Input):
 
     def _cycle_completion(self):
         if self._cycle_base is None:
-            candidates = terminal.completion_candidates(self.value)
+            candidates = self.terminal.completion_candidates(self.value)
             if not candidates:
                 return
             self._cycle_base = self.value
@@ -176,46 +197,67 @@ class CrimeAndPunishmentApp(App):
         self._game_runner = game_runner or _default_runner
         self._game_thread = None
         self._shutting_down = False
+        self.game_error = None
+        self._accepting_input = False
         self.backend = TextualBackend(self)
+        self.terminal = terminal.TerminalSession()
 
     def compose(self):
-        yield RichLog(wrap=True, markup=False, highlight=False, min_width=20, id="log")
+        yield RichLog(wrap=True, markup=False, highlight=False, min_width=20,
+                      max_lines=MAX_LOG_LINES, id="log")
         yield Static("", id="statusbar")
-        yield CommandInput(placeholder="What do you do?", id="commandline")
+        yield CommandInput(terminal_io=self.terminal, placeholder="What do you do?", id="commandline")
 
     def on_mount(self):
-        terminal.set_backend(self.backend)
+        self.terminal.set_backend(self.backend)
         self.query_one(Input).focus()
         self._game_thread = threading.Thread(target=self._run_game, daemon=True)
         self._game_thread.start()
 
     def _run_game(self):
+        with self.terminal.activate():
+            self._run_game_session()
+
+    def _run_game_session(self):
         try:
             self._game_runner()
         except (KeyboardInterrupt, EOFError):
             pass
+        except Exception as error:
+            self.game_error = type(error).__name__
+            message = failure_message(error, record_failure(error))
+            if not self._shutting_down:
+                self.backend._post(self.show_game_error, message)
         finally:
-            terminal.set_backend(None)
+            self.terminal.set_backend(None)
             # When the app initiated the shutdown it is blocked joining this
             # thread; calling back into its event loop would deadlock until
             # the join times out.
-            if not self._shutting_down:
+            if not self._shutting_down and self.game_error is None:
                 with contextlib.suppress(Exception):
                     self.call_from_thread(self.exit)
 
+    def show_game_error(self, message):
+        self.write_log(Text(message, style="bold red"))
+        self.set_status_message("Game stopped. Press Ctrl+Q to close.")
+        self.query_one(CommandInput).disabled = True
+
     def write_log(self, renderable):
-        self.query_one("#log", RichLog).write(renderable)
+        self.query_one("#log", RichLog).write(renderable, expand=isinstance(renderable, Rule))
 
     def show_prompt(self, prompt_text, completion=True, secret=False):
         self.refresh_status_bar()
         prompt = str(prompt_text).strip() or ">"
         command_input = self.query_one(CommandInput)
+        self._accepting_input = True
+        command_input.disabled = False
+        command_input.focus()
         command_input.placeholder = prompt
         command_input.completion_enabled = completion
         command_input.password = secret
 
     def refresh_status_bar(self):
-        status_text = terminal.toolbar_text()
+        status_text = self.terminal.toolbar_text()
         if status_text:
             self.query_one("#statusbar", Static).update(status_text)
 
@@ -223,9 +265,13 @@ class CrimeAndPunishmentApp(App):
         if message:
             self.query_one("#statusbar", Static).update(str(message))
         else:
-            self.query_one("#statusbar", Static).update(terminal.toolbar_text() or "")
+            self.query_one("#statusbar", Static).update(self.terminal.toolbar_text() or "")
 
     def on_input_submitted(self, event):
+        if not self._accepting_input or self.backend.closed.is_set():
+            return
+        self._accepting_input = False
+        event.input.disabled = True
         line = event.value
         event.input.value = ""
         if event.input.password:
@@ -235,12 +281,11 @@ class CrimeAndPunishmentApp(App):
         else:
             event.input.record_submitted(line)
             self.write_log(Text(f"> {line}", style="dim"))
-        self.backend.input_queue.put(line)
+        self.backend.input_queue.put_nowait(line)
 
     def on_unmount(self):
         self._shutting_down = True
-        terminal.set_backend(None)
-        self.backend.input_queue.put(_QUIT)
+        self.backend.close()
         # Give the game thread a moment to unwind (it may be mid-turn, e.g.
         # finishing an autosave). With atomic saves the worst case after the
         # timeout is a lost turn, never a corrupted file.
@@ -249,4 +294,6 @@ class CrimeAndPunishmentApp(App):
 
 
 def run_tui():
-    CrimeAndPunishmentApp().run()
+    app = CrimeAndPunishmentApp()
+    app.run()
+    return 1 if app.game_error else 0

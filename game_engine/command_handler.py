@@ -1,10 +1,12 @@
 # command_handler.py
 """
-Mixin for handling player commands and input interpretation.
+Command parsing and dispatch service.
 """
 
 import re
 import difflib
+
+from .command_result import CommandResult
 from .game_config import (
     Colors,
     COMMAND_SYNONYMS,
@@ -14,7 +16,6 @@ from .game_config import (
     apply_color_theme,
 )
 from .location_module import LOCATIONS_DATA
-from . import terminal
 
 
 class CommandHandler:
@@ -63,6 +64,9 @@ class CommandHandler:
 
     def _resolve_prefix_match(self, target, options, label, descriptor_lookup=None):
         target = self._strip_articles(target.lower())
+        exact = next((option for option in options if option.lower() == target), None)
+        if exact is not None:
+            return exact, False
         matches = [option for option in options if option.lower().startswith(target)]
         if not matches:
             # Fall back to word-boundary matching so 'axe' finds
@@ -153,6 +157,9 @@ class CommandHandler:
 
     def _get_matching_exit(self, target_input, location_exits):
         target_input = self._strip_articles(target_input.lower())
+        exact = next((name for name in location_exits if name.lower() == target_input), None)
+        if exact is not None:
+            return exact, False
         matches = []
         for target_loc_key, desc_text in location_exits.items():
             key_lower = target_loc_key.lower()
@@ -377,7 +384,7 @@ class CommandHandler:
 
     def _handle_pace_command(self, argument):
         if not argument:
-            current = "on" if terminal.narrative_pace_enabled else "off"
+            current = "on" if self.game_state.terminal.get_narrative_pace() else "off"
             self.game_state._print_color(
                 f"Narrative pacing is {current}. Use 'pace on' or 'pace off'.", Colors.CYAN
             )
@@ -386,7 +393,7 @@ class CommandHandler:
         if value not in ("on", "off"):
             self.game_state._print_color("Invalid value. Use 'pace on' or 'pace off'.", Colors.YELLOW)
             return
-        terminal.set_narrative_pace(value == "on")
+        self.game_state.terminal.set_narrative_pace(value == "on")
         self.game_state._print_color(f"Narrative pacing turned {value}.", Colors.GREEN)
 
     def _handle_clearscreen_command(self, argument):
@@ -523,64 +530,9 @@ class CommandHandler:
                 if str(answer).strip().lower() in ("y", "yes"):
                     self.game_state.save_game()
             self.game_state._print_color("Exiting game. Goodbye.", Colors.MAGENTA)
-            return False, False, 0, True
+            return CommandResult(False, False, 0, True)
         if command == "select_item":
-            item_name_selected = argument
-            secondary_action_input = (
-                self.game_state._input_color(
-                    f"What to do with {Colors.GREEN}{item_name_selected}{Colors.WHITE}? (e.g., look at, take, use, read, give to...) {self.game_state._prompt_arrow()}",
-                    Colors.WHITE,
-                )
-                .strip()
-                .lower()
-            )
-
-            if secondary_action_input == "look at":
-                self.game_state._handle_look_command(
-                    item_name_selected, show_full_look_details
-                )  # _handle_look_command doesn't return action_taken flags
-                return True, True, TIME_UNITS_PER_PLAYER_ACTION, False
-            if secondary_action_input == "take":
-                action_taken, show_atmospherics = self.game_state._handle_take_command(
-                    item_name_selected
-                )
-                time_units = TIME_UNITS_PER_PLAYER_ACTION if action_taken else 0
-                return action_taken, show_atmospherics, time_units, False
-            if secondary_action_input == "read":
-                action_taken = self.game_state.handle_use_item(item_name_selected, None, "read")
-                time_units = TIME_UNITS_PER_PLAYER_ACTION if action_taken else 0
-                return action_taken, False, time_units, False
-            if secondary_action_input == "use":
-                action_taken = self.game_state.handle_use_item(
-                    item_name_selected, None, "use_self_implicit"
-                )
-                time_units = TIME_UNITS_PER_PLAYER_ACTION if action_taken else 0
-                return action_taken, False, time_units, False
-            if secondary_action_input.startswith("give to "):
-                target_npc_name = secondary_action_input.replace("give to ", "").strip()
-                if not target_npc_name:
-                    self.game_state._print_color("Who do you want to give it to?", Colors.RED)
-                    return False, False, 0, False
-                action_taken = self.game_state.handle_use_item(
-                    item_name_selected, target_npc_name, "give"
-                )
-                time_units = TIME_UNITS_PER_PLAYER_ACTION if action_taken else 0
-                return action_taken, False, time_units, False
-            if secondary_action_input.startswith("use on "):
-                target_for_use = secondary_action_input.replace("use on ", "").strip()
-                if not target_for_use:
-                    self.game_state._print_color("What do you want to use it on?", Colors.RED)
-                    return False, False, 0, False
-                action_taken = self.game_state.handle_use_item(
-                    item_name_selected, target_for_use, "use_on"
-                )
-                time_units = TIME_UNITS_PER_PLAYER_ACTION if action_taken else 0
-                return action_taken, False, time_units, False
-            self.game_state._print_color(
-                f"Invalid action '{secondary_action_input}' for {item_name_selected}.",
-                Colors.RED,
-            )
-            return False, False, 0, False
+            return self._handle_selected_item(argument)
         if command == "save":
             self.game_state.save_game(argument)
             action_taken_this_turn = False
@@ -592,7 +544,7 @@ class CommandHandler:
                     # Multiple saves: show a numbered picker instead of silently
                     # loading the default slot.
                     self.game_state._handle_saves_command(numbered=True)
-                    return False, False, 0, False
+                    return CommandResult(False, False, 0, False)
                 if len(slots) == 1 and slots[0][0]:
                     # Only one save exists and it's a named slot; load it
                     # rather than failing on the missing default file.
@@ -602,7 +554,7 @@ class CommandHandler:
             else:
                 show_atmospherics_this_turn = False
             action_taken_this_turn = False
-            return (
+            return CommandResult(
                 action_taken_this_turn,
                 show_atmospherics_this_turn,
                 0,
@@ -641,7 +593,7 @@ class CommandHandler:
                 "Give what, and to whom? Use: give [item] to [person].",
                 Colors.RED,
             )
-            return False, False, 0, False
+            return CommandResult(False, False, 0, False)
         elif command == "read":
             # "read X" is rewritten to a use/read tuple in parse_action; bare "read"
             # reaches here with no item specified.
@@ -649,7 +601,7 @@ class CommandHandler:
                 "Read what? Use: read [item].",
                 Colors.RED,
             )
-            return False, False, 0, False
+            return CommandResult(False, False, 0, False)
         elif command == "objectives":
             self.game_state.display_objectives()
             action_taken_this_turn = False
@@ -686,7 +638,7 @@ class CommandHandler:
                 f"Low AI Data Mode is now {'ON' if self.game_state.low_ai_data_mode else 'OFF'}.",
                 Colors.MAGENTA,
             )
-            return False, False, 0, False  # No action, no time, no atmospherics
+            return CommandResult(False, False, 0, False)  # No action, no time, no atmospherics
         elif command == "history":
             self.game_state._display_command_history()
             action_taken_this_turn = False
@@ -747,9 +699,67 @@ class CommandHandler:
             )
             action_taken_this_turn = False
             show_atmospherics_this_turn = False
-        return (
+        return CommandResult(
             action_taken_this_turn,
             show_atmospherics_this_turn,
             time_to_advance,
             False,
         )
+
+    def _handle_selected_item(self, argument):
+        item_name_selected = argument
+        secondary_action_input = (
+            self.game_state._input_color(
+                f"What to do with {Colors.GREEN}{item_name_selected}{Colors.WHITE}? (e.g., look at, take, use, read, give to...) {self.game_state._prompt_arrow()}",
+                Colors.WHITE,
+            )
+            .strip()
+            .lower()
+        )
+
+        if secondary_action_input == "look at":
+            self.game_state._handle_look_command(
+                item_name_selected, False
+            )  # _handle_look_command doesn't return action_taken flags
+            return CommandResult(True, True, TIME_UNITS_PER_PLAYER_ACTION, False)
+        if secondary_action_input == "take":
+            action_taken, show_atmospherics = self.game_state._handle_take_command(
+                item_name_selected
+            )
+            time_units = TIME_UNITS_PER_PLAYER_ACTION if action_taken else 0
+            return CommandResult(action_taken, show_atmospherics, time_units, False)
+        if secondary_action_input == "read":
+            action_taken = self.game_state.handle_use_item(item_name_selected, None, "read")
+            time_units = TIME_UNITS_PER_PLAYER_ACTION if action_taken else 0
+            return CommandResult(action_taken, False, time_units, False)
+        if secondary_action_input == "use":
+            action_taken = self.game_state.handle_use_item(
+                item_name_selected, None, "use_self_implicit"
+            )
+            time_units = TIME_UNITS_PER_PLAYER_ACTION if action_taken else 0
+            return CommandResult(action_taken, False, time_units, False)
+        if secondary_action_input.startswith("give to "):
+            target_npc_name = secondary_action_input.replace("give to ", "").strip()
+            if not target_npc_name:
+                self.game_state._print_color("Who do you want to give it to?", Colors.RED)
+                return CommandResult(False, False, 0, False)
+            action_taken = self.game_state.handle_use_item(
+                item_name_selected, target_npc_name, "give"
+            )
+            time_units = TIME_UNITS_PER_PLAYER_ACTION if action_taken else 0
+            return CommandResult(action_taken, False, time_units, False)
+        if secondary_action_input.startswith("use on "):
+            target_for_use = secondary_action_input.replace("use on ", "").strip()
+            if not target_for_use:
+                self.game_state._print_color("What do you want to use it on?", Colors.RED)
+                return CommandResult(False, False, 0, False)
+            action_taken = self.game_state.handle_use_item(
+                item_name_selected, target_for_use, "use_on"
+            )
+            time_units = TIME_UNITS_PER_PLAYER_ACTION if action_taken else 0
+            return CommandResult(action_taken, False, time_units, False)
+        self.game_state._print_color(
+            f"Invalid action '{secondary_action_input}' for {item_name_selected}.",
+            Colors.RED,
+        )
+        return CommandResult(False, False, 0, False)

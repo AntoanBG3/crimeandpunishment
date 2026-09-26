@@ -5,7 +5,7 @@
 
 <p align="center">
   <a href="https://github.com/AntoanBG3/crimeandpunishment/releases"><img src="https://img.shields.io/github/v/release/AntoanBG3/crimeandpunishment?style=for-the-badge&color=darkred" alt="Latest Release"></a>
-  <a href="LICENSE.md"><img src="https://img.shields.io/badge/license-MIT-black?style=for-the-badge" alt="MIT License"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3%2B-black?style=for-the-badge" alt="GPL version 3 or later"></a>
   <img src="https://img.shields.io/badge/python-3.10%2B-blue?style=for-the-badge" alt="Python 3.10+">
   <img src="https://img.shields.io/badge/powered%20by-Gemini%20API-orange?style=for-the-badge" alt="Gemini API">
 </p>
@@ -15,7 +15,7 @@
 > *"To go wrong in one's own way is better than to go right in someone else's."*  
 > — Fyodor Dostoevsky
 
-Step into 19th-century St. Petersburg and inhabit the minds of Dostoevsky's most iconic characters. **Crime and Punishment** is a terminal-based text adventure dynamically powered by the **Google Gemini API**. Every conversation, observation, and moral crossroad is generated and shaped in real-time, creating a world that genuinely *reacts* to your choices.
+Step into 19th-century St. Petersburg as one of three protagonists from Dostoevsky's novel. **Crime and Punishment** combines authored objectives and game rules with optional **Google Gemini API** dialogue and narration. Static text keeps the adventure playable offline.
 
 ---
 
@@ -23,7 +23,7 @@ Step into 19th-century St. Petersburg and inhabit the minds of Dostoevsky's most
 
 - **Three Playable Protagonists** – Play as **Raskolnikov**, **Sonya**, or **Porfiry**. Each character has unique objectives, inventories, skills, and distinct psychological profiles.
 - **AI-Driven NPCs** – The inhabitants of St. Petersburg remember past interactions, hold grudges, pursue their own goals, and dynamically adjust their tone based on your relationship and psychological state.
-- **A Living City** – The world operates continuously. NPCs follow daily schedules, move between locations independently, and interact with each other in emergent ways.
+- **A Living City** – Actions advance world time. NPCs follow daily schedules, move between locations, and participate in world events as turns pass.
 - **Branching Objectives** – Experience multi-stage quest lines mirroring the novel. Help Raskolnikov *Grapple with Crime*, guide him as Sonya, or pursue the truth as Porfiry.
 - **RPG Mechanics & Skill Checks** – Utilize a D6 + Modifier system. Skills like *Persuasion*, *Observation*, and others actively determine the outcomes of key interactions.
 - **Atmospheric Generation** – The game’s text adapts dynamically based on the time of day, your exact location, and your character’s current mental state, creating unparalleled ambiance.
@@ -68,15 +68,15 @@ python main.py --no-tui
 
 ### First-Run API Setup
 
-On your first launch, the game will prompt you for a **Google Gemini API key**. You can confidently provide it in-game, set the `GEMINI_API_KEY` environment variable, or place a `gemini_config.json` file in the project's root directory. Get your key here: [ai.google.dev](https://ai.google.dev/gemini-api/docs/api-key).
+With the Gemini SDK installed, an interactive launch prompts for an API key if no usable key is configured. Enter `skip` to play offline, or supply a key through the prompt or `GEMINI_API_KEY`. The game also reads `gemini_config.json` from the directory where you launch it and offers to save a verified key there. Keep that file private. Get a key at [ai.google.dev](https://ai.google.dev/gemini-api/docs/api-key).
 
-> **No key? No problem.** The game seamlessly ships with a robust set of static fallback text for every AI-generated element. You can still fully explore St. Petersburg in a deterministic, reduced-AI mode.
+> **Offline play:** Without the SDK or a usable key, the game uses static fallback text. Random skill checks and world events still occur. Piped input skips the key prompt, but a configured key can still enable API calls; use the isolated audit harness for guaranteed offline verification.
 
 ---
 
 ## Commands at a Glance
 
-The game features an intelligent **Natural Language Parser (NLP)** that translates your free-form sentences into game actions (e.g., *"Pick up the axe and go to the tavern"*).
+With AI configured, the **Natural Language Parser (NLP)** can translate a free-form sentence into one supported action, such as *"I would like to examine the desk"*. Enter one action at a time. The explicit commands below also work offline.
 
 Below are the core, deterministic commands:
 
@@ -119,6 +119,10 @@ CrimeAndPunishment/
 ├── main.py                          # Application entry point
 ├── game_engine/
 │   ├── game_state.py                # Game hub: main loop, save/load, think/wait
+│   ├── session_state.py             # Gameplay state with compatibility accessors
+│   ├── persistence.py               # Validate a detached candidate before restoring saves
+│   ├── command_result.py            # Named, tuple-compatible command outcomes
+│   ├── diagnostics.py               # Content-free crash reports
 │   ├── terminal.py                  # Single I/O seam: Rich rendering, wrapping, prompt_toolkit input
 │   ├── tui_app.py                   # Textual TUI backend (default in a TTY; --no-tui opts out)
 │   ├── completion.py                # Tab completion fed by scene context
@@ -139,9 +143,11 @@ CrimeAndPunishment/
 │   ├── items.json                   # Item catalogue: properties & mechanical effects
 │   └── locations.json               # Map of St. Petersburg connections
 ├── tests/                           # unittest suite (no network, no TTY required)
-├── docs/                            # UX roadmap and Tier 3 design docs
+├── docs/                            # Dependencies and feature-commit workflow
+├── licenses/                        # Third-party license texts for release builds
+├── scripts/                         # Isolated audit scenarios, builds, commit reminder
 ├── requirements.txt                 # google-genai, rich, prompt_toolkit, textual
-└── LICENSE.md                       # MIT License
+└── LICENSE                          # GNU GPL version 3
 ```
 
 ---
@@ -150,9 +156,14 @@ CrimeAndPunishment/
 To ensure the engine logic and deterministic behaviors remain fully functional during development:
 
 ```bash
-python -m unittest discover tests          # full suite
-coverage run -m unittest discover tests && coverage report
+python -m pip install -r requirements.txt -r requirements-dev.txt
+python -m unittest discover tests          # offline suite, including real SDK mocks
+coverage run --branch --source=game_engine,main -m unittest discover tests
+coverage report
+python scripts/audit_scenarios.py --scenario endings
 ```
+
+See the [dependency/build instructions](docs/DEPENDENCIES.md). Routine CI checks Python 3.10 and 3.13 on Windows, Linux, and macOS independently of release publication.
 
 ---
 
@@ -162,4 +173,8 @@ Contributions, bug reports, and features are welcome! Feel free to open an issue
 ---
 
 ## License
-This project is open-sourced under the **MIT License**. See the [LICENSE](LICENSE.md) file for comprehensive details.
+Copyright (C) 2026 AntoanBG3
+
+Crime and Punishment is free software: you can redistribute it and/or modify it under the terms of the **GNU General Public License** as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. It is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See [LICENSE](LICENSE) for the full license text.
+
+Release executables bundle Python and third-party libraries under their own licenses; each release includes a `<platform>-THIRD_PARTY_NOTICES.txt` file listing them with their full license texts.
