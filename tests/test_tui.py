@@ -203,6 +203,21 @@ class TestSharedHistory(unittest.TestCase):
                 self.assertEqual(terminal.load_history_lines(), [])
 
 
+class TestRunTui(unittest.TestCase):
+    def test_auto_start_reaches_the_game(self):
+        from game_engine import tui_app
+
+        for auto_start in (False, True):
+            with self.subTest(auto_start=auto_start), patch.object(
+                tui_app, "CrimeAndPunishmentApp"
+            ) as app_class, patch("game_engine.game_state.Game") as game_class:
+                app_class.return_value.game_error = None
+                self.assertEqual(tui_app.run_tui(auto_start=auto_start), 0)
+                app_class.return_value.run.assert_called_once_with()
+                app_class.call_args.kwargs["game_runner"]()
+                game_class.assert_called_once_with(auto_start=auto_start)
+
+
 class TestTextualApp(unittest.IsolatedAsyncioTestCase):
     """Drive the real Textual app with a stub game loop via run_test()."""
 

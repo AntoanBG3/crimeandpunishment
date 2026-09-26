@@ -1578,7 +1578,6 @@ class TestLowAIMode(unittest.TestCase):
         self.game._initialize_game()
         self.assertFalse(self.game.low_ai_data_mode)
 
-    @patch("game_engine.game_state.os.getenv")
     @patch.object(Game, "load_game")
     @patch.object(
         WorldManager, "select_player_character"
@@ -1595,10 +1594,7 @@ class TestLowAIMode(unittest.TestCase):
         mock_load_chars_init,
         mock_sel_player,
         mock_load_game_method,
-        mock_os_getenv,
     ):
-        # Ensure interactive path by mocking getenv
-        mock_os_getenv.return_value = None
         # Simulate that configure() suggests Low AI Mode = False
         self.game.gemini_api.configure = MagicMock(
             return_value={"api_configured": True, "low_ai_preference": False}

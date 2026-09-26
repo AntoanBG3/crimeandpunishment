@@ -50,6 +50,33 @@ class TestChooseMode(unittest.TestCase):
         self.assertEqual(_choose(argv=["--no-tui"], default="tui"), "console")
 
 
+class TestAutoStartFlag(unittest.TestCase):
+    """Only --auto-start skips the load prompt and character picker."""
+
+    def launch(self, *argv, mode="console"):
+        with patch.object(sys, "argv", ["main.py", *argv]), patch.object(
+            main, "choose_mode", return_value=mode
+        ), patch("game_engine.game_state.Game") as game_class, patch(
+            "game_engine.tui_app.run_tui", return_value=0
+        ) as run_tui:
+            self.assertEqual(main.main(), 0)
+        return game_class, run_tui
+
+    def test_console_keeps_start_menu_by_default(self):
+        game_class, _run_tui = self.launch("--no-tui")
+        game_class.assert_called_once_with(auto_start=False)
+        game_class.return_value.run.assert_called_once_with()
+
+    def test_flag_reaches_console_game(self):
+        game_class, _run_tui = self.launch("--no-tui", "--auto-start")
+        game_class.assert_called_once_with(auto_start=True)
+
+    def test_flag_reaches_tui(self):
+        game_class, run_tui = self.launch("--auto-start", mode="tui")
+        run_tui.assert_called_once_with(auto_start=True)
+        game_class.assert_not_called()
+
+
 class TestVersionFlag(unittest.TestCase):
     def test_version_prints_and_exits_without_starting_the_game(self):
         import subprocess

@@ -317,7 +317,7 @@ def test_game_state_save_load_and_initialize_edge_paths(tmp_path):
         assert game.load_game() is False
     assert game.player_character is character
 
-    game = Game()
+    game = Game(auto_start=True)
     game._print_color = MagicMock()
     game._input_color = MagicMock(return_value="")
     game.display_atmospheric_details = MagicMock()
@@ -329,9 +329,10 @@ def test_game_state_save_load_and_initialize_edge_paths(tmp_path):
     game.world_manager.update_current_location_details = MagicMock()
     game.player_character = Character("P", "p", "g", "Room", ["Room"], is_player=True)
     game.current_location_name = "Room"
-    with patch("game_engine.game_state.os.getenv", return_value="key"):
-        assert game._initialize_game() is True
+    assert game._initialize_game() is True
     assert game.low_ai_data_mode is True
+    game._input_color.assert_not_called()
+    game.world_manager.select_player_character.assert_called_once_with(non_interactive=True)
 
     game = Game()
     game._print_color = MagicMock()
@@ -343,8 +344,7 @@ def test_game_state_save_load_and_initialize_edge_paths(tmp_path):
     game.world_manager._validate_item_data = MagicMock()
     game.world_manager.load_all_characters = MagicMock()
     game.world_manager.select_player_character = MagicMock(return_value=False)
-    with patch("game_engine.game_state.os.getenv", return_value=None):
-        assert game._initialize_game() is False
+    assert game._initialize_game() is False
 
 
 def test_game_state_run_loop_and_think_paths():

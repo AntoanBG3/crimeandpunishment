@@ -14,6 +14,7 @@ The TUI is the default in a terminal; console mode remains available through
 """
 
 import contextlib
+import functools
 import queue
 import threading
 
@@ -85,10 +86,10 @@ class TextualBackend:
             self._post(self.app.set_status_message, None)
 
 
-def _default_runner():
+def _default_runner(auto_start=False):
     from game_engine.game_state import Game
 
-    Game().run()
+    Game(auto_start=auto_start).run()
 
 
 class CommandInput(Input):
@@ -293,7 +294,7 @@ class CrimeAndPunishmentApp(App):
             self._game_thread.join(timeout=2)
 
 
-def run_tui():
-    app = CrimeAndPunishmentApp()
+def run_tui(auto_start=False):
+    app = CrimeAndPunishmentApp(game_runner=functools.partial(_default_runner, auto_start))
     app.run()
     return 1 if app.game_error else 0
