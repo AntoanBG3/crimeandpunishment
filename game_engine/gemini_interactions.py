@@ -656,9 +656,15 @@ class GeminiAPI:
 
             selected_model_id_manual = self._ask_for_model_selection()
 
-            if self._attempt_api_setup(
+            setup_result = self._attempt_api_setup(
                 manual_api_key_input, "user input", selected_model_id_manual
-            ):
+            )
+            if setup_result is SetupResult.MODEL_UNAVAILABLE:
+                # The key may be fine; offer the model menu before asking for a new key.
+                setup_result = self._retry_with_another_model(
+                    manual_api_key_input, "user input", selected_model_id_manual
+                )
+            if setup_result:
                 low_ai_pref = self._prompt_for_low_ai_mode()
                 save_choice = self._read_answer(
                     f"Save this valid key and model ('{self.chosen_model_name}') to {API_CONFIG_FILE}? (y/n) (Not recommended if sharing project): ",
@@ -673,12 +679,15 @@ class GeminiAPI:
                     )
                 return {"api_configured": True, "low_ai_preference": low_ai_pref}
 
-            self._print_color_func(
-                f"The manually entered API key with model '{selected_model_id_manual}' failed validation.",
-                Colors.RED,
-            )
+            # Verification already printed the model and the reason; after a menu retry
+            # the first model is no longer the one that failed, so it is not named here.
+            if setup_result is SetupResult.MODEL_UNAVAILABLE:
+                failure = "The chosen model is not available to this API key."
+            else:
+                failure = "The manually entered API key failed validation."
+            self._print_color_func(failure, Colors.RED)
             retry_choice = self._read_answer(
-                "Try entering a different API key? (y/n): ", Colors.YELLOW
+                "Try again with a different API key or model? (y/n): ", Colors.YELLOW
             )
             if retry_choice != "y":
                 self._print_color_func("\nProceeding with placeholder responses.", Colors.RED)

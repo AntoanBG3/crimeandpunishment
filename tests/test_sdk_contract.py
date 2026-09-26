@@ -227,6 +227,40 @@ class TestSDKContract(unittest.TestCase):
                 self.assertEqual(run.saved['chosen_model_name'], saved_model)
                 run.answers.assert_not_called()
 
+    def configure_manual_key(self, handler, answers):
+        """Run configure() with no saved key, typing ``answers`` at the prompts."""
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        api = self.make_api(handler)
+        read_line = MagicMock(side_effect=list(answers))
+        with patch('game_engine.gemini_interactions.API_CONFIG_FILE',
+                   os.path.join(directory.name, 'gemini_config.json')), \
+                patch.dict(os.environ, {'GEMINI_API_KEY': ''}), \
+                patch('sys.stdin.isatty', return_value=True):
+            result = api.configure(api._print_color_func, read_line)
+        return SimpleNamespace(
+            result=result,
+            prompts=[call.args[0] for call in read_line.call_args_list],
+            printed=[call.args[0] for call in api._print_color_func.call_args_list],
+            requested=[requested_model(call.args[0]) for call in handler.call_args_list])
+
+    def test_manual_key_offers_the_model_menu_when_the_model_is_unavailable(self):
+        # Key, model 1 (retired), the menu again (Enter: default), Low AI and save prompts.
+        run = self.configure_manual_key(MagicMock(side_effect=serve_all_but_retired),
+                                        ['offline-key', '1', '', 'n', 'n'])
+        self.assertEqual(run.result, {'api_configured': True, 'low_ai_preference': False})
+        self.assertEqual(run.requested, [RETIRED_MODEL, DEFAULT_GEMINI_MODEL_NAME])
+        self.assertEqual(sum('Enter your choice' in prompt for prompt in run.prompts), 2)
+        self.assertFalse(any('failed validation' in line for line in run.printed))
+
+    def test_manual_key_blames_the_model_when_none_is_available(self):
+        handler = MagicMock(side_effect=lambda request: not_found(requested_model(request)))
+        run = self.configure_manual_key(handler, ['offline-key', '1', '', 'n'])
+        self.assertEqual(run.result, {'api_configured': False, 'low_ai_preference': False})
+        self.assertEqual(run.requested, [RETIRED_MODEL, DEFAULT_GEMINI_MODEL_NAME])
+        self.assertIn('The chosen model is not available to this API key.', run.printed)
+        self.assertIn('Try again with a different API key or model?', run.prompts[-1])
+
     def verified_parser(self, handler, model=DEFAULT_GEMINI_MODEL_NAME):
         """A parser for a key verified with ``model``, and the requests made after that."""
         requests = []
