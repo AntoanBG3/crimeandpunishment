@@ -1,9 +1,12 @@
 name: Audit validation
 
+# Branches are tested through their pull request; pushing to both a PR branch
+# and the PR would otherwise run the whole matrix twice. Run it manually for a
+# branch without a PR.
 on:
   pull_request:
   push:
-    branches: [main, 'changes/**']
+    branches: [main]
   workflow_dispatch:
 
 permissions:
