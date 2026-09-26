@@ -1,5 +1,6 @@
+import random
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 import os
 import sys
 
@@ -8,6 +9,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from game_engine.event_manager import EventManager  # noqa: E402
+from game_engine.game_state import Game  # noqa: E402
 
 
 class TestEventManager(unittest.TestCase):
@@ -108,6 +110,35 @@ class TestEventManager(unittest.TestCase):
 
         self.assertFalse(result)
         mock_action.assert_not_called()
+
+
+class TestStoryEventsWithAuthoredData(unittest.TestCase):
+    def setUp(self):
+        self.game = Game(rng=random.Random(0))
+        self.game.world_manager.load_all_characters()
+        self.game.player_character = self.game.all_character_objects["Sonya Marmeladova"]
+        self.game.player_character.is_player = True
+        self.game.low_ai_data_mode = True
+        for wrapper in ("_print_color", "_print_narrative", "_print_dialogue"):
+            patch.object(self.game, wrapper).start()
+
+    def tearDown(self):
+        patch.stopall()
+
+    def test_katerina_schedule_brings_her_public_lament_within_reach(self):
+        # Only schedules move NPCs, and the lament needs her in the Haymarket in
+        # the Afternoon or Evening.
+        katerina = self.game.all_character_objects["Katerina Ivanovna Marmeladova"]
+        self.game.current_location_name = "Haymarket Square"
+        self.game.game_time = 130  # Evening
+        with patch.object(self.game.rng, "random", return_value=0.0):
+            self.game.world_manager.update_npc_locations_by_schedule()
+            self.assertEqual(katerina.current_location, "Haymarket Square")
+            self.assertTrue(self.game.event_manager.check_and_trigger_events())
+        self.assertIn(
+            "katerina_ivanovna_public_lament_recent", self.game.event_manager.triggered_events
+        )
+        self.assertIn("Katerina Ivanovna caused a public scene.", self.game.key_events_occurred)
 
 
 if __name__ == "__main__":
