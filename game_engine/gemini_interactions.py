@@ -424,6 +424,7 @@ class GeminiAPI:
             choice = self._input_color_func(
                 f"Enter your choice (1-{len(display_map_for_prompt)}), or press Enter for default): ",
                 Colors.MAGENTA,
+                history=False,
             ).strip()
             if not choice:
                 self._print_color_func(
@@ -448,7 +449,11 @@ class GeminiAPI:
             "Recommended if you have limited API quota or prefer less AI processing.)\n"
             "Enter 'y' for yes, or 'n' for no (default is 'n'): "
         )
-        low_ai_input = self._input_color_func(low_ai_choice_prompt, Colors.YELLOW).strip().lower()
+        low_ai_input = (
+            self._input_color_func(low_ai_choice_prompt, Colors.YELLOW, history=False)
+            .strip()
+            .lower()
+        )
         low_ai_preference = low_ai_input == "y"
 
         if low_ai_preference:
@@ -576,6 +581,7 @@ class GeminiAPI:
                     self._input_color_func(
                         f"Save this valid key and model ('{self.chosen_model_name}') to {API_CONFIG_FILE}? (y/n) (Not recommended if sharing project): ",
                         Colors.YELLOW,
+                        history=False,
                     )
                     .strip()
                     .lower()
@@ -594,7 +600,9 @@ class GeminiAPI:
                 Colors.RED,
             )
             retry_choice = (
-                self._input_color_func("Try entering a different API key? (y/n): ", Colors.YELLOW)
+                self._input_color_func(
+                    "Try entering a different API key? (y/n): ", Colors.YELLOW, history=False
+                )
                 .strip()
                 .lower()
             )

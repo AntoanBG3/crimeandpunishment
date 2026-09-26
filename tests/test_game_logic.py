@@ -1732,6 +1732,20 @@ class TestGeminiAPIConfiguration(unittest.TestCase):
 
         self.assertEqual(self.api.chosen_model_name, DEFAULT_GEMINI_MODEL_NAME)
 
+    def test_manual_key_answers_stay_out_of_command_history(self):
+        # The first key fails and is retried, so the flow asks every prompt:
+        # key, model, retry, key, model, Low AI mode, save.
+        self.mock_attempt_api_setup.side_effect = [False, True]
+        self.mock_input_func.side_effect = ["bad_key", "", "y", "good_key", "", "n", "n"]
+
+        config_result = self.api.configure(self.mock_print_func, self.mock_input_func)
+
+        self.assertTrue(config_result["api_configured"])
+        self.assertEqual(self.mock_input_func.call_count, 7)
+        for call in self.mock_input_func.call_args_list:
+            recorded = not call.kwargs.get("secret") and call.kwargs.get("history", True)
+            self.assertFalse(recorded, call.args[0])
+
     def test_configure_select_first_model_successfully(self):
         self.mock_os_getenv.return_value = None  # No ENV key
         self._configure_mock_attempt_api_setup_success()

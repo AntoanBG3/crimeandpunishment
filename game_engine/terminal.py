@@ -32,7 +32,8 @@ _console = Console(highlight=False, soft_wrap=False)
 
 # Active UI backend; None means the classic console path. A backend must
 # provide: emit(renderable), read(prompt_text, completion=True,
-# secret=False) -> str, clear(), status(message) -> context manager.
+# secret=False, history=True) -> str, clear(), status(message) -> context
+# manager.
 _backend = None
 
 # Tracks whether the last emitted line was blank, so blocks can guarantee a
@@ -236,8 +237,9 @@ def _unrecorded_session():
     """A throwaway session whose history keeps nothing.
 
     prompt_toolkit appends every accepted line to the session's history, and
-    is_password only masks the echo, so secrets must never reach the
-    FileHistory-backed session from _get_session().
+    is_password only masks the echo, so secrets and one-off answers
+    (history=False) must never reach the FileHistory-backed session from
+    _get_session().
     """
     from prompt_toolkit import PromptSession
     from prompt_toolkit.history import DummyHistory
@@ -291,11 +293,16 @@ def append_history_line(line):
         pass
 
 
-def read_line(prompt_text, color="", completion=True, secret=False):
+def read_line(prompt_text, color="", completion=True, secret=False, history=True):
+    """Read one line. history=False neither recalls nor records history, for
+    answers that are not commands (menu numbers, y/n); secrets imply it."""
+    history = history and not secret
     rich_text = _render(str(prompt_text), color)
     if _current()._backend is not None:
         _current()._last_line_blank = False
-        return _current()._backend.read(rich_text.plain, completion=completion, secret=secret)
+        return _current()._backend.read(
+            rich_text.plain, completion=completion, secret=secret, history=history
+        )
     with _current()._console.capture() as capture:
         _current()._console.print(rich_text, end="", width=render_width())
     rendered = capture.get()
@@ -315,7 +322,7 @@ def read_line(prompt_text, color="", completion=True, secret=False):
 
     completer = _current()._completer_provider() if (completion and _current()._completer_provider) else None
     toolbar = _current()._toolbar_provider() if _current()._toolbar_provider else None
-    session = _unrecorded_session() if secret else _get_session()
+    session = _get_session() if history else _unrecorded_session()
     return session.prompt(
         ANSI(rendered),
         completer=completer,

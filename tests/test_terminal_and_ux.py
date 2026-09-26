@@ -432,6 +432,18 @@ class TestSecretInput(unittest.TestCase):
         kwargs = mock_session.return_value.prompt.call_args.kwargs
         self.assertFalse(kwargs["is_password"])
 
+    def test_unrecorded_prompt_uses_throwaway_session(self):
+        with patch.object(
+            terminal, "_interactive_input_supported", return_value=True
+        ), patch.object(terminal, "_get_session") as mock_session, patch.object(
+            terminal, "_unrecorded_session"
+        ) as mock_unrecorded:
+            mock_unrecorded.return_value.prompt.return_value = "n"
+            self.assertEqual(terminal.read_line("(y/n): ", history=False), "n")
+        mock_session.assert_not_called()
+        kwargs = mock_unrecorded.return_value.prompt.call_args.kwargs
+        self.assertFalse(kwargs["is_password"])
+
     def test_plain_tty_path_uses_getpass(self):
         import sys
 
