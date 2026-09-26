@@ -102,9 +102,8 @@ Textual fall back to the console; preserve the mode-selection behavior in `main.
 
 ### Commands and game state
 
-- Add command aliases to `COMMAND_SYNONYMS` and dispatch handling to
-  `CommandHandler._process_command()`. Update help and, for non-action commands,
-  the main loop's INFO-icon classification. Run `tests.test_command_wiring`.
+- Add command aliases to `COMMAND_SYNONYMS`, dispatch handling to
+  `CommandHandler._process_command()` and update help. Run `tests.test_command_wiring`.
 - Reuse `_resolve_prefix_match` and `_get_matching_exit` for targets. Preserve
   article stripping, word-boundary matching, and `look at` connective handling.
 - Use `_build_intent_context()` for scene context shared by NLP, completion, and

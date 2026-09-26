@@ -95,7 +95,6 @@ class TestDisplayMixin(unittest.TestCase):
 
         self.game.turn_headers_enabled = True
         self.game._get_current_game_time_period_str = MagicMock(return_value="Morning")
-        self.game.last_turn_result_icon = "*"
         self.game._print_turn_header()
         self.mock_print_color.assert_called()
 

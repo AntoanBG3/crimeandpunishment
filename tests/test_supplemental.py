@@ -379,7 +379,9 @@ def test_game_state_run_loop_and_think_paths():
     )
     with patch("game_engine.game_state.LOCATIONS_DATA", {"Room": {"description": "Room"}}):
         game.run()
-    assert game.last_turn_result_icon == "QUIT"
+    assert game.command_handler._process_command.call_count == 5
+    # Load restarts the loop and quit leaves it before the world advances.
+    assert game.world_manager._update_world_state_after_action.call_count == 3
 
     missing_game = Game()
     missing_game._print_color = MagicMock()
