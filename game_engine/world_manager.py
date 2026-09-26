@@ -629,6 +629,7 @@ class WorldManager:
             old_location = self.game_state.current_location_name
             self.game_state.current_location_name = potential_target_loc_name
             self.game_state.player_character.current_location = potential_target_loc_name
+            self.game_state.numbered_actions_context = []
             self.game_state.current_location_description_shown_this_visit = False
             self.game_state.last_significant_event_summary = (
                 f"moved from {old_location} to {self.game_state.current_location_name}."

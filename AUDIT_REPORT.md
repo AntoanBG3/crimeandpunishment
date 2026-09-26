@@ -126,6 +126,19 @@ Inventory, dependencies, acceptance evidence and deferred work are maintained in
 
 ## Quality of Life Improvements
 
+### R011 — Target selection differs between commands and survives movement
+
+- **Category / severity / confidence:** UX / Medium / Confirmed.
+- **Effort:** Small. **Status:** Fixed; commit `fix: resolve exact targets and clear departed scene actions`.
+- **Location:** `command_handler.py` matchers, `world_manager.py` movement,
+  `item_interaction_handler.py` giving.
+- **Evidence:** Three failing regressions demonstrated exact-name ambiguity (`note`
+  versus `notebook`), stale numbered actions after movement, and giving rejecting
+  an article/surname accepted by other NPC commands.
+- **Implementation:** Prefer exact matches, reuse NPC resolution when giving,
+  and clear numbered actions on successful movement. Run `actions` for a new list.
+- **Verification:** All 373 tests pass, Flake8 clean, Pylint 10.00/10.
+
 ### R010 — Item transfers discard generated documents
 
 - **Category / severity / confidence:** Robustness / High / Confirmed.

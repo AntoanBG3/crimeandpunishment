@@ -64,6 +64,9 @@ class CommandHandler:
 
     def _resolve_prefix_match(self, target, options, label, descriptor_lookup=None):
         target = self._strip_articles(target.lower())
+        exact = next((option for option in options if option.lower() == target), None)
+        if exact is not None:
+            return exact, False
         matches = [option for option in options if option.lower().startswith(target)]
         if not matches:
             # Fall back to word-boundary matching so 'axe' finds
@@ -154,6 +157,9 @@ class CommandHandler:
 
     def _get_matching_exit(self, target_input, location_exits):
         target_input = self._strip_articles(target_input.lower())
+        exact = next((name for name in location_exits if name.lower() == target_input), None)
+        if exact is not None:
+            return exact, False
         matches = []
         for target_loc_key, desc_text in location_exits.items():
             key_lower = target_loc_key.lower()

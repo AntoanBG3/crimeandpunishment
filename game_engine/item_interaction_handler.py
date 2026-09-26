@@ -1240,14 +1240,9 @@ class ItemInteractionHandler:
             return False
         player_character = self.player_character
         current_location_name = self.current_location_name or "Unknown Location"
-        target_npc = next(
-            (
-                npc
-                for npc in self.npcs_in_current_location
-                if npc.name.lower().startswith(target_name_input.lower())
-            ),
-            None,
-        )
+        target_npc, ambiguous = self.command_handler._get_matching_npc(target_name_input)
+        if ambiguous:
+            return False
 
         if not target_npc:
             self._print_color(
