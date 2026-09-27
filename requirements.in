@@ -1,3 +1,5 @@
+# Direct dependency choices. After changing them, regenerate the lock with:
+# uv pip compile --universal --python-version 3.10 --no-annotate --no-header requirements.in -o constraints.txt
 google-genai==2.8.0
 rich==15.0.0
 prompt_toolkit==3.0.52

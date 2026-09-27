@@ -4,10 +4,10 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/AntoanBG3/crimeandpunishment/releases"><img src="https://img.shields.io/github/v/release/AntoanBG3/crimeandpunishment?style=for-the-badge&color=darkred" alt="Latest Release"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3%2B-black?style=for-the-badge" alt="GPL version 3 or later"></a>
-  <img src="https://img.shields.io/badge/python-3.10%2B-blue?style=for-the-badge" alt="Python 3.10+">
-  <img src="https://img.shields.io/badge/powered%20by-Gemini%20API-orange?style=for-the-badge" alt="Gemini API">
+  <a href="https://github.com/AntoanBG3/crimeandpunishment/releases/latest"><img src="assets/badges/download.svg" alt="Download the latest release"></a>
+  <a href="LICENSE"><img src="assets/badges/license.svg" alt="GPL version 3 or later"></a>
+  <img src="assets/badges/python.svg" alt="Python 3.10+">
+  <img src="assets/badges/gemini.svg" alt="Gemini API">
 </p>
 
 ---
@@ -145,7 +145,7 @@ CrimeAndPunishment/
 │   ├── items.json                   # Item catalogue: properties & mechanical effects
 │   └── locations.json               # Map of St. Petersburg connections
 ├── tests/                           # unittest suite (no network, no TTY required)
-├── docs/                            # Dependencies and feature-commit workflow
+├── assets/badges/                   # README badges, served from the repository
 ├── licenses/                        # Third-party license texts for release builds
 ├── scripts/                         # Isolated audit scenarios, builds, commit reminder
 ├── requirements.txt                 # google-genai, rich, prompt_toolkit, textual
@@ -165,7 +165,7 @@ coverage report
 python scripts/audit_scenarios.py --scenario endings
 ```
 
-See the [dependency/build instructions](docs/DEPENDENCIES.md). Routine CI checks Python 3.10 and 3.13 on Windows, Linux, and macOS independently of release publication.
+To build a standalone executable, install `requirements-build.txt` and run `python scripts/build_release.py`; it writes the binary and its third-party notices to `dist/`. All requirement files are pinned through `constraints.txt`. Routine CI checks Python 3.10 and 3.13 on Windows, Linux, and macOS independently of release publication.
 
 ---
 

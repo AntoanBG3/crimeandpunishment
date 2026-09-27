@@ -27,11 +27,11 @@ and verify documentation against current code.
   because a local commit was made.
 - A user's explicit instruction not to commit takes precedence. If a commit is
   blocked, explain why and leave the changes intact.
-- `.codex/hooks.json` runs `scripts/feature_commit_hook.py` at session start and
-  stop. It reminds the agent of this workflow and requests one commit-review pass
-  when the tree is dirty. It does not infer feature boundaries, stage files, commit,
-  or push by itself; the agent performs the reviewed commit. See
-  `docs/FEATURE_COMMITS.md` for activation and limitations.
+- `scripts/feature_commit_hook.py` can run as a session start and stop hook from a
+  local, untracked `.codex/hooks.json`. It reminds the agent of this workflow and
+  requests one commit-review pass when the tree is dirty. It does not infer feature
+  boundaries, stage files, commit, or push by itself; the agent performs the
+  reviewed commit.
 
 ## Project and development commands
 
