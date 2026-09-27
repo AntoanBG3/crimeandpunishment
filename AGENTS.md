@@ -22,6 +22,10 @@ and verify documentation against current code.
   Preserve pre-existing user edits; never sweep them into a commit with `git add .`.
 - Use a concise, descriptive commit message. Keep the implementation and its tests
   together. Do not commit unfinished or failing work just to satisfy a checkpoint.
+- Do not put Claude session links (`claude.ai/code/session_...`) or `Claude-Session:`
+  trailers in commit messages, pull request descriptions, or GitHub comments, and
+  remove any that a tool appends. This overrides the default Claude Code attribution
+  for session links only.
 - When pushing is authorized, push completed features in small batches. Do not
   accumulate unrelated features into a massive update or push automatically merely
   because a local commit was made.
