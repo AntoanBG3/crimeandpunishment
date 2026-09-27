@@ -146,7 +146,6 @@ CrimeAndPunishment/
 │   └── locations.json               # Map of St. Petersburg connections
 ├── tests/                           # unittest suite (no network, no TTY required)
 ├── assets/badges/                   # README badges, served from the repository
-├── docs/                            # Dependencies and feature-commit workflow
 ├── licenses/                        # Third-party license texts for release builds
 ├── scripts/                         # Isolated audit scenarios, builds, commit reminder
 ├── requirements.txt                 # google-genai, rich, prompt_toolkit, textual
@@ -166,7 +165,7 @@ coverage report
 python scripts/audit_scenarios.py --scenario endings
 ```
 
-See the [dependency/build instructions](docs/DEPENDENCIES.md). Routine CI checks Python 3.10 and 3.13 on Windows, Linux, and macOS independently of release publication.
+To build a standalone executable, install `requirements-build.txt` and run `python scripts/build_release.py`; it writes the binary and its third-party notices to `dist/`. All requirement files are pinned through `constraints.txt`. Routine CI checks Python 3.10 and 3.13 on Windows, Linux, and macOS independently of release publication.
 
 ---
 
