@@ -4,10 +4,10 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/AntoanBG3/crimeandpunishment/releases"><img src="https://img.shields.io/github/v/release/AntoanBG3/crimeandpunishment?style=for-the-badge&color=darkred" alt="Latest Release"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3%2B-black?style=for-the-badge" alt="GPL version 3 or later"></a>
-  <img src="https://img.shields.io/badge/python-3.10%2B-blue?style=for-the-badge" alt="Python 3.10+">
-  <img src="https://img.shields.io/badge/powered%20by-Gemini%20API-orange?style=for-the-badge" alt="Gemini API">
+  <a href="https://github.com/AntoanBG3/crimeandpunishment/releases/latest"><img src="assets/badges/download.svg" alt="Download the latest release"></a>
+  <a href="LICENSE"><img src="assets/badges/license.svg" alt="GPL version 3 or later"></a>
+  <img src="assets/badges/python.svg" alt="Python 3.10+">
+  <img src="assets/badges/gemini.svg" alt="Gemini API">
 </p>
 
 ---
@@ -145,6 +145,7 @@ CrimeAndPunishment/
 │   ├── items.json                   # Item catalogue: properties & mechanical effects
 │   └── locations.json               # Map of St. Petersburg connections
 ├── tests/                           # unittest suite (no network, no TTY required)
+├── assets/badges/                   # README badges, served from the repository
 ├── docs/                            # Dependencies and feature-commit workflow
 ├── licenses/                        # Third-party license texts for release builds
 ├── scripts/                         # Isolated audit scenarios, builds, commit reminder
